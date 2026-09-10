@@ -14,6 +14,7 @@ import {
   Card,
 } from "@/components/ui";
 import { formatDateTime, toCSV } from "@/lib/utils";
+import { MOVEMENT_TYPE_LABELS } from "@/lib/constants";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, SlidersHorizontal, Search } from "lucide-react";
 
@@ -35,18 +36,6 @@ type Movement = {
   product: { name: string };
   warehouse: { name: string };
   user: { name: string } | null;
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  ENTREE: "Entrée",
-  SORTIE: "Sortie",
-  TRANSFERT_ENTREE: "Transfert (reçu)",
-  TRANSFERT_SORTIE: "Transfert (envoyé)",
-  AJUSTEMENT: "Ajustement",
-  VENTE: "Vente",
-  ACHAT: "Achat",
-  RETOUR_VENTE: "Retour client",
-  RETOUR_ACHAT: "Retour fournisseur",
 };
 
 const TYPE_TONE: Record<string, "success" | "danger" | "warning" | "info" | "default"> = {
@@ -223,7 +212,7 @@ export function StockClient({
                   <td className="py-2 text-slate-700">{m.product.name}</td>
                   <td className="py-2 text-slate-600">{m.warehouse.name}</td>
                   <td className="py-2">
-                    <Badge tone={TYPE_TONE[m.type] || "default"}>{TYPE_LABELS[m.type] || m.type}</Badge>
+                    <Badge tone={TYPE_TONE[m.type] || "default"}>{MOVEMENT_TYPE_LABELS[m.type as keyof typeof MOVEMENT_TYPE_LABELS] || m.type}</Badge>
                   </td>
                   <td className="py-2 text-right font-medium">{m.quantity}</td>
                   <td className="py-2 text-slate-500">{m.user?.name || "—"}</td>

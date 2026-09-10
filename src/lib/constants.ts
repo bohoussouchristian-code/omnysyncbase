@@ -1,10 +1,22 @@
-import type { Role, CustomerType } from "@prisma/client";
+import type { Role, CustomerType, MovementType } from "@prisma/client";
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrateur",
   GERANT: "Gérant",
   CAISSIER: "Caissier",
   MAGASINIER: "Magasinier",
+};
+
+export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
+  ENTREE: "Entrée",
+  SORTIE: "Sortie",
+  TRANSFERT_ENTREE: "Transfert (reçu)",
+  TRANSFERT_SORTIE: "Transfert (envoyé)",
+  AJUSTEMENT: "Ajustement",
+  VENTE: "Vente",
+  ACHAT: "Achat",
+  RETOUR_VENTE: "Retour client",
+  RETOUR_ACHAT: "Retour fournisseur",
 };
 
 export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
