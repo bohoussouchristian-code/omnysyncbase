@@ -1,0 +1,19 @@
+import type { Role, CustomerType } from "@prisma/client";
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: "Administrateur",
+  GERANT: "Gérant",
+  CAISSIER: "Caissier",
+  MAGASINIER: "Magasinier",
+};
+
+export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  PARTICULIER: "Particulier",
+  PROFESSIONNEL: "Professionnel",
+  REVENDEUR: "Revendeur",
+};
+
+// Programme de fidélité : 1 point gagné par tranche de 100 FCFA d'achat,
+// 1 point = 10 FCFA de réduction lors de l'utilisation (cashback ~10%).
+export const LOYALTY_FCFA_PER_POINT_EARNED = 100;
+export const LOYALTY_POINT_VALUE_FCFA = 10;

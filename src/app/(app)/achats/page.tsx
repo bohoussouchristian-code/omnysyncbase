@@ -1,0 +1,30 @@
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { PurchasesClient } from "@/components/purchases/PurchasesClient";
+
+export default async function AchatsPage() {
+  const user = await getCurrentUser();
+  if (!user?.companyId) redirect("/login");
+  const companyId = user.companyId;
+
+  const [purchases, products, suppliers, warehouses] = await Promise.all([
+    prisma.purchase.findMany({
+      where: { companyId },
+      orderBy: { date: "desc" },
+      take: 100,
+      include: { supplier: true, warehouse: true, items: { include: { product: true } } },
+    }),
+    prisma.product.findMany({
+      where: { active: true, companyId },
+      orderBy: { name: "asc" },
+      include: { unit: true, packUnit: true },
+    }),
+    prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+  ]);
+
+  return (
+    <PurchasesClient purchases={purchases} products={products} suppliers={suppliers} warehouses={warehouses} />
+  );
+}
