@@ -17,3 +17,15 @@ export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
 // 1 point = 10 FCFA de réduction lors de l'utilisation (cashback ~10%).
 export const LOYALTY_FCFA_PER_POINT_EARNED = 100;
 export const LOYALTY_POINT_VALUE_FCFA = 10;
+
+export const EXPENSE_CATEGORIES = [
+  "Loyer",
+  "Transport",
+  "Électricité / Eau",
+  "Salaires",
+  "Fournitures",
+  "Entretien / Réparation",
+  "Communication",
+  "Impôts et taxes",
+  "Autre",
+];

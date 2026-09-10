@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createExpense, EXPENSE_CATEGORIES } from "@/lib/actions/expenses";
+import { createExpense } from "@/lib/actions/expenses";
+import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { Modal, Input, Select, Label, SubmitButton, FormError, PageHeader, Card } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { Plus } from "lucide-react";

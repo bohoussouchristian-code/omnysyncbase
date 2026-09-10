@@ -4,18 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export const EXPENSE_CATEGORIES = [
-  "Loyer",
-  "Transport",
-  "Électricité / Eau",
-  "Salaires",
-  "Fournitures",
-  "Entretien / Réparation",
-  "Communication",
-  "Impôts et taxes",
-  "Autre",
-];
-
 export async function createExpense(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
