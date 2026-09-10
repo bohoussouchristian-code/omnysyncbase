@@ -6,7 +6,7 @@ import { createSale } from "@/lib/actions/sales";
 import { Card, Select, Badge } from "@/components/ui";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 import { CUSTOMER_TYPE_LABELS, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
-import { Search, Trash2, Plus, Minus, Printer, PackagePlus, Star } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Printer, PackagePlus, Star, Sparkles } from "lucide-react";
 import type { PaymentMethod, CustomerType } from "@prisma/client";
 
 type Product = {
@@ -22,6 +22,13 @@ type Product = {
   packSalePrice: number | null;
   stocks: { warehouseId: string; quantity: number }[];
 };
+type Service = {
+  id: string;
+  name: string;
+  price: number;
+  proPrice: number | null;
+  durationMin: number | null;
+};
 type Warehouse = { id: string; name: string };
 type Customer = {
   id: string;
@@ -32,9 +39,13 @@ type Customer = {
   loyaltyPoints: number;
 };
 
+const SERVICE_MAX_QTY = 20;
+
 type Line = {
   key: string;
-  productId: string;
+  kind: "product" | "service";
+  productId?: string;
+  serviceId?: string;
   name: string;
   mode: "piece" | "pack";
   qty: number;
@@ -75,13 +86,20 @@ function priceForCustomer(p: Product, customerType: CustomerType | null) {
   return p.salePrice;
 }
 
+function priceForCustomerService(s: Service, customerType: CustomerType | null) {
+  if (customerType === "PROFESSIONNEL" && s.proPrice) return s.proPrice;
+  return s.price;
+}
+
 export function PosClient({
   products,
+  services,
   warehouses,
   customers,
   cashierName,
 }: {
   products: Product[];
+  services: Service[];
   warehouses: Warehouse[];
   customers: Customer[];
   cashierName: string;
@@ -129,6 +147,11 @@ export function PosClient({
       .filter((p) => (availableBase.get(p.id) || 0) > 0);
   }, [products, query, availableBase]);
 
+  const filteredServices = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return services.filter((s) => !q || s.name.toLowerCase().includes(q));
+  }, [services, query]);
+
   function addToCart(p: Product, mode: "piece" | "pack") {
     const baseQty = availableBase.get(p.id) || 0;
     const piecesPerPack = mode === "pack" ? p.piecesPerPack : 1;
@@ -137,7 +160,7 @@ export function PosClient({
     const unitPrice =
       mode === "pack" ? p.packSalePrice ?? p.salePrice * p.piecesPerPack : priceForCustomer(p, selectedCustomer?.type ?? null);
     const unitLabel = mode === "pack" ? p.packUnit?.symbol || "lot" : p.unit?.symbol || "";
-    const key = `${p.id}:${mode}`;
+    const key = `p:${p.id}:${mode}`;
 
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
@@ -145,7 +168,38 @@ export function PosClient({
         if (existing.qty >= maxQty) return prev;
         return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
       }
-      return [...prev, { key, productId: p.id, name: p.name, mode, qty: 1, unitPrice, unitLabel, piecesPerPack, maxQty }];
+      return [
+        ...prev,
+        { key, kind: "product", productId: p.id, name: p.name, mode, qty: 1, unitPrice, unitLabel, piecesPerPack, maxQty },
+      ];
+    });
+  }
+
+  function addServiceToCart(s: Service) {
+    const unitPrice = priceForCustomerService(s, selectedCustomer?.type ?? null);
+    const key = `s:${s.id}`;
+
+    setCart((prev) => {
+      const existing = prev.find((l) => l.key === key);
+      if (existing) {
+        if (existing.qty >= SERVICE_MAX_QTY) return prev;
+        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
+      }
+      return [
+        ...prev,
+        {
+          key,
+          kind: "service",
+          serviceId: s.id,
+          name: s.name,
+          mode: "piece",
+          qty: 1,
+          unitPrice,
+          unitLabel: "u",
+          piecesPerPack: 1,
+          maxQty: SERVICE_MAX_QTY,
+        },
+      ];
     });
   }
 
@@ -155,6 +209,11 @@ export function PosClient({
     const type = customers.find((c) => c.id === id)?.type ?? null;
     setCart((prev) =>
       prev.map((l) => {
+        if (l.kind === "service") {
+          const service = services.find((s) => s.id === l.serviceId);
+          if (!service) return l;
+          return { ...l, unitPrice: priceForCustomerService(service, type) };
+        }
         if (l.mode !== "piece") return l;
         const product = products.find((p) => p.id === l.productId);
         if (!product) return l;
@@ -196,8 +255,11 @@ export function PosClient({
       setQuery("");
       return;
     }
-    if (filtered.length === 1) {
+    if (filtered.length === 1 && filteredServices.length === 0) {
       addToCart(filtered[0], "piece");
+      setQuery("");
+    } else if (filteredServices.length === 1 && filtered.length === 0) {
+      addServiceToCart(filteredServices[0]);
       setQuery("");
     }
   }
@@ -215,6 +277,9 @@ export function PosClient({
     }
 
     const items = cart.map((l) => {
+      if (l.kind === "service") {
+        return { serviceId: l.serviceId, quantity: l.qty, unitPrice: l.unitPrice };
+      }
       const baseQty = l.mode === "pack" ? l.qty * l.piecesPerPack : l.qty;
       const baseUnitPrice = (l.qty * l.unitPrice) / baseQty;
       return { productId: l.productId, quantity: baseQty, unitPrice: baseUnitPrice };
@@ -282,7 +347,7 @@ export function PosClient({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Rechercher ou scanner un code-barres..."
+              placeholder="Rechercher un produit, une prestation, ou scanner un code-barres..."
               className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoFocus
             />
@@ -295,43 +360,72 @@ export function PosClient({
           </p>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-          {filtered.map((p) => {
-            const baseQty = availableBase.get(p.id) || 0;
-            const packQty = p.packUnit ? Math.floor(baseQty / p.piecesPerPack) : 0;
-            const price = priceForCustomer(p, selectedCustomer?.type ?? null);
-            return (
-              <div
-                key={p.id}
-                className="bg-white border border-slate-200 rounded-xl p-3 text-left hover:border-blue-400 hover:shadow-sm transition-all"
-              >
-                <button onClick={() => addToCart(p, "piece")} className="w-full text-left">
-                  <p className="font-medium text-slate-800 text-sm leading-tight mb-1">{p.name}</p>
-                  <p className="text-blue-600 font-semibold text-sm">
-                    {formatMoney(price)} <span className="text-slate-400 font-normal">/ {p.unit?.symbol}</span>
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {baseQty} {p.unit?.symbol} en stock
-                  </p>
-                </button>
-                {p.packUnit && (
-                  <button
-                    onClick={() => addToCart(p, "pack")}
-                    disabled={packQty <= 0}
-                    className="mt-2 w-full flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <PackagePlus size={12} />+ 1 {p.packUnit.symbol} ({formatMoney(p.packSalePrice ?? p.salePrice * p.piecesPerPack)})
+        {products.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
+            {filtered.map((p) => {
+              const baseQty = availableBase.get(p.id) || 0;
+              const packQty = p.packUnit ? Math.floor(baseQty / p.piecesPerPack) : 0;
+              const price = priceForCustomer(p, selectedCustomer?.type ?? null);
+              return (
+                <div
+                  key={p.id}
+                  className="bg-white border border-slate-200 rounded-xl p-3 text-left hover:border-blue-400 hover:shadow-sm transition-all"
+                >
+                  <button onClick={() => addToCart(p, "piece")} className="w-full text-left">
+                    <p className="font-medium text-slate-800 text-sm leading-tight mb-1">{p.name}</p>
+                    <p className="text-blue-600 font-semibold text-sm">
+                      {formatMoney(price)} <span className="text-slate-400 font-normal">/ {p.unit?.symbol}</span>
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {baseQty} {p.unit?.symbol} en stock
+                    </p>
                   </button>
-                )}
-              </div>
-            );
-          })}
-          {filtered.length === 0 && (
-            <p className="col-span-full text-center text-slate-400 py-10">
-              Aucun produit disponible dans ce dépôt.
-            </p>
-          )}
-        </div>
+                  {p.packUnit && (
+                    <button
+                      onClick={() => addToCart(p, "pack")}
+                      disabled={packQty <= 0}
+                      className="mt-2 w-full flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <PackagePlus size={12} />+ 1 {p.packUnit.symbol} ({formatMoney(p.packSalePrice ?? p.salePrice * p.piecesPerPack)})
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {filtered.length === 0 && (
+              <p className="col-span-full text-center text-slate-400 py-6">
+                Aucun produit disponible dans ce dépôt.
+              </p>
+            )}
+          </div>
+        )}
+
+        {services.length > 0 && (
+          <div>
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 mb-3">
+              <Sparkles size={14} /> Prestations
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+              {filteredServices.map((s) => {
+                const price = priceForCustomerService(s, selectedCustomer?.type ?? null);
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => addServiceToCart(s)}
+                    className="bg-white border border-slate-200 rounded-xl p-3 text-left hover:border-blue-400 hover:shadow-sm transition-all"
+                  >
+                    <p className="font-medium text-slate-800 text-sm leading-tight mb-1">{s.name}</p>
+                    <p className="text-blue-600 font-semibold text-sm">{formatMoney(price)}</p>
+                    {s.durationMin && <p className="text-xs text-slate-400 mt-1">{s.durationMin} min</p>}
+                  </button>
+                );
+              })}
+              {filteredServices.length === 0 && (
+                <p className="col-span-full text-center text-slate-400 py-6">Aucune prestation trouvée.</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div>
@@ -345,9 +439,12 @@ export function PosClient({
               {cart.map((l) => (
                 <div key={l.key} className="flex items-center gap-2 text-sm border-b border-slate-50 pb-2">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 truncate">{l.name}</p>
+                    <p className="font-medium text-slate-800 truncate flex items-center gap-1">
+                      {l.kind === "service" && <Sparkles size={11} className="text-blue-500 shrink-0" />}
+                      {l.name}
+                    </p>
                     <p className="text-xs text-slate-400">
-                      {formatMoney(l.unitPrice)} / {l.unitLabel}
+                      {formatMoney(l.unitPrice)} {l.kind === "product" ? `/ ${l.unitLabel}` : ""}
                     </p>
                   </div>
                   <button onClick={() => changeQty(l.key, -1)} className="text-slate-400 hover:text-slate-700">
@@ -525,7 +622,7 @@ export function PosClient({
                   <td className="align-top py-0.5">
                     {it.name}
                     <br />
-                    {it.qty} {it.unitLabel} × {formatMoney(it.unitPrice)}
+                    {it.qty} {it.kind === "product" ? it.unitLabel : ""} × {formatMoney(it.unitPrice)}
                   </td>
                   <td className="align-top text-right py-0.5">{formatMoney(it.qty * it.unitPrice)}</td>
                 </tr>

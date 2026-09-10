@@ -30,7 +30,7 @@ export default async function RapportsPage({
   const [sales, expenses, products, customersDebt, suppliersDebt] = await Promise.all([
     prisma.sale.findMany({
       where: { companyId, date: { gte: from }, status: { not: "ANNULEE" } },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true, service: true } }, user: true },
     }),
     prisma.expense.aggregate({ where: { companyId, date: { gte: from } }, _sum: { amount: true } }),
     prisma.product.findMany({ where: { active: true, companyId }, include: { stocks: true } }),
@@ -39,23 +39,34 @@ export default async function RapportsPage({
   ]);
 
   const revenue = sales.reduce((s, sale) => s + sale.totalAmount, 0);
+  // Les prestations n'ont pas de coût de revient (0) — les charges d'un métier de
+  // service (loyer, salaires...) sont suivies séparément via le module Dépenses.
   const cogs = sales.reduce(
-    (s, sale) => s + sale.items.reduce((si, it) => si + it.quantity * it.product.purchasePrice, 0),
+    (s, sale) => s + sale.items.reduce((si, it) => si + it.quantity * (it.product?.purchasePrice ?? 0), 0),
     0
   );
   const expenseTotal = expenses._sum.amount || 0;
   const profit = revenue - cogs - expenseTotal;
 
-  const productSales = new Map<string, { name: string; qty: number; revenue: number }>();
+  const itemSales = new Map<string, { name: string; qty: number; revenue: number }>();
+  const agentSales = new Map<string, { name: string; count: number; revenue: number }>();
   for (const sale of sales) {
     for (const item of sale.items) {
-      const entry = productSales.get(item.productId) || { name: item.product.name, qty: 0, revenue: 0 };
+      const key = item.productId || item.serviceId || item.id;
+      const label = item.product?.name || item.service?.name || "—";
+      const entry = itemSales.get(key) || { name: label, qty: 0, revenue: 0 };
       entry.qty += item.quantity;
       entry.revenue += item.subtotal;
-      productSales.set(item.productId, entry);
+      itemSales.set(key, entry);
     }
+    const agentKey = sale.userId || "—";
+    const agentEntry = agentSales.get(agentKey) || { name: sale.user?.name || "Non attribué", count: 0, revenue: 0 };
+    agentEntry.count += 1;
+    agentEntry.revenue += sale.totalAmount;
+    agentSales.set(agentKey, agentEntry);
   }
-  const topProducts = [...productSales.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  const topProducts = [...itemSales.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  const topAgents = [...agentSales.values()].sort((a, b) => b.revenue - a.revenue);
 
   const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -132,8 +143,8 @@ export default async function RapportsPage({
 
       <Card className="p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-900">Top 10 produits (par chiffre d&apos;affaires)</h2>
-          <ExportCsvButton filename={`top-produits-${periode || "30j"}.csv`} csv={csv} />
+          <h2 className="font-semibold text-slate-900">Top 10 ventes (produits &amp; prestations)</h2>
+          <ExportCsvButton filename={`top-ventes-${periode || "30j"}.csv`} csv={csv} />
         </div>
         {topProducts.length === 0 ? (
           <p className="text-sm text-slate-400">Aucune vente sur cette période.</p>
@@ -141,7 +152,7 @@ export default async function RapportsPage({
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="pb-2 font-medium">Produit</th>
+                <th className="pb-2 font-medium">Produit / Prestation</th>
                 <th className="pb-2 font-medium text-right">Quantité vendue</th>
                 <th className="pb-2 font-medium text-right">Chiffre d&apos;affaires</th>
               </tr>
@@ -152,6 +163,32 @@ export default async function RapportsPage({
                   <td className="py-2 text-slate-700">{p.name}</td>
                   <td className="py-2 text-right">{p.qty}</td>
                   <td className="py-2 text-right font-medium">{formatMoney(p.revenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      <Card className="p-5 mb-6">
+        <h2 className="font-semibold text-slate-900 mb-3">Ventes par agent</h2>
+        {topAgents.length === 0 ? (
+          <p className="text-sm text-slate-400">Aucune vente sur cette période.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-100">
+                <th className="pb-2 font-medium">Agent</th>
+                <th className="pb-2 font-medium text-right">Ventes</th>
+                <th className="pb-2 font-medium text-right">Chiffre d&apos;affaires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topAgents.map((a) => (
+                <tr key={a.name} className="border-b border-slate-50 last:border-0">
+                  <td className="py-2 text-slate-700">{a.name}</td>
+                  <td className="py-2 text-right">{a.count}</td>
+                  <td className="py-2 text-right font-medium">{formatMoney(a.revenue)}</td>
                 </tr>
               ))}
             </tbody>

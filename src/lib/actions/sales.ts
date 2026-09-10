@@ -7,7 +7,7 @@ import { generateNumber } from "@/lib/utils";
 import { LOYALTY_FCFA_PER_POINT_EARNED, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
 import type { PaymentMethod } from "@prisma/client";
 
-export type CartItem = { productId: string; quantity: number; unitPrice: number };
+export type CartItem = { productId?: string; serviceId?: string; quantity: number; unitPrice: number };
 
 export async function createSale(input: {
   warehouseId: string;
@@ -30,6 +30,15 @@ export async function createSale(input: {
 
   const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, companyId } });
   if (!warehouse) return { error: "Dépôt introuvable." };
+
+  const productItems = items.filter((i) => i.productId);
+  const serviceItems = items.filter((i) => i.serviceId);
+
+  if (serviceItems.length > 0) {
+    const serviceIds = [...new Set(serviceItems.map((i) => i.serviceId!))];
+    const services = await prisma.service.findMany({ where: { id: { in: serviceIds }, companyId } });
+    if (services.length !== serviceIds.length) return { error: "Une prestation est introuvable." };
+  }
 
   const itemsTotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
@@ -56,15 +65,15 @@ export async function createSale(input: {
     return { error: "Un client est requis pour une vente à crédit ou paiement partiel." };
 
   const stocks = await prisma.stock.findMany({
-    where: { warehouseId, companyId, productId: { in: items.map((i) => i.productId) } },
+    where: { warehouseId, companyId, productId: { in: productItems.map((i) => i.productId!) } },
   });
   const stockMap = new Map(stocks.map((s) => [s.productId, s]));
 
   // A product can appear in several cart lines (e.g. sold both by piece and by pack),
   // so requested quantities must be summed per product before checking availability.
   const requestedByProduct = new Map<string, number>();
-  for (const item of items) {
-    requestedByProduct.set(item.productId, (requestedByProduct.get(item.productId) || 0) + item.quantity);
+  for (const item of productItems) {
+    requestedByProduct.set(item.productId!, (requestedByProduct.get(item.productId!) || 0) + item.quantity);
   }
   for (const [productId, qty] of requestedByProduct) {
     const stock = stockMap.get(productId);
@@ -96,7 +105,8 @@ export async function createSale(input: {
         companyId,
         items: {
           create: items.map((i) => ({
-            productId: i.productId,
+            productId: i.productId || null,
+            serviceId: i.serviceId || null,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
             subtotal: i.quantity * i.unitPrice,
@@ -110,17 +120,17 @@ export async function createSale(input: {
     // Track running quantities in memory so multiple lines for the same product
     // (e.g. one sold by piece, one by pack) decrement correctly in sequence.
     const runningQty = new Map(stocks.map((s) => [s.productId, s.quantity]));
-    for (const item of items) {
-      const stock = stockMap.get(item.productId)!;
-      const newQty = (runningQty.get(item.productId) ?? stock.quantity) - item.quantity;
-      runningQty.set(item.productId, newQty);
+    for (const item of productItems) {
+      const stock = stockMap.get(item.productId!)!;
+      const newQty = (runningQty.get(item.productId!) ?? stock.quantity) - item.quantity;
+      runningQty.set(item.productId!, newQty);
       await tx.stock.update({
         where: { id: stock.id },
         data: { quantity: newQty },
       });
       await tx.stockMovement.create({
         data: {
-          productId: item.productId,
+          productId: item.productId!,
           warehouseId,
           type: "VENTE",
           quantity: item.quantity,
@@ -177,20 +187,21 @@ export async function cancelSale(saleId: string) {
   if (sale.status === "ANNULEE") return { error: "Vente déjà annulée." };
 
   await prisma.$transaction(async (tx) => {
-    for (const item of sale.items) {
+    // Les lignes de prestation n'ont pas de stock à restituer.
+    for (const item of sale.items.filter((i) => i.productId)) {
       const stock = await tx.stock.findUnique({
-        where: { productId_warehouseId: { productId: item.productId, warehouseId: sale.warehouseId } },
+        where: { productId_warehouseId: { productId: item.productId!, warehouseId: sale.warehouseId } },
       });
       if (stock) {
         await tx.stock.update({ where: { id: stock.id }, data: { quantity: stock.quantity + item.quantity } });
       } else {
         await tx.stock.create({
-          data: { productId: item.productId, warehouseId: sale.warehouseId, quantity: item.quantity, companyId },
+          data: { productId: item.productId!, warehouseId: sale.warehouseId, quantity: item.quantity, companyId },
         });
       }
       await tx.stockMovement.create({
         data: {
-          productId: item.productId,
+          productId: item.productId!,
           warehouseId: sale.warehouseId,
           type: "RETOUR_VENTE",
           quantity: item.quantity,

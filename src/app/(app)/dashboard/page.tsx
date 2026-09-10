@@ -61,7 +61,7 @@ export default async function DashboardPage() {
 
   const revenueMonth = salesMonth.reduce((s, sale) => s + sale.totalAmount, 0);
   const cogsMonth = salesMonth.reduce(
-    (s, sale) => s + sale.items.reduce((si, it) => si + it.quantity * it.product.purchasePrice, 0),
+    (s, sale) => s + sale.items.reduce((si, it) => si + it.quantity * (it.product?.purchasePrice ?? 0), 0),
     0
   );
   const profitMonth = revenueMonth - cogsMonth - (expensesMonth._sum.amount || 0);

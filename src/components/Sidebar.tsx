@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   X,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
   { href: "/ventes", label: "Ventes / Caisse", icon: ShoppingCart, roles: null },
   { href: "/produits", label: "Produits", icon: Package, roles: null },
+  { href: "/prestations", label: "Prestations", icon: Sparkles, roles: null },
   { href: "/stock", label: "Stock", icon: Boxes, roles: null },
   { href: "/achats", label: "Achats", icon: Truck, roles: null },
   { href: "/clients", label: "Clients", icon: Users, roles: null },
@@ -99,7 +101,7 @@ export function Sidebar({ userName, userRole }: { userName: string; userRole: Ro
         <button onClick={() => setOpen(true)} className="text-white p-2">
           <Menu size={22} />
         </button>
-        <span className="text-white font-semibold ml-2">GestionPro</span>
+        <span className="text-white font-semibold ml-2">OmnySyncBase</span>
       </div>
 
       <aside className="hidden lg:block w-64 bg-slate-900 shrink-0">{content}</aside>

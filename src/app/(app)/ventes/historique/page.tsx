@@ -15,7 +15,7 @@ export default async function SalesHistoryPage() {
       customer: true,
       warehouse: true,
       user: true,
-      items: { include: { product: true } },
+      items: { include: { product: true, service: true } },
     },
   });
 

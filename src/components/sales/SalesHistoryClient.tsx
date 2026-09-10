@@ -18,7 +18,14 @@ type Sale = {
   customer: { name: string } | null;
   warehouse: { name: string };
   user: { name: string } | null;
-  items: { id: string; quantity: number; unitPrice: number; subtotal: number; product: { name: string } }[];
+  items: {
+    id: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    product: { name: string } | null;
+    service: { name: string } | null;
+  }[];
 };
 
 export function SalesHistoryClient({ sales, canCancel }: { sales: Sale[]; canCancel: boolean }) {
@@ -133,7 +140,7 @@ export function SalesHistoryClient({ sales, canCancel }: { sales: Sale[]; canCan
               <tbody>
                 {detail.items.map((it) => (
                   <tr key={it.id} className="border-b border-slate-50">
-                    <td className="py-1.5">{it.product.name}</td>
+                    <td className="py-1.5">{it.product?.name ?? it.service?.name ?? "—"}</td>
                     <td className="py-1.5 text-right">{it.quantity}</td>
                     <td className="py-1.5 text-right">{formatMoney(it.unitPrice)}</td>
                     <td className="py-1.5 text-right font-medium">{formatMoney(it.subtotal)}</td>

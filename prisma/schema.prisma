@@ -91,6 +91,7 @@ model Company {
   payments       Payment[]
   expenses       Expense[]
   cashSessions   CashSession[]
+  services       Service[]
 }
 
 model User {
@@ -144,6 +145,7 @@ model Category {
   company   Company  @relation(fields: [companyId], references: [id])
 
   products Product[]
+  services Service[]
 
   @@unique([companyId, name])
 }
@@ -198,6 +200,25 @@ model Product {
   purchaseItems  PurchaseItem[]
 
   @@unique([companyId, barcode])
+}
+
+// Prestation de service (coupe de cheveux, lavage auto...) : pas de stock,
+// pas d'unité, vendue au clic en caisse comme un produit.
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  durationMin Int?
+  price       Float    @default(0)
+  proPrice    Float?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  saleItems SaleItem[]
 }
 
 model Stock {
@@ -334,11 +355,15 @@ model Sale {
 }
 
 model SaleItem {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   saleId    String
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  // Une ligne de vente porte soit un produit, soit une prestation (jamais les
+  // deux, jamais aucun) — vérifié côté application dans sales.ts.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
   quantity  Float
   unitPrice Float
   subtotal  Float

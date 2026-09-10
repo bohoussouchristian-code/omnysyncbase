@@ -9,12 +9,13 @@ export default async function VentesPage() {
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
-  const [products, warehouses, customers] = await Promise.all([
+  const [products, services, warehouses, customers] = await Promise.all([
     prisma.product.findMany({
       where: { active: true, companyId },
       orderBy: { name: "asc" },
       include: { unit: true, packUnit: true, stocks: true },
     }),
+    prisma.service.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
   ]);
@@ -32,6 +33,7 @@ export default async function VentesPage() {
       </div>
       <PosClient
         products={products}
+        services={services}
         warehouses={warehouses}
         customers={customers}
         cashierName={user?.name || ""}
