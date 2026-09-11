@@ -63,7 +63,7 @@ export function ProductsClient({
   return (
     <div>
       <PageHeader
-        title="Produits"
+        title="Configuration des produits"
         subtitle={`${products.length} produit(s) au catalogue`}
         action={
           canManage ? (
