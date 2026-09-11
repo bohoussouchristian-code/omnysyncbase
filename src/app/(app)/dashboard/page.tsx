@@ -98,8 +98,8 @@ export default async function DashboardPage() {
         subtitle={`Aperçu de votre entreprise — ${warehousesCount} dépôt(s)/boutique(s)`}
       />
 
-      <DashboardModule title="Gestion des ventes" icon={ShoppingCart}>
-        <div className="grid grid-cols-2 gap-4">
+      <DashboardModule title="Gestion des achats et ventes" icon={ShoppingCart}>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard
             label="Ventes aujourd'hui"
             value={formatMoney(salesToday._sum.totalAmount || 0)}
@@ -108,6 +108,11 @@ export default async function DashboardPage() {
           <StatCard
             label="Dettes clients"
             value={formatMoney(customersDebt._sum.creditBalance || 0)}
+            tone="warning"
+          />
+          <StatCard
+            label="Dettes fournisseurs"
+            value={formatMoney(suppliersDebt._sum.balance || 0)}
             tone="warning"
           />
         </div>
@@ -155,6 +160,27 @@ export default async function DashboardPage() {
             </ul>
           </Card>
         )}
+
+        {pendingDeliveries.length > 0 && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900">Livraisons en attente</h3>
+              <Link href="/livraisons" className="text-sm text-blue-600 hover:underline">
+                Voir les livraisons
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {pendingDeliveries.map((p) => (
+                <li key={p.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700">
+                    {p.supplier.name} <span className="text-slate-400">— {p.number} (commandée le {formatDate(p.date)})</span>
+                  </span>
+                  <Badge tone="warning">{formatMoney(p.totalAmount)}</Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
       </DashboardModule>
 
       <DashboardModule title="Gestion du stock" icon={Boxes}>
@@ -181,27 +207,6 @@ export default async function DashboardPage() {
             </ul>
           )}
         </Card>
-
-        {pendingDeliveries.length > 0 && (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900">Livraisons en attente</h3>
-              <Link href="/livraisons" className="text-sm text-blue-600 hover:underline">
-                Voir les livraisons
-              </Link>
-            </div>
-            <ul className="space-y-2">
-              {pendingDeliveries.map((p) => (
-                <li key={p.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">
-                    {p.supplier.name} <span className="text-slate-400">— {p.number} (commandée le {formatDate(p.date)})</span>
-                  </span>
-                  <Badge tone="warning">{formatMoney(p.totalAmount)}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
 
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
@@ -232,15 +237,7 @@ export default async function DashboardPage() {
 
       <DashboardModule title="Gestion des finances" icon={Wallet}>
         <div className="grid grid-cols-2 gap-4">
-          <StatCard
-            label="Dettes fournisseurs"
-            value={formatMoney(suppliersDebt._sum.balance || 0)}
-            tone="warning"
-          />
-          <StatCard
-            label="Dépenses (mois)"
-            value={formatMoney(expensesMonth._sum.amount || 0)}
-          />
+          <StatCard label="Dépenses (mois)" value={formatMoney(expensesMonth._sum.amount || 0)} />
         </div>
       </DashboardModule>
 
