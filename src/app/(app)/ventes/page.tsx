@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PosClient } from "@/components/sales/PosClient";
+import { RecentSalesTable } from "@/components/sales/RecentSalesTable";
 import Link from "next/link";
 
 export default async function VentesPage() {
@@ -9,7 +10,10 @@ export default async function VentesPage() {
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
-  const [products, services, warehouses, customers] = await Promise.all([
+  const twoDaysAgo = new Date();
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+  const [products, services, warehouses, customers, recentSales] = await Promise.all([
     prisma.product.findMany({
       where: { active: true, companyId },
       orderBy: { name: "asc" },
@@ -18,6 +22,12 @@ export default async function VentesPage() {
     prisma.service.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.sale.findMany({
+      where: { companyId, date: { gte: twoDaysAgo } },
+      orderBy: { date: "desc" },
+      take: 15,
+      include: { customer: true, warehouse: true },
+    }),
   ]);
 
   return (
@@ -39,6 +49,7 @@ export default async function VentesPage() {
         </div>
       </div>
       <PosClient products={products} services={services} warehouses={warehouses} customers={customers} />
+      <RecentSalesTable sales={recentSales} />
     </div>
   );
 }
