@@ -18,30 +18,21 @@ type SaleItem = {
   product: { name: string } | null;
   service: { name: string } | null;
 };
-type PendingSale = {
+type SaleRow = {
   id: string;
   number: string;
   date: Date;
   totalAmount: number;
   pointsEarned: number;
   pointsUsed: number;
+  status: string;
   customerId: string | null;
   customer: { name: string; creditBalance: number } | null;
   warehouse: { name: string };
   user: { name: string } | null;
-  items: SaleItem[];
-};
-type ValidatedSale = {
-  id: string;
-  number: string;
   validatedAt: Date | null;
-  totalAmount: number;
-  paidAmount: number;
-  status: string;
-  paymentMethod: PaymentMethod;
-  customer: { name: string } | null;
-  warehouse: { name: string };
   validatedBy: { name: string } | null;
+  items: SaleItem[];
 };
 type ReceiptData = {
   number: string;
@@ -59,23 +50,29 @@ export function CaisseValidationClient({
   pending,
   validated,
 }: {
-  pending: PendingSale[];
-  validated: ValidatedSale[];
+  pending: SaleRow[];
+  validated: SaleRow[];
 }) {
-  const [viewing, setViewing] = useState<PendingSale | null>(null);
-  const [validating, setValidating] = useState<PendingSale | null>(null);
+  const [viewing, setViewing] = useState<SaleRow | null>(null);
+  const [validating, setValidating] = useState<SaleRow | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [query, setQuery] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
-  const filteredPending = useMemo(() => {
+  // Un seul ticket, en attente ou déjà validé : pas deux listes séparées,
+  // le statut de chaque ligne suffit à distinguer.
+  const allSales = useMemo(() => {
+    return [...pending, ...validated].sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [pending, validated]);
+
+  const filteredSales = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return pending;
-    return pending.filter(
+    if (!q) return allSales;
+    return allSales.filter(
       (s) => s.number.toLowerCase().includes(q) || (s.customer?.name.toLowerCase().includes(q) ?? false)
     );
-  }, [pending, query]);
+  }, [allSales, query]);
 
   function handleCancel(id: string) {
     if (!confirm("Annuler cette vente en attente ? Elle ne sera ni encaissée ni livrée.")) return;
@@ -90,15 +87,14 @@ export function CaisseValidationClient({
     <div>
       <PageHeader title="Caisse" subtitle="Validez le paiement des ventes saisies — la caisse ne fait qu'encaisser" />
 
-      <Card className="overflow-hidden mb-6">
+      <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">
           <div>
             <h2 className="font-semibold text-slate-900">
-              Tickets en attente de paiement{" "}
-              <span className="text-slate-400 font-normal">[ {filteredPending.length} ]</span>
+              Tickets <span className="text-slate-400 font-normal">[ {filteredSales.length} ]</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Le stock n&apos;est décrémenté qu&apos;au moment de l&apos;encaissement ici.
+              Le stock n&apos;est décrémenté qu&apos;au moment de l&apos;encaissement d&apos;un ticket en attente.
             </p>
           </div>
           <div className="relative">
@@ -119,96 +115,62 @@ export function CaisseValidationClient({
                 <th className="px-4 py-3 font-medium">Client</th>
                 <th className="px-4 py-3 font-medium">Boutique</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium">Saisie le</th>
+                <th className="px-4 py-3 font-medium">Date</th>
                 <th className="px-4 py-3 font-medium text-right">Total</th>
                 <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPending.map((s) => (
-                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                  <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
-                  <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
-                  <td className="px-4 py-3 text-slate-600">{s.warehouse.name}</td>
-                  <td className="px-4 py-3">
-                    <SaleStatusBadge status="EN_ATTENTE" />
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
-                  <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5 justify-center">
-                      <button
-                        onClick={() => setViewing(s)}
-                        title="Voir le détail"
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleCancel(s.id)}
-                        disabled={isPending}
-                        title="Annuler"
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-red-600 disabled:opacity-60"
-                      >
-                        <Ban size={16} />
-                      </button>
-                      <button
-                        onClick={() => setValidating(s)}
-                        disabled={isPending}
-                        title="Encaisser"
-                        className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
-                      >
-                        <Wallet size={14} /> Encaisser
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredPending.length === 0 && (
+              {filteredSales.map((s) => {
+                const isPendingRow = s.status === "EN_ATTENTE";
+                return (
+                  <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
+                    <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
+                    <td className="px-4 py-3 text-slate-600">{s.warehouse.name}</td>
+                    <td className="px-4 py-3">
+                      <SaleStatusBadge status={s.status} />
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <button
+                          onClick={() => setViewing(s)}
+                          title="Voir le détail"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        {isPendingRow && (
+                          <>
+                            <button
+                              onClick={() => handleCancel(s.id)}
+                              disabled={isPending}
+                              title="Annuler"
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-red-600 disabled:opacity-60"
+                            >
+                              <Ban size={16} />
+                            </button>
+                            <button
+                              onClick={() => setValidating(s)}
+                              disabled={isPending}
+                              title="Encaisser"
+                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              <Wallet size={14} /> Encaisser
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredSales.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    {pending.length === 0 ? "Aucune vente en attente de paiement." : "Aucun résultat."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <h2 className="font-semibold text-slate-900 p-5 pb-3">Ventes validées récemment</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr className="text-left">
-                <th className="px-4 py-3 font-medium">N°</th>
-                <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium">Validée le</th>
-                <th className="px-4 py-3 font-medium">Validée par</th>
-                <th className="px-4 py-3 font-medium text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {validated.map((s) => (
-                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                  <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
-                  <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
-                  <td className="px-4 py-3">
-                    <SaleStatusBadge status={s.status} />
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                    {s.validatedAt ? formatDateTime(s.validatedAt) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{s.validatedBy?.name || "—"}</td>
-                  <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
-                </tr>
-              ))}
-              {validated.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                    Aucune vente validée pour le moment.
+                    {allSales.length === 0 ? "Aucun ticket pour le moment." : "Aucun résultat."}
                   </td>
                 </tr>
               )}
@@ -237,6 +199,18 @@ export function CaisseValidationClient({
                 <p className="text-slate-400">Saisie par</p>
                 <p className="font-medium">{viewing.user?.name || "—"}</p>
               </div>
+              {viewing.validatedAt && (
+                <>
+                  <div>
+                    <p className="text-slate-400">Validée le</p>
+                    <p className="font-medium">{formatDateTime(viewing.validatedAt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">Validée par</p>
+                    <p className="font-medium">{viewing.validatedBy?.name || "—"}</p>
+                  </div>
+                </>
+              )}
             </div>
             <table className="w-full text-sm mb-4">
               <thead>
@@ -373,7 +347,7 @@ function ValidateForm({
   onDone,
   onReceipt,
 }: {
-  sale: PendingSale;
+  sale: SaleRow;
   onDone: () => void;
   onReceipt: (r: ReceiptData) => void;
 }) {

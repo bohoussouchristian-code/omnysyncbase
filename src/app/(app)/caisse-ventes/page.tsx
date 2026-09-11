@@ -18,6 +18,7 @@ export default async function CaisseVentesPage() {
         customer: true,
         warehouse: true,
         user: true,
+        validatedBy: true,
         items: itemsInclude,
       },
     }),
@@ -25,7 +26,13 @@ export default async function CaisseVentesPage() {
       where: { companyId, validatedAt: { not: null } },
       orderBy: { validatedAt: "desc" },
       take: 20,
-      include: { customer: true, warehouse: true, validatedBy: true },
+      include: {
+        customer: true,
+        warehouse: true,
+        user: true,
+        validatedBy: true,
+        items: itemsInclude,
+      },
     }),
   ]);
 
