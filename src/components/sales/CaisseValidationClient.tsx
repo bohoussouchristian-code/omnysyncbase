@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { validateSale, cancelSale } from "@/lib/actions/sales";
 import { Card, Modal, PageHeader, Select, Input, Label } from "@/components/ui";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
-import { Eye, Wallet, Ban, Printer } from "lucide-react";
+import { Eye, Wallet, Ban, Printer, Search } from "lucide-react";
 import type { PaymentMethod } from "@prisma/client";
 
 type SaleItem = {
@@ -65,8 +65,17 @@ export function CaisseValidationClient({
   const [viewing, setViewing] = useState<PendingSale | null>(null);
   const [validating, setValidating] = useState<PendingSale | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [query, setQuery] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const filteredPending = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return pending;
+    return pending.filter(
+      (s) => s.number.toLowerCase().includes(q) || (s.customer?.name.toLowerCase().includes(q) ?? false)
+    );
+  }, [pending, query]);
 
   function handleCancel(id: string) {
     if (!confirm("Annuler cette vente en attente ? Elle ne sera ni encaissée ni livrée.")) return;
@@ -81,42 +90,72 @@ export function CaisseValidationClient({
     <div>
       <PageHeader title="Caisse" subtitle="Validez le paiement des ventes saisies — la caisse ne fait qu'encaisser" />
 
-      <Card className="p-5 mb-6">
-        <h2 className="font-semibold text-slate-900 mb-1">En attente de paiement</h2>
-        <p className="text-xs text-slate-400 mb-3">
-          Le stock n&apos;est décrémenté qu&apos;au moment de l&apos;encaissement ici.
-        </p>
+      <Card className="overflow-hidden mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">
+          <div>
+            <h2 className="font-semibold text-slate-900">
+              Tickets en attente de paiement{" "}
+              <span className="text-slate-400 font-normal">[ {filteredPending.length} ]</span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Le stock n&apos;est décrémenté qu&apos;au moment de l&apos;encaissement ici.
+            </p>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher..."
+              className="w-56 rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="pb-2 font-medium">N°</th>
-                <th className="pb-2 font-medium">Saisie le</th>
-                <th className="pb-2 font-medium">Client</th>
-                <th className="pb-2 font-medium">Boutique</th>
-                <th className="pb-2 font-medium text-right">Total</th>
-                <th className="pb-2 font-medium"></th>
+            <thead className="bg-slate-50 text-slate-500">
+              <tr className="text-left">
+                <th className="px-4 py-3 font-medium">N°</th>
+                <th className="px-4 py-3 font-medium">Client</th>
+                <th className="px-4 py-3 font-medium">Boutique</th>
+                <th className="px-4 py-3 font-medium">Statut</th>
+                <th className="px-4 py-3 font-medium">Saisie le</th>
+                <th className="px-4 py-3 font-medium text-right">Total</th>
+                <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pending.map((s) => (
-                <tr key={s.id} className="border-b border-slate-50 last:border-0">
-                  <td className="py-2 font-medium text-slate-700">{s.number}</td>
-                  <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
-                  <td className="py-2 text-slate-600">{s.customer?.name || "Client comptant"}</td>
-                  <td className="py-2 text-slate-600">{s.warehouse.name}</td>
-                  <td className="py-2 text-right font-medium">{formatMoney(s.totalAmount)}</td>
-                  <td className="py-2">
-                    <div className="flex items-center gap-3 justify-end">
-                      <button onClick={() => setViewing(s)} className="text-slate-400 hover:text-blue-600">
+              {filteredPending.map((s) => (
+                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                  <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
+                  <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
+                  <td className="px-4 py-3 text-slate-600">{s.warehouse.name}</td>
+                  <td className="px-4 py-3">
+                    <SaleStatusBadge status="EN_ATTENTE" />
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
+                  <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1.5 justify-center">
+                      <button
+                        onClick={() => setViewing(s)}
+                        title="Voir le détail"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                      >
                         <Eye size={16} />
                       </button>
-                      <button onClick={() => handleCancel(s.id)} disabled={isPending} className="text-slate-400 hover:text-red-600">
+                      <button
+                        onClick={() => handleCancel(s.id)}
+                        disabled={isPending}
+                        title="Annuler"
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-red-600 disabled:opacity-60"
+                      >
                         <Ban size={16} />
                       </button>
                       <button
                         onClick={() => setValidating(s)}
                         disabled={isPending}
+                        title="Encaisser"
                         className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
                       >
                         <Wallet size={14} /> Encaisser
@@ -125,10 +164,10 @@ export function CaisseValidationClient({
                   </td>
                 </tr>
               ))}
-              {pending.length === 0 && (
+              {filteredPending.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400">
-                    Aucune vente en attente de paiement.
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                    {pending.length === 0 ? "Aucune vente en attente de paiement." : "Aucun résultat."}
                   </td>
                 </tr>
               )}
@@ -137,38 +176,38 @@ export function CaisseValidationClient({
         </div>
       </Card>
 
-      <Card className="p-5">
-        <h2 className="font-semibold text-slate-900 mb-3">Ventes validées récemment</h2>
+      <Card className="overflow-hidden">
+        <h2 className="font-semibold text-slate-900 p-5 pb-3">Ventes validées récemment</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="pb-2 font-medium">N°</th>
-                <th className="pb-2 font-medium">Validée le</th>
-                <th className="pb-2 font-medium">Validée par</th>
-                <th className="pb-2 font-medium">Client</th>
-                <th className="pb-2 font-medium">Statut</th>
-                <th className="pb-2 font-medium text-right">Total</th>
+            <thead className="bg-slate-50 text-slate-500">
+              <tr className="text-left">
+                <th className="px-4 py-3 font-medium">N°</th>
+                <th className="px-4 py-3 font-medium">Client</th>
+                <th className="px-4 py-3 font-medium">Statut</th>
+                <th className="px-4 py-3 font-medium">Validée le</th>
+                <th className="px-4 py-3 font-medium">Validée par</th>
+                <th className="px-4 py-3 font-medium text-right">Total</th>
               </tr>
             </thead>
             <tbody>
               {validated.map((s) => (
-                <tr key={s.id} className="border-b border-slate-50 last:border-0">
-                  <td className="py-2 font-medium text-slate-700">{s.number}</td>
-                  <td className="py-2 text-slate-500 whitespace-nowrap">
-                    {s.validatedAt ? formatDateTime(s.validatedAt) : "—"}
-                  </td>
-                  <td className="py-2 text-slate-600">{s.validatedBy?.name || "—"}</td>
-                  <td className="py-2 text-slate-600">{s.customer?.name || "Client comptant"}</td>
-                  <td className="py-2">
+                <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                  <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
+                  <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
+                  <td className="px-4 py-3">
                     <SaleStatusBadge status={s.status} />
                   </td>
-                  <td className="py-2 text-right font-medium">{formatMoney(s.totalAmount)}</td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {s.validatedAt ? formatDateTime(s.validatedAt) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{s.validatedBy?.name || "—"}</td>
+                  <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
                 </tr>
               ))}
               {validated.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                     Aucune vente validée pour le moment.
                   </td>
                 </tr>
