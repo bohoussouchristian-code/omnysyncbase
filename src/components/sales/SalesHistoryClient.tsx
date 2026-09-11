@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelSale } from "@/lib/actions/sales";
 import { Card, Modal, PageHeader } from "@/components/ui";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Eye, Ban } from "lucide-react";
+import { Eye, Ban, Search } from "lucide-react";
 
 type Sale = {
   id: string;
@@ -29,10 +30,29 @@ type Sale = {
   }[];
 };
 
-export function SalesHistoryClient({ sales, canCancel }: { sales: Sale[]; canCancel: boolean }) {
+export function SalesHistoryClient({
+  sales,
+  canCancel,
+  from,
+  to,
+}: {
+  sales: Sale[];
+  canCancel: boolean;
+  from: string;
+  to: string;
+}) {
   const [detail, setDetail] = useState<Sale | null>(null);
+  const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  const filteredSales = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sales;
+    return sales.filter(
+      (s) => s.number.toLowerCase().includes(q) || (s.customer?.name.toLowerCase().includes(q) ?? false)
+    );
+  }, [sales, query]);
 
   function handleCancel(id: string) {
     if (!confirm("Annuler cette vente ? Le stock sera remis à jour.")) return;
@@ -45,9 +65,21 @@ export function SalesHistoryClient({ sales, canCancel }: { sales: Sale[]; canCan
 
   return (
     <div>
-      <PageHeader title="Historique des ventes" subtitle={`${sales.length} vente(s)`} />
+      <PageHeader title="Historique des ventes" subtitle={`${filteredSales.length} vente(s)`} />
 
       <Card className="overflow-hidden">
+        <div className="flex flex-wrap items-center justify-end gap-2 p-5 pb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher un n°, un client..."
+              className="w-56 rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <DateRangePicker from={from} to={to} onApply={(f, t) => router.push(`/ventes/historique?from=${f}&to=${t}`)} />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500">
@@ -63,7 +95,7 @@ export function SalesHistoryClient({ sales, canCancel }: { sales: Sale[]; canCan
               </tr>
             </thead>
             <tbody>
-              {sales.map((s) => (
+              {filteredSales.map((s) => (
                 <tr key={s.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
@@ -92,10 +124,10 @@ export function SalesHistoryClient({ sales, canCancel }: { sales: Sale[]; canCan
                   </td>
                 </tr>
               ))}
-              {sales.length === 0 && (
+              {filteredSales.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
-                    Aucune vente enregistrée.
+                    {sales.length === 0 ? "Aucune vente sur cette période." : "Aucun résultat."}
                   </td>
                 </tr>
               )}
