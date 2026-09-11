@@ -53,7 +53,7 @@ export function TransfersClient({
   return (
     <div>
       <PageHeader
-        title="Transferts"
+        title="Transferts de stock"
         subtitle="Distribution du Dépôt Général vers les boutiques, et retours"
         action={
           <button

@@ -32,7 +32,7 @@ const NAV = [
   { href: "/produits", label: "Produits", icon: Package, roles: null },
   { href: "/prestations", label: "Prestations", icon: Sparkles, roles: null },
   { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
-  { href: "/transferts", label: "Transferts", icon: ArrowLeftRight, roles: null },
+  { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
   { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
   { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
   { href: "/clients", label: "Clients", icon: Users, roles: null },

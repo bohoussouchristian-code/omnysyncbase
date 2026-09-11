@@ -239,7 +239,7 @@ export default async function DashboardPage() {
 
       <Card className="p-5 mt-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-900">Derniers transferts</h2>
+          <h2 className="font-semibold text-slate-900">Derniers transferts de stock</h2>
           <Link href="/transferts" className="text-sm text-blue-600 hover:underline">
             Voir tout
           </Link>
