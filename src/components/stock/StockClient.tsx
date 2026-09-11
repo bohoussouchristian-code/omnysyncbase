@@ -93,7 +93,7 @@ export function StockClient({
   return (
     <div>
       <PageHeader
-        title="Stock"
+        title="Stock Général"
         subtitle="Niveaux de stock, mouvements et transferts entre dépôts"
         action={
           <div className="flex flex-wrap gap-2">
