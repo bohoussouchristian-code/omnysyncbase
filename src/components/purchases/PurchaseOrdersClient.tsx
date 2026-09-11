@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPurchase, type PurchaseCartItem } from "@/lib/actions/purchases";
 import { Modal, Select, Input, Label, Badge, PageHeader, Card } from "@/components/ui";
+import { CopyButton } from "@/components/CopyButton";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { Plus, Trash2, Eye } from "lucide-react";
 
@@ -82,12 +83,17 @@ export function PurchaseOrdersClient({
             <tbody>
               {purchases.map((p) => (
                 <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-700">{p.number}</td>
+                  <td className="px-4 py-3 font-medium text-slate-700">
+                    <div className="flex items-center gap-1.5">
+                      {p.number}
+                      <CopyButton text={p.number} />
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
                   <td className="px-4 py-3 text-slate-600">{p.supplier.name}</td>
                   <td className="px-4 py-3">
                     <Badge tone={p.status === "RECUE" ? "success" : p.status === "ANNULEE" ? "danger" : "warning"}>
-                      {p.status === "EN_ATTENTE" ? "En attente de livraison" : p.status === "RECUE" ? "Livrée" : p.status}
+                      {p.status === "EN_ATTENTE" ? "En attente de livraison" : p.status === "RECUE" ? "Validée" : p.status}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right font-medium">{formatMoney(p.totalAmount)}</td>
