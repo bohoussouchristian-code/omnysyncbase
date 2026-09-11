@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { validateSale, cancelSale } from "@/lib/actions/sales";
 import { Card, Modal, PageHeader, Select, Input, Label } from "@/components/ui";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
@@ -49,9 +50,13 @@ type ReceiptData = {
 export function CaisseValidationClient({
   pending,
   validated,
+  from,
+  to,
 }: {
   pending: SaleRow[];
   validated: SaleRow[];
+  from: string;
+  to: string;
 }) {
   const [viewing, setViewing] = useState<SaleRow | null>(null);
   const [validating, setValidating] = useState<SaleRow | null>(null);
@@ -94,17 +99,20 @@ export function CaisseValidationClient({
               Tickets <span className="text-slate-400 font-normal">[ {filteredSales.length} ]</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Le stock n&apos;est décrémenté qu&apos;au moment de l&apos;encaissement d&apos;un ticket en attente.
+              Les tickets en attente restent toujours visibles ; la période ne filtre que l&apos;historique validé.
             </p>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher..."
-              className="w-56 rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher..."
+                className="w-56 rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <DateRangePicker from={from} to={to} onApply={(f, t) => router.push(`/caisse-ventes?from=${f}&to=${t}`)} />
           </div>
         </div>
         <div className="overflow-x-auto">

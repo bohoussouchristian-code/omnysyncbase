@@ -6,7 +6,7 @@ import { Card, StatCard, Badge, PageHeader } from "@/components/ui";
 import { MOVEMENT_TYPE_LABELS } from "@/lib/constants";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { SalesTrendChart } from "@/components/reports/SalesTrendChart";
-import Link from "next/link";
+import { PeriodControls } from "@/components/reports/PeriodControls";
 
 const PERIODS = {
   "7j": 7,
@@ -29,23 +29,33 @@ const MOVEMENT_TYPE_TONE: Record<string, "success" | "danger" | "warning" | "inf
 export default async function RapportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periode?: string }>;
+  searchParams: Promise<{ periode?: string; from?: string; to?: string }>;
 }) {
   const current = await getCurrentUser();
   if (!current?.companyId || (current.role !== "ADMIN" && current.role !== "GERANT")) redirect("/dashboard");
   const companyId = current.companyId;
 
-  const { periode } = await searchParams;
-  const days = PERIODS[(periode as keyof typeof PERIODS) || "30j"] || 30;
+  const { periode, from: fromParam, to: toParam } = await searchParams;
   const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+  const isCustom = Boolean(fromParam && toParam);
+  let from: Date;
+  let to: Date;
+  if (isCustom) {
+    from = new Date(`${fromParam}T00:00:00`);
+    to = new Date(`${toParam}T23:59:59.999`);
+  } else {
+    const d = PERIODS[(periode as keyof typeof PERIODS) || "30j"] || 30;
+    from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d);
+    to = now;
+  }
+  const periodLabel = isCustom ? `${fromParam}_${toParam}` : periode || "30j";
 
   const [sales, expenses, products, customersDebt, suppliersDebt, stockMovements] = await Promise.all([
     prisma.sale.findMany({
-      where: { companyId, date: { gte: from }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
+      where: { companyId, date: { gte: from, lte: to }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
       include: { items: { include: { product: true, service: true } }, user: true },
     }),
-    prisma.expense.aggregate({ where: { companyId, date: { gte: from } }, _sum: { amount: true } }),
+    prisma.expense.aggregate({ where: { companyId, date: { gte: from, lte: to } }, _sum: { amount: true } }),
     prisma.product.findMany({
       where: { active: true, companyId },
       include: { stocks: true, unit: true, packUnit: true },
@@ -53,7 +63,7 @@ export default async function RapportsPage({
     prisma.customer.aggregate({ where: { companyId }, _sum: { creditBalance: true } }),
     prisma.supplier.aggregate({ where: { companyId }, _sum: { balance: true } }),
     prisma.stockMovement.findMany({
-      where: { companyId, createdAt: { gte: from } },
+      where: { companyId, createdAt: { gte: from, lte: to } },
       orderBy: { createdAt: "desc" },
       take: 300,
       include: {
@@ -101,10 +111,10 @@ export default async function RapportsPage({
   for (const sale of sales) {
     dailyRevenue.set(dayKey(sale.date), (dailyRevenue.get(dayKey(sale.date)) || 0) + sale.totalAmount);
   }
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startDay = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const endDay = new Date(to.getFullYear(), to.getMonth(), to.getDate());
   const trendData = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+  for (const d = new Date(startDay); d <= endDay; d.setDate(d.getDate() + 1)) {
     trendData.push({
       label: `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`,
       fullLabel: `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`,
@@ -174,21 +184,13 @@ export default async function RapportsPage({
         title="Rapports"
         subtitle="Analyse des performances de votre entreprise"
         action={
-          <div className="flex gap-2">
-            {Object.keys(PERIODS).map((p) => (
-              <Link
-                key={p}
-                href={`/rapports?periode=${p}`}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${
-                  (periode || "30j") === p
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : "border-slate-300 text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {p}
-              </Link>
-            ))}
-          </div>
+          <PeriodControls
+            basePath="/rapports"
+            activePeriode={periode || "30j"}
+            isCustom={isCustom}
+            from={fromParam || ""}
+            to={toParam || ""}
+          />
         }
       />
 
@@ -216,7 +218,7 @@ export default async function RapportsPage({
       <Card className="p-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-slate-900">Top 10 ventes (produits &amp; prestations)</h2>
-          <ExportCsvButton filename={`top-ventes-${periode || "30j"}.csv`} csv={csv} />
+          <ExportCsvButton filename={`top-ventes-${periodLabel}.csv`} csv={csv} />
         </div>
         {topProducts.length === 0 ? (
           <p className="text-sm text-slate-400">Aucune vente sur cette période.</p>
@@ -318,7 +320,7 @@ export default async function RapportsPage({
             <h2 className="font-semibold text-slate-900">Historique des mouvements de stock</h2>
             <p className="text-xs text-slate-400 mt-0.5">Entrées, sorties, transferts, ventes et achats sur la période</p>
           </div>
-          <ExportCsvButton filename={`historique-stock-${periode || "30j"}.csv`} csv={stockMovementsCsv} />
+          <ExportCsvButton filename={`historique-stock-${periodLabel}.csv`} csv={stockMovementsCsv} />
         </div>
         {stockMovements.length === 0 ? (
           <p className="text-sm text-slate-400">Aucun mouvement de stock sur cette période.</p>

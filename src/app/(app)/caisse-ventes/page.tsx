@@ -3,14 +3,32 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { CaisseValidationClient } from "@/components/sales/CaisseValidationClient";
 
-export default async function CaisseVentesPage() {
+function toISODate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+export default async function CaisseVentesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
+  const { from: fromParam, to: toParam } = await searchParams;
+  const now = new Date();
+  const defaultFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+  const fromStr = fromParam || toISODate(defaultFrom);
+  const toStr = toParam || toISODate(now);
+  const from = new Date(`${fromStr}T00:00:00`);
+  const to = new Date(`${toStr}T23:59:59.999`);
+
   const itemsInclude = { include: { product: true, service: true } } as const;
 
   const [pending, validated] = await Promise.all([
+    // Une vente en attente reste visible quelle que soit la période : c'est
+    // une file d'action, pas un historique à filtrer par date.
     prisma.sale.findMany({
       where: { companyId, status: "EN_ATTENTE" },
       orderBy: { date: "asc" },
@@ -23,9 +41,9 @@ export default async function CaisseVentesPage() {
       },
     }),
     prisma.sale.findMany({
-      where: { companyId, validatedAt: { not: null } },
+      where: { companyId, validatedAt: { gte: from, lte: to } },
       orderBy: { validatedAt: "desc" },
-      take: 20,
+      take: 500,
       include: {
         customer: true,
         warehouse: true,
@@ -36,5 +54,5 @@ export default async function CaisseVentesPage() {
     }),
   ]);
 
-  return <CaisseValidationClient pending={pending} validated={validated} />;
+  return <CaisseValidationClient pending={pending} validated={validated} from={fromStr} to={toStr} />;
 }
