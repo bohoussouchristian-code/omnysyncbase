@@ -59,7 +59,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
-    label: "Gestion des achats",
+    label: "Gestion appro & fournisseurs",
     icon: ClipboardList,
     items: [
       { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
