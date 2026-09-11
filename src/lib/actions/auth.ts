@@ -5,6 +5,9 @@ import { createSession, destroySession, verifyPassword, getCurrentUser } from "@
 import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
 export async function login(_prevState: unknown, formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -18,9 +21,32 @@ export async function login(_prevState: unknown, formData: FormData) {
     return { error: "Identifiants incorrects." };
   }
 
+  // Compte verrouillé après trop d'échecs : on refuse sans même vérifier le
+  // mot de passe, pour ne pas laisser continuer les tentatives pendant le blocage.
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+    return { error: `Compte temporairement bloqué après plusieurs échecs. Réessayez dans ${minutesLeft} min.` };
+  }
+
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
+    const attempts = user.failedLoginAttempts + 1;
+    const lockingNow = attempts >= MAX_LOGIN_ATTEMPTS;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: lockingNow ? 0 : attempts,
+        lockedUntil: lockingNow ? new Date(Date.now() + LOCKOUT_MINUTES * 60000) : null,
+      },
+    });
+    if (lockingNow) {
+      return { error: `Trop de tentatives échouées. Compte bloqué ${LOCKOUT_MINUTES} minutes.` };
+    }
     return { error: "Identifiants incorrects." };
+  }
+
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
   }
 
   await createSession({

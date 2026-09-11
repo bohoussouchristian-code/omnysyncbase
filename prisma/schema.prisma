@@ -107,6 +107,11 @@ model User {
   isPlatformOwner Boolean @default(false)
   createdAt      DateTime @default(now())
 
+  // Protection contre le brute-force : compteur d'échecs consécutifs et
+  // horodatage jusqu'auquel la connexion est bloquée après trop de tentatives.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil          DateTime?
+
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id])
 
