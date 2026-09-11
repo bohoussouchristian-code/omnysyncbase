@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { adjustStock, transferStock } from "@/lib/actions/stock";
+import { adjustStock } from "@/lib/actions/stock";
 import {
   Modal,
   Input,
@@ -16,7 +16,7 @@ import {
 import { formatDateTime, toCSV } from "@/lib/utils";
 import { MOVEMENT_TYPE_LABELS } from "@/lib/constants";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
-import { ArrowDownCircle, ArrowUpCircle, ArrowLeftRight, SlidersHorizontal, Search } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, SlidersHorizontal, Search } from "lucide-react";
 
 type Product = {
   id: string;
@@ -61,7 +61,7 @@ export function StockClient({
 }) {
   const [warehouseId, setWarehouseId] = useState<string>("ALL");
   const [query, setQuery] = useState("");
-  const [modal, setModal] = useState<"ENTREE" | "SORTIE" | "AJUSTEMENT" | "TRANSFERT" | null>(null);
+  const [modal, setModal] = useState<"ENTREE" | "SORTIE" | "AJUSTEMENT" | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -108,12 +108,6 @@ export function StockClient({
               className="flex items-center gap-2 rounded-lg bg-red-600 text-white px-3 py-2 text-sm font-medium hover:bg-red-700"
             >
               <ArrowUpCircle size={16} /> Sortie
-            </button>
-            <button
-              onClick={() => setModal("TRANSFERT")}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-700"
-            >
-              <ArrowLeftRight size={16} /> Transfert
             </button>
             <button
               onClick={() => setModal("AJUSTEMENT")}
@@ -237,13 +231,7 @@ export function StockClient({
           modal === "ENTREE" ? "Entrée de stock" : modal === "SORTIE" ? "Sortie de stock" : "Ajustement de stock"
         }
       >
-        {modal && modal !== "TRANSFERT" && (
-          <AdjustForm type={modal} products={products} warehouses={warehouses} onDone={() => setModal(null)} />
-        )}
-      </Modal>
-
-      <Modal open={modal === "TRANSFERT"} onClose={() => setModal(null)} title="Transfert entre dépôts">
-        <TransferForm products={products} warehouses={warehouses} onDone={() => setModal(null)} />
+        {modal && <AdjustForm type={modal} products={products} warehouses={warehouses} onDone={() => setModal(null)} />}
       </Modal>
     </div>
   );
@@ -308,74 +296,6 @@ function AdjustForm({
           Annuler
         </button>
         <SubmitButton>Valider</SubmitButton>
-      </div>
-    </form>
-  );
-}
-
-function TransferForm({
-  products,
-  warehouses,
-  onDone,
-}: {
-  products: Product[];
-  warehouses: Warehouse[];
-  onDone: () => void;
-}) {
-  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
-    const res = await transferStock(prev, formData);
-    if (res && "success" in res && res.success) onDone();
-    return res;
-  }, undefined as { error?: string } | undefined);
-
-  return (
-    <form action={formAction} className="space-y-4">
-      <FormError error={state?.error} />
-
-      <div>
-        <Label>Produit</Label>
-        <Select name="productId" required>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Depuis</Label>
-          <Select name="fromWarehouseId" required>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label>Vers</Label>
-          <Select name="toWarehouseId" required defaultValue={warehouses[1]?.id}>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <Label>Quantité</Label>
-        <Input type="number" name="quantity" min={1} step="1" required />
-      </div>
-
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Annuler
-        </button>
-        <SubmitButton>Transférer</SubmitButton>
       </div>
     </form>
   );

@@ -16,7 +16,7 @@ export default async function StockPage() {
     }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.stockMovement.findMany({
-      where: { companyId },
+      where: { companyId, type: { notIn: ["TRANSFERT_ENTREE", "TRANSFERT_SORTIE"] } },
       orderBy: { createdAt: "desc" },
       take: 40,
       include: { product: true, warehouse: true, user: true },

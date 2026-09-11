@@ -25,6 +25,8 @@ export default async function DashboardPage() {
     warehousesCount,
     overdueSales,
     pendingDeliveries,
+    recentTransfers,
+    warehouseNamesList,
   ] = await Promise.all([
     prisma.sale.aggregate({
       where: { companyId, date: { gte: startOfDay }, status: { not: "ANNULEE" } },
@@ -64,7 +66,16 @@ export default async function DashboardPage() {
       take: 8,
       include: { supplier: true },
     }),
+    prisma.stockMovement.findMany({
+      where: { companyId, type: "TRANSFERT_SORTIE" },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: { product: true, warehouse: true, user: true },
+    }),
+    prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
   ]);
+
+  const warehouseNames = new Map(warehouseNamesList.map((w) => [w.id, w.name]));
 
   const revenueMonth = salesMonth.reduce((s, sale) => s + sale.totalAmount, 0);
   const cogsMonth = salesMonth.reduce(
@@ -225,6 +236,32 @@ export default async function DashboardPage() {
           </ul>
         </Card>
       )}
+
+      <Card className="p-5 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-slate-900">Derniers transferts</h2>
+          <Link href="/transferts" className="text-sm text-blue-600 hover:underline">
+            Voir tout
+          </Link>
+        </div>
+        {recentTransfers.length === 0 ? (
+          <p className="text-sm text-slate-500">Aucun transfert enregistré pour le moment.</p>
+        ) : (
+          <ul className="space-y-2">
+            {recentTransfers.map((t) => (
+              <li key={t.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700">
+                  {t.product.name}{" "}
+                  <span className="text-slate-400">
+                    — {t.warehouse.name} → {(t.relatedWarehouseId && warehouseNames.get(t.relatedWarehouseId)) || "—"}
+                  </span>
+                </span>
+                <Badge tone="info">{t.quantity}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }

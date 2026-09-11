@@ -119,5 +119,7 @@ export async function transferStock(_prev: unknown, formData: FormData) {
   ]);
 
   revalidatePath("/stock");
+  revalidatePath("/transferts");
+  revalidatePath("/dashboard");
   return { success: true };
 }
