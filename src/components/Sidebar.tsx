@@ -26,28 +26,65 @@ import {
   CupSoda,
   Banknote,
   History,
+  ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
 
-const NAV = [
+type NavItem = { href: string; label: string; icon: LucideIcon; roles: readonly Role[] | null };
+type NavGroup = { label: string; icon: LucideIcon; items: readonly NavItem[] };
+
+const STANDALONE: readonly NavItem[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
-  // Tout ce qui concerne la vente reste groupé ici : saisie, encaissement, historique et achats clients.
-  { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
-  { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
-  { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
-  { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
-  { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
-  { href: "/depots-annexes", label: "Dépôts annexes", icon: Store, roles: null },
-  { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
-  { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
-  { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
-  { href: "/clients", label: "Clients", icon: Users, roles: null },
-  { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
-  { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
-  { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
-  { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
-  { href: "/entrepots", label: "Dépôts / Boutiques", icon: Building2, roles: ["ADMIN"] },
-  { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog, roles: ["ADMIN"] },
+];
+
+const NAV_GROUPS: readonly NavGroup[] = [
+  {
+    label: "Gestion des ventes",
+    icon: ShoppingCart,
+    items: [
+      { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
+      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
+      { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
+      { href: "/clients", label: "Clients", icon: Users, roles: null },
+    ],
+  },
+  {
+    label: "Gestion des achats",
+    icon: ClipboardList,
+    items: [
+      { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
+      { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
+      { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
+    ],
+  },
+  {
+    label: "Gestion du stock",
+    icon: Boxes,
+    items: [
+      { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
+      { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
+      { href: "/depots-annexes", label: "Dépôts annexes", icon: Store, roles: null },
+      { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
+    ],
+  },
+  {
+    label: "Gestion financière",
+    icon: Wallet,
+    items: [
+      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
+      { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
+      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
+    ],
+  },
+  {
+    label: "Administration",
+    icon: UserCog,
+    items: [
+      { href: "/entrepots", label: "Dépôts / Boutiques", icon: Building2, roles: ["ADMIN"] },
+      { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog, roles: ["ADMIN"] },
+    ],
+  },
 ] as const;
 
 export function Sidebar({
@@ -62,14 +99,30 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const items = NAV.filter((item) => !item.roles || (item.roles as readonly string[]).includes(userRole));
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.roles || item.roles.includes(userRole)),
+  })).filter((group) => group.items.length > 0);
+
+  const allItems = [...STANDALONE, ...visibleGroups.flatMap((g) => g.items)];
 
   // Le lien actif est celui dont le href correspond le plus précisément au
   // chemin courant (le plus long préfixe), pour qu'un sous-chemin ayant sa
   // propre entrée (ex. /ventes/historique) n'allume pas aussi son parent (/ventes).
-  const activeHref = items
+  const activeHref = allItems
     .filter((item) => pathname === item.href || pathname.startsWith(item.href + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  const activeGroupLabel = visibleGroups.find((g) => g.items.some((i) => i.href === activeHref))?.label;
+
+  const [openGroup, setOpenGroup] = useState<string | null>(activeGroupLabel ?? null);
+  // Quand la navigation change de groupe actif, on ré-ouvre ce groupe (ajustement
+  // d'état pendant le rendu, pas d'effet, pour suivre le pathname sans double-render).
+  const [trackedActiveGroup, setTrackedActiveGroup] = useState(activeGroupLabel);
+  if (activeGroupLabel !== trackedActiveGroup) {
+    setTrackedActiveGroup(activeGroupLabel);
+    if (activeGroupLabel) setOpenGroup(activeGroupLabel);
+  }
 
   const content = (
     <div className="flex flex-col h-full">
@@ -91,7 +144,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {items.map((item) => {
+        {STANDALONE.map((item) => {
           const Icon = item.icon;
           const active = item.href === activeHref;
           return (
@@ -100,14 +153,60 @@ export function Sidebar({
               href={item.href}
               onClick={() => setOpen(false)}
               className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                active
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                active ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
               }`}
             >
               <Icon size={18} />
               {item.label}
             </Link>
+          );
+        })}
+
+        {visibleGroups.map((group) => {
+          const GroupIcon = group.icon;
+          const isOpen = openGroup === group.label;
+          const groupHasActive = group.items.some((i) => i.href === activeHref);
+          return (
+            <div key={group.label} className="pt-1">
+              <button
+                onClick={() => setOpenGroup(isOpen ? null : group.label)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  groupHasActive && !isOpen
+                    ? "text-white"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <GroupIcon size={18} />
+                <span className="flex-1 text-left">{group.label}</span>
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {isOpen && (
+                <div className="mt-0.5 ml-3 pl-3 border-l border-slate-800 space-y-0.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.href === activeHref;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          active
+                            ? "bg-blue-600 text-white"
+                            : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                        }`}
+                      >
+                        <Icon size={16} />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
