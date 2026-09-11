@@ -35,7 +35,6 @@ export default function LoginPage() {
               name="email"
               required
               autoComplete="username"
-              defaultValue="admin@entreprise.com"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -47,7 +46,6 @@ export default function LoginPage() {
               name="password"
               required
               autoComplete="current-password"
-              defaultValue="admin123"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -59,10 +57,6 @@ export default function LoginPage() {
           >
             {pending ? "Connexion..." : "Se connecter"}
           </button>
-
-          <p className="text-xs text-slate-400 text-center pt-2">
-            Compte par défaut : admin@entreprise.com / admin123
-          </p>
         </form>
       </div>
     </div>
