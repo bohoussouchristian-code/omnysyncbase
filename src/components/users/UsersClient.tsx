@@ -207,7 +207,7 @@ function UserForm({ onDone }: { onDone: () => void }) {
       </div>
       <div>
         <Label>Mot de passe</Label>
-        <Input type="password" name="password" required minLength={4} />
+        <Input type="password" name="password" required minLength={8} />
       </div>
       <div>
         <Label>Rôle</Label>
@@ -241,7 +241,7 @@ function ResetPasswordForm({ user, onDone }: { user: User; onDone: () => void })
       <input type="hidden" name="id" value={user.id} />
       <div>
         <Label>Nouveau mot de passe</Label>
-        <Input type="password" name="password" required minLength={4} autoFocus />
+        <Input type="password" name="password" required minLength={8} autoFocus />
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">

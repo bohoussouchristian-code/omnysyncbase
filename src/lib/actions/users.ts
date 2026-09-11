@@ -16,8 +16,8 @@ export async function createUser(_prev: unknown, formData: FormData) {
   const password = String(formData.get("password") || "");
   const role = String(formData.get("role") || "CAISSIER") as Role;
 
-  if (!name || !email || password.length < 4)
-    return { error: "Nom, email et mot de passe (min 4 caractères) requis." };
+  if (!name || !email || password.length < 8)
+    return { error: "Nom, email et mot de passe (min 8 caractères) requis." };
 
   try {
     const passwordHash = await hashPassword(password);
@@ -52,7 +52,7 @@ export async function resetUserPassword(_prev: unknown, formData: FormData) {
 
   const id = String(formData.get("id") || "");
   const password = String(formData.get("password") || "");
-  if (password.length < 4) return { error: "Mot de passe : 4 caractères minimum." };
+  if (password.length < 8) return { error: "Mot de passe : 8 caractères minimum." };
 
   const target = await prisma.user.findFirst({ where: { id, companyId } });
   if (!target) return { error: "Utilisateur introuvable." };

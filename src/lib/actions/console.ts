@@ -29,8 +29,8 @@ export async function createCompany(_prev: unknown, formData: FormData) {
   const adminEmail = String(formData.get("adminEmail") || "").trim().toLowerCase();
   const adminPassword = String(formData.get("adminPassword") || "");
 
-  if (!companyName || !adminName || !adminEmail || adminPassword.length < 4)
-    return { error: "Tous les champs sont requis (mot de passe : 4 caractères min)." };
+  if (!companyName || !adminName || !adminEmail || adminPassword.length < 8)
+    return { error: "Tous les champs sont requis (mot de passe : 8 caractères min)." };
 
   const baseSlug = slugify(companyName) || "entreprise";
   let finalSlug = baseSlug;

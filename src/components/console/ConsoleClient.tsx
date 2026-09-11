@@ -121,7 +121,7 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
           </div>
           <div>
             <Label>Mot de passe</Label>
-            <Input type="text" name="adminPassword" required minLength={4} placeholder="Min. 4 caractères" />
+            <Input type="text" name="adminPassword" required minLength={8} placeholder="Min. 8 caractères" />
           </div>
         </div>
       </div>
