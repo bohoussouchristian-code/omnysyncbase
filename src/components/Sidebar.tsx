@@ -34,7 +34,7 @@ import { useState } from "react";
 const NAV = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
   // Tout ce qui concerne la vente reste groupé ici : saisie, encaissement, historique et achats clients.
-  { href: "/ventes", label: "Nouvelle vente", icon: ShoppingCart, roles: null },
+  { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
   { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
   { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
   { href: "/achats-clients", label: "Achats clients", icon: Receipt, roles: null },
