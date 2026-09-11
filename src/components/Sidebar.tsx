@@ -49,6 +49,16 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
+    label: "Gestion financière",
+    icon: Wallet,
+    items: [
+      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
+      { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
+      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
+      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
+    ],
+  },
+  {
     label: "Gestion des achats",
     icon: ClipboardList,
     items: [
@@ -65,16 +75,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
       { href: "/depots-annexes", label: "Dépôts annexes", icon: Store, roles: null },
       { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
-    ],
-  },
-  {
-    label: "Gestion financière",
-    icon: Wallet,
-    items: [
-      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
-      { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
-      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
-      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
     ],
   },
   {
