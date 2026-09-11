@@ -26,6 +26,7 @@ import {
   CupSoda,
   Banknote,
   History,
+  Scale,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ type NavGroup = { label: string; icon: LucideIcon; items: readonly NavItem[] };
 
 const STANDALONE: readonly NavItem[] = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
+  { href: "/bilan", label: "Bilan & état financier", icon: Scale, roles: null },
 ];
 
 const NAV_GROUPS: readonly NavGroup[] = [
