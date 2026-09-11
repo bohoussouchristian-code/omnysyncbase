@@ -5,9 +5,29 @@ import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 import { LOYALTY_FCFA_PER_POINT_EARNED, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod, CustomerType } from "@prisma/client";
 
 export type CartItem = { productId?: string; serviceId?: string; quantity: number; unitPrice: number };
+
+// Le prix envoyé par le client n'est jamais retenu tel quel : il doit
+// correspondre au tarif catalogue du produit/prestation pour le type de
+// client, à la tolérance d'arrondi près (division prix de lot / quantité).
+// Sans ça, un client HTTP forgé pourrait vendre à n'importe quel prix.
+const PRICE_TOLERANCE = 1;
+
+function priceForCustomer(
+  p: { salePrice: number; proPrice: number | null; wholesalePrice: number | null },
+  customerType: CustomerType | null
+) {
+  if (customerType === "REVENDEUR" && p.wholesalePrice) return p.wholesalePrice;
+  if (customerType === "PROFESSIONNEL" && p.proPrice) return p.proPrice;
+  return p.salePrice;
+}
+
+function priceForCustomerService(s: { price: number; proPrice: number | null }, customerType: CustomerType | null) {
+  if (customerType === "PROFESSIONNEL" && s.proPrice) return s.proPrice;
+  return s.price;
+}
 
 // La vente est saisie ici (panier, client, articles) sans toucher au stock ni
 // au paiement : c'est la caisse (validateSale) qui, séparément, encaisse et
@@ -31,28 +51,58 @@ export async function createSale(input: {
   const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, companyId } });
   if (!warehouse) return { error: "Dépôt introuvable." };
 
+  let customer = null;
+  if (customerId) {
+    customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
+    if (!customer) return { error: "Client introuvable." };
+  }
+  const customerType = customer?.type ?? null;
+
+  const productItems = items.filter((i) => i.productId);
+  if (productItems.length > 0) {
+    const productIds = [...new Set(productItems.map((i) => i.productId!))];
+    const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId } });
+    if (products.length !== productIds.length) return { error: "Un produit est introuvable." };
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    for (const item of productItems) {
+      const product = productMap.get(item.productId!)!;
+      const validPrices = [priceForCustomer(product, customerType)];
+      if (product.packUnitId) {
+        const packPrice = product.packSalePrice ?? product.salePrice * product.piecesPerPack;
+        validPrices.push(packPrice / product.piecesPerPack);
+      }
+      if (!validPrices.some((v) => Math.abs(v - item.unitPrice) <= PRICE_TOLERANCE)) {
+        return { error: `Prix invalide pour ${product.name}.` };
+      }
+    }
+  }
+
   const serviceItems = items.filter((i) => i.serviceId);
   if (serviceItems.length > 0) {
     const serviceIds = [...new Set(serviceItems.map((i) => i.serviceId!))];
     const services = await prisma.service.findMany({ where: { id: { in: serviceIds }, companyId } });
     if (services.length !== serviceIds.length) return { error: "Une prestation est introuvable." };
+    const serviceMap = new Map(services.map((s) => [s.id, s]));
+    for (const item of serviceItems) {
+      const service = serviceMap.get(item.serviceId!)!;
+      const validPrice = priceForCustomerService(service, customerType);
+      if (Math.abs(validPrice - item.unitPrice) > PRICE_TOLERANCE) {
+        return { error: `Prix invalide pour ${service.name}.` };
+      }
+    }
   }
 
   const itemsTotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
 
   let pointsUsed = 0;
   let discount = 0;
-  if (customerId) {
-    const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
-    if (!customer) return { error: "Client introuvable." };
-    if (input.pointsToRedeem && input.pointsToRedeem > 0) {
-      pointsUsed = Math.min(
-        Math.floor(input.pointsToRedeem),
-        Math.floor(customer.loyaltyPoints),
-        Math.floor(itemsTotal / LOYALTY_POINT_VALUE_FCFA)
-      );
-      discount = pointsUsed * LOYALTY_POINT_VALUE_FCFA;
-    }
+  if (customer && input.pointsToRedeem && input.pointsToRedeem > 0) {
+    pointsUsed = Math.min(
+      Math.floor(input.pointsToRedeem),
+      Math.floor(customer.loyaltyPoints),
+      Math.floor(itemsTotal / LOYALTY_POINT_VALUE_FCFA)
+    );
+    discount = pointsUsed * LOYALTY_POINT_VALUE_FCFA;
   }
 
   const total = itemsTotal - discount;
