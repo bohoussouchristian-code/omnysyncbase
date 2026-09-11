@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card, Modal, PageHeader, Select } from "@/components/ui";
+import { Card, Modal, Select } from "@/components/ui";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime, toCSV } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -29,7 +29,7 @@ type Sale = {
 };
 type Customer = { id: string; name: string };
 
-export function ClientPurchasesClient({ sales, customers }: { sales: Sale[]; customers: Customer[] }) {
+export function AchatsClientsPanel({ sales, customers }: { sales: Sale[]; customers: Customer[] }) {
   const [customerId, setCustomerId] = useState("ALL");
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<Sale | null>(null);
@@ -64,10 +64,9 @@ export function ClientPurchasesClient({ sales, customers }: { sales: Sale[]; cus
 
   return (
     <div>
-      <PageHeader
-        title="Achats clients"
-        subtitle={`${filtered.length} transaction(s) — ${formatMoney(totalAmount)} au total`}
-      />
+      <p className="text-sm text-slate-500 mb-3">
+        {filtered.length} transaction(s) — {formatMoney(totalAmount)} au total
+      </p>
 
       <div className="flex flex-wrap gap-3 mb-4">
         <div className="relative max-w-xs flex-1 min-w-[200px]">
