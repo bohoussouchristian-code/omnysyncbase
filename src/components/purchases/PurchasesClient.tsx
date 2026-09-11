@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createPurchase, receivePurchase, type PurchaseCartItem } from "@/lib/actions/purchases";
 import { Modal, Select, Input, Label, Badge, PageHeader, Card } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Plus, Trash2, PackageCheck, Eye } from "lucide-react";
+import { Plus, Trash2, PackageCheck, Eye, ClipboardList, Truck } from "lucide-react";
 
 type Product = {
   id: string;
@@ -17,7 +17,6 @@ type Product = {
   packPurchasePrice: number | null;
 };
 type Supplier = { id: string; name: string };
-type Warehouse = { id: string; name: string };
 type Purchase = {
   id: string;
   number: string;
@@ -25,26 +24,36 @@ type Purchase = {
   status: string;
   totalAmount: number;
   paidAmount: number;
+  receivedAt: Date | null;
   supplier: { name: string };
   warehouse: { name: string };
+  receivedBy: { name: string } | null;
   items: { id: string; quantity: number; unitPrice: number; product: { name: string } }[];
 };
+
+type Tab = "commandes" | "livraisons";
 
 export function PurchasesClient({
   purchases,
   products,
   suppliers,
-  warehouses,
+  generalWarehouseName,
 }: {
   purchases: Purchase[];
   products: Product[];
   suppliers: Supplier[];
-  warehouses: Warehouse[];
+  generalWarehouseName: string | null;
 }) {
+  const [tab, setTab] = useState<Tab>("commandes");
   const [showCreate, setShowCreate] = useState(false);
   const [viewing, setViewing] = useState<Purchase | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  const pendingDeliveries = purchases.filter((p) => p.status === "EN_ATTENTE");
+  const receivedDeliveries = purchases
+    .filter((p) => p.status === "RECUE")
+    .sort((a, b) => (b.receivedAt?.getTime() || 0) - (a.receivedAt?.getTime() || 0));
 
   function handleReceive(id: string) {
     startTransition(async () => {
@@ -58,80 +67,195 @@ export function PurchasesClient({
     <div>
       <PageHeader
         title="Achats"
-        subtitle={`${purchases.length} commande(s) fournisseur`}
+        subtitle={
+          generalWarehouseName
+            ? `Dépôt Général : ${generalWarehouseName}`
+            : "Aucun Dépôt Général désigné — voir Dépôts / Boutiques"
+        }
         action={
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus size={16} /> Nouvelle commande
-          </button>
+          tab === "commandes" ? (
+            <button
+              onClick={() => setShowCreate(true)}
+              disabled={!generalWarehouseName}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Plus size={16} /> Nouveau bon de commande
+            </button>
+          ) : undefined
         }
       />
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr className="text-left">
-                <th className="px-4 py-3 font-medium">N°</th>
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Fournisseur</th>
-                <th className="px-4 py-3 font-medium">Dépôt</th>
-                <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium text-right">Total</th>
-                <th className="px-4 py-3 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {purchases.map((p) => (
-                <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-700">{p.number}</td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
-                  <td className="px-4 py-3 text-slate-600">{p.supplier.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{p.warehouse.name}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={p.status === "RECUE" ? "success" : p.status === "ANNULEE" ? "danger" : "warning"}>
-                      {p.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium">{formatMoney(p.totalAmount)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3 justify-end">
-                      <button onClick={() => setViewing(p)} className="text-slate-400 hover:text-blue-600">
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setTab("commandes")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${
+            tab === "commandes"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "border-slate-300 text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <ClipboardList size={16} /> Bons de commande
+        </button>
+        <button
+          onClick={() => setTab("livraisons")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${
+            tab === "livraisons"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "border-slate-300 text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Truck size={16} /> Bons de livraison
+          {pendingDeliveries.length > 0 && (
+            <span className="ml-1 rounded-full bg-amber-100 text-amber-700 text-xs font-semibold px-1.5 py-0.5">
+              {pendingDeliveries.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {tab === "commandes" && (
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr className="text-left">
+                  <th className="px-4 py-3 font-medium">N°</th>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Fournisseur</th>
+                  <th className="px-4 py-3 font-medium">Statut</th>
+                  <th className="px-4 py-3 font-medium text-right">Total</th>
+                  <th className="px-4 py-3 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchases.map((p) => (
+                  <tr key={p.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium text-slate-700">{p.number}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
+                    <td className="px-4 py-3 text-slate-600">{p.supplier.name}</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={p.status === "RECUE" ? "success" : p.status === "ANNULEE" ? "danger" : "warning"}>
+                        {p.status === "EN_ATTENTE" ? "En attente de livraison" : p.status === "RECUE" ? "Livrée" : p.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium">{formatMoney(p.totalAmount)}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setViewing(p)} className="text-slate-400 hover:text-blue-600 float-right">
                         <Eye size={16} />
                       </button>
-                      {p.status === "EN_ATTENTE" && (
-                        <button
-                          onClick={() => handleReceive(p.id)}
-                          disabled={pending}
-                          className="text-slate-400 hover:text-emerald-600"
-                          title="Réceptionner"
-                        >
-                          <PackageCheck size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {purchases.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    Aucune commande enregistrée.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                    </td>
+                  </tr>
+                ))}
+                {purchases.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                      Aucun bon de commande enregistré.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvelle commande fournisseur">
+      {tab === "livraisons" && (
+        <div className="space-y-6">
+          <Card className="p-5">
+            <h2 className="font-semibold text-slate-900 mb-1">En attente de réception</h2>
+            <p className="text-xs text-slate-400 mb-3">
+              Renseignez ici l&apos;arrivée d&apos;une commande : la marchandise entre alors au Dépôt Général.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b border-slate-100">
+                    <th className="pb-2 font-medium">N° commande</th>
+                    <th className="pb-2 font-medium">Commandé le</th>
+                    <th className="pb-2 font-medium">Fournisseur</th>
+                    <th className="pb-2 font-medium text-right">Total</th>
+                    <th className="pb-2 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingDeliveries.map((p) => (
+                    <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 font-medium text-slate-700">{p.number}</td>
+                      <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
+                      <td className="py-2 text-slate-600">{p.supplier.name}</td>
+                      <td className="py-2 text-right font-medium">{formatMoney(p.totalAmount)}</td>
+                      <td className="py-2">
+                        <div className="flex items-center gap-3 justify-end">
+                          <button onClick={() => setViewing(p)} className="text-slate-400 hover:text-blue-600">
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleReceive(p.id)}
+                            disabled={pending}
+                            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            <PackageCheck size={14} /> Réceptionner
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {pendingDeliveries.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-400">
+                        Aucune livraison en attente.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="font-semibold text-slate-900 mb-3">Historique des livraisons reçues</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b border-slate-100">
+                    <th className="pb-2 font-medium">N° commande</th>
+                    <th className="pb-2 font-medium">Reçu le</th>
+                    <th className="pb-2 font-medium">Reçu par</th>
+                    <th className="pb-2 font-medium">Fournisseur</th>
+                    <th className="pb-2 font-medium text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {receivedDeliveries.slice(0, 30).map((p) => (
+                    <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                      <td className="py-2 font-medium text-slate-700">{p.number}</td>
+                      <td className="py-2 text-slate-500 whitespace-nowrap">
+                        {p.receivedAt ? formatDateTime(p.receivedAt) : "—"}
+                      </td>
+                      <td className="py-2 text-slate-600">{p.receivedBy?.name || "—"}</td>
+                      <td className="py-2 text-slate-600">{p.supplier.name}</td>
+                      <td className="py-2 text-right font-medium">{formatMoney(p.totalAmount)}</td>
+                    </tr>
+                  ))}
+                  {receivedDeliveries.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-400">
+                        Aucune livraison reçue pour le moment.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouveau bon de commande">
         <PurchaseForm
           products={products}
           suppliers={suppliers}
-          warehouses={warehouses}
+          generalWarehouseName={generalWarehouseName}
           onDone={() => {
             setShowCreate(false);
             router.refresh();
@@ -173,6 +297,12 @@ export function PurchasesClient({
                 Réceptionner la marchandise
               </button>
             )}
+            {viewing.status === "RECUE" && (
+              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                Reçue le {viewing.receivedAt ? formatDateTime(viewing.receivedAt) : "—"}
+                {viewing.receivedBy ? ` par ${viewing.receivedBy.name}` : ""} — {viewing.warehouse.name}
+              </p>
+            )}
           </div>
         )}
       </Modal>
@@ -183,23 +313,21 @@ export function PurchasesClient({
 function PurchaseForm({
   products,
   suppliers,
-  warehouses,
+  generalWarehouseName,
   onDone,
 }: {
   products: Product[];
   suppliers: Supplier[];
-  warehouses: Warehouse[];
+  generalWarehouseName: string | null;
   onDone: () => void;
 }) {
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id || "");
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || "");
   const [items, setItems] = useState<PurchaseCartItem[]>([]);
   const [itemLabels, setItemLabels] = useState<Record<string, string>>({});
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [mode, setMode] = useState<"piece" | "pack">("piece");
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(products[0]?.purchasePrice || 0);
-  const [receiveNow, setReceiveNow] = useState(true);
   const [amountPaid, setAmountPaid] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -257,11 +385,11 @@ function PurchaseForm({
 
   function submit() {
     setError(null);
-    if (!supplierId || !warehouseId) return setError("Fournisseur et dépôt requis.");
+    if (!supplierId) return setError("Fournisseur requis.");
     if (items.length === 0) return setError("Ajoutez au moins un article.");
 
     startTransition(async () => {
-      const res = await createPurchase({ supplierId, warehouseId, items, amountPaid, receiveNow });
+      const res = await createPurchase({ supplierId, items, amountPaid, notes: undefined });
       if (res.error) {
         setError(res.error);
         return;
@@ -274,28 +402,20 @@ function PurchaseForm({
     <div className="space-y-4">
       {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Fournisseur</Label>
-          <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label>Dépôt de réception</Label>
-          <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+      <div>
+        <Label>Fournisseur</Label>
+        <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+          {suppliers.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </Select>
       </div>
+
+      <p className="text-xs text-slate-400 -mt-2">
+        Dépôt de réception : <span className="font-medium text-slate-600">{generalWarehouseName}</span> (Dépôt Général)
+      </p>
 
       <div className="border border-slate-200 rounded-lg p-3">
         <p className="text-sm font-medium text-slate-700 mb-2">Ajouter un article</p>
@@ -364,19 +484,6 @@ function PurchaseForm({
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="receiveNow"
-          checked={receiveNow}
-          onChange={(e) => setReceiveNow(e.target.checked)}
-          className="rounded border-slate-300"
-        />
-        <label htmlFor="receiveNow" className="text-sm text-slate-700">
-          Réceptionner la marchandise immédiatement (ajoute au stock)
-        </label>
-      </div>
-
       <div>
         <Label>Montant payé au fournisseur (optionnel)</Label>
         <Input type="number" min={0} max={total} value={amountPaid} onChange={(e) => setAmountPaid(Number(e.target.value))} />
@@ -391,7 +498,7 @@ function PurchaseForm({
           disabled={pending}
           className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
         >
-          {pending ? "Enregistrement..." : "Créer la commande"}
+          {pending ? "Enregistrement..." : "Créer le bon de commande"}
         </button>
       </div>
     </div>

@@ -9,7 +9,7 @@ export default async function EntrepotsPage() {
 
   const warehouses = await prisma.warehouse.findMany({
     where: { companyId: current.companyId },
-    orderBy: { name: "asc" },
+    orderBy: [{ isGeneral: "desc" }, { name: "asc" }],
     include: { _count: { select: { stocks: true } } },
   });
 

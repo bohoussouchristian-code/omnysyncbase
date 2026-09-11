@@ -8,12 +8,17 @@ export default async function AchatsPage() {
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
-  const [purchases, products, suppliers, warehouses] = await Promise.all([
+  const [purchases, products, suppliers, generalWarehouse] = await Promise.all([
     prisma.purchase.findMany({
       where: { companyId },
       orderBy: { date: "desc" },
       take: 100,
-      include: { supplier: true, warehouse: true, items: { include: { product: true } } },
+      include: {
+        supplier: true,
+        warehouse: true,
+        items: { include: { product: true } },
+        receivedBy: true,
+      },
     }),
     prisma.product.findMany({
       where: { active: true, companyId },
@@ -21,10 +26,15 @@ export default async function AchatsPage() {
       include: { unit: true, packUnit: true },
     }),
     prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findFirst({ where: { companyId, isGeneral: true, active: true } }),
   ]);
 
   return (
-    <PurchasesClient purchases={purchases} products={products} suppliers={suppliers} warehouses={warehouses} />
+    <PurchasesClient
+      purchases={purchases}
+      products={products}
+      suppliers={suppliers}
+      generalWarehouseName={generalWarehouse?.name ?? null}
+    />
   );
 }

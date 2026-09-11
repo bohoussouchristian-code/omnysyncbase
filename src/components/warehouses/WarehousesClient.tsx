@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { createWarehouse } from "@/lib/actions/warehouses";
+import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createWarehouse, setGeneralWarehouse } from "@/lib/actions/warehouses";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
-import { Plus } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 
 type Warehouse = {
   id: string;
@@ -11,11 +12,21 @@ type Warehouse = {
   address: string | null;
   type: string;
   active: boolean;
+  isGeneral: boolean;
   _count: { stocks: number };
 };
 
 export function WarehousesClient({ warehouses }: { warehouses: Warehouse[] }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function makeGeneral(id: string) {
+    startTransition(async () => {
+      await setGeneralWarehouse(id);
+      router.refresh();
+    });
+  }
 
   return (
     <div>
@@ -42,17 +53,35 @@ export function WarehousesClient({ warehouses }: { warehouses: Warehouse[] }) {
                 <th className="px-4 py-3 font-medium">Adresse</th>
                 <th className="px-4 py-3 font-medium">Produits référencés</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
+                <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {warehouses.map((w) => (
                 <tr key={w.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-800">{w.name}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    <div className="flex items-center gap-2">
+                      {w.name}
+                      {w.isGeneral && <Badge tone="info">Dépôt Général</Badge>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{w.type === "ENTREPOT" ? "Entrepôt" : "Boutique"}</td>
                   <td className="px-4 py-3 text-slate-600">{w.address || "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{w._count.stocks}</td>
                   <td className="px-4 py-3">
                     <Badge tone={w.active ? "success" : "default"}>{w.active ? "Actif" : "Inactif"}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {!w.isGeneral && w.active && (
+                      <button
+                        onClick={() => makeGeneral(w.id)}
+                        disabled={pending}
+                        title="Désigner comme Dépôt Général"
+                        className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 float-right disabled:opacity-50"
+                      >
+                        <Star size={14} /> Définir comme Dépôt Général
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

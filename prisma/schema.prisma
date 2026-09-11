@@ -109,12 +109,13 @@ model User {
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id])
 
-  sales          Sale[]
-  purchases      Purchase[]
-  stockMovements StockMovement[]
-  expenses       Expense[]
-  cashSessions   CashSession[]
-  payments       Payment[]
+  sales             Sale[]
+  purchases         Purchase[]
+  receivedPurchases Purchase[]      @relation("PurchaseReceivedBy")
+  stockMovements    StockMovement[]
+  expenses          Expense[]
+  cashSessions      CashSession[]
+  payments          Payment[]
 }
 
 model Warehouse {
@@ -123,6 +124,10 @@ model Warehouse {
   address String?
   type    WarehouseType @default(BOUTIQUE)
   active  Boolean       @default(true)
+  // Dépôt central où arrivent toutes les commandes fournisseur (bon de livraison) ;
+  // les boutiques sont ensuite servies depuis ce dépôt via un transfert de stock.
+  // Un seul par entreprise (contrainte d'unicité partielle, voir migration).
+  isGeneral Boolean     @default(false)
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
@@ -284,6 +289,12 @@ model Purchase {
   totalAmount Float          @default(0)
   paidAmount  Float          @default(0)
   notes       String?
+
+  // Trace du bon de livraison : quand la marchandise commandée est effectivement
+  // arrivée au dépôt général, et qui l'a réceptionnée (distinct de la date/l'auteur de la commande).
+  receivedAt   DateTime?
+  receivedById String?
+  receivedBy   User?     @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])

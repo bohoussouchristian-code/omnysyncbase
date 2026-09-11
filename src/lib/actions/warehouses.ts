@@ -17,7 +17,31 @@ export async function createWarehouse(_prev: unknown, formData: FormData) {
 
   if (!name) return { error: "Le nom est requis." };
 
-  await prisma.warehouse.create({ data: { name, address, type, companyId } });
+  // Chaque entreprise doit toujours avoir un Dépôt Général : le tout premier
+  // dépôt créé endosse automatiquement ce rôle (modifiable ensuite).
+  const hasGeneral = await prisma.warehouse.findFirst({ where: { companyId, isGeneral: true } });
+
+  await prisma.warehouse.create({ data: { name, address, type, companyId, isGeneral: !hasGeneral } });
+  revalidatePath("/entrepots");
+  return { success: true };
+}
+
+export async function setGeneralWarehouse(id: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user, companyId } = check;
+  if (user.role !== "ADMIN")
+    return { error: "Seul un administrateur peut désigner le Dépôt Général." };
+
+  const warehouse = await prisma.warehouse.findFirst({ where: { id, companyId } });
+  if (!warehouse) return { error: "Dépôt introuvable." };
+  if (!warehouse.active) return { error: "Ce dépôt est inactif." };
+  if (warehouse.isGeneral) return { success: true };
+
+  await prisma.$transaction([
+    prisma.warehouse.updateMany({ where: { companyId, isGeneral: true }, data: { isGeneral: false } }),
+    prisma.warehouse.update({ where: { id }, data: { isGeneral: true } }),
+  ]);
   revalidatePath("/entrepots");
   return { success: true };
 }
