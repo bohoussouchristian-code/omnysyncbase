@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { openCashSession, closeCashSession } from "@/lib/actions/cash";
 import { Card, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
-import { formatMoney, formatDateTime } from "@/lib/utils";
+import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 
 type Warehouse = { id: string; name: string };
 type Session = {
@@ -21,10 +21,14 @@ export function CashClient({
   warehouses,
   sessions,
   mySession,
+  cumul,
+  dailyRecap,
 }: {
   warehouses: Warehouse[];
   sessions: Session[];
   mySession: { id: string; warehouse: { name: string }; openingAmount: number; openedAt: Date } | null;
+  cumul: number | null;
+  dailyRecap: { date: Date; total: number }[];
 }) {
   return (
     <div>
@@ -33,7 +37,7 @@ export function CashClient({
       <div className="grid lg:grid-cols-3 gap-4 mb-6">
         <Card className="p-5 lg:col-span-1">
           {mySession ? (
-            <CloseForm session={mySession} />
+            <CloseForm session={mySession} cumul={cumul} />
           ) : (
             <OpenForm warehouses={warehouses} />
           )}
@@ -80,6 +84,18 @@ export function CashClient({
           </div>
         </Card>
       </div>
+
+      <Card className="p-5">
+        <h2 className="font-semibold text-slate-900 mb-3">Récap quotidien — toutes activités (7 derniers jours)</h2>
+        <ul className="space-y-1.5">
+          {dailyRecap.map((d) => (
+            <li key={d.date.toISOString()} className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">{formatDate(d.date)}</span>
+              <span className="font-medium text-slate-800">{formatMoney(d.total)}</span>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   );
 }
@@ -111,8 +127,10 @@ function OpenForm({ warehouses }: { warehouses: Warehouse[] }) {
 
 function CloseForm({
   session,
+  cumul,
 }: {
   session: { id: string; warehouse: { name: string }; openingAmount: number; openedAt: Date };
+  cumul: number | null;
 }) {
   const [state, formAction] = useActionState(closeCashSession, undefined as
     | { error?: string; success?: boolean; expectedAmount?: number }
@@ -122,6 +140,12 @@ function CloseForm({
     <form action={formAction} className="space-y-4">
       <h2 className="font-semibold text-slate-900">Session ouverte — {session.warehouse.name}</h2>
       <p className="text-xs text-slate-400">Depuis {formatDateTime(session.openedAt)}</p>
+      {cumul != null && (
+        <div className="flex items-center justify-between text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+          <span className="text-emerald-700">Cumul actuel</span>
+          <span className="font-semibold text-emerald-700">{formatMoney(cumul)}</span>
+        </div>
+      )}
       <FormError error={state?.error} />
       {state?.success && (
         <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
