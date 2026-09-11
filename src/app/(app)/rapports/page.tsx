@@ -42,7 +42,7 @@ export default async function RapportsPage({
 
   const [sales, expenses, products, customersDebt, suppliersDebt, stockMovements] = await Promise.all([
     prisma.sale.findMany({
-      where: { companyId, date: { gte: from }, status: { not: "ANNULEE" } },
+      where: { companyId, date: { gte: from }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
       include: { items: { include: { product: true, service: true } }, user: true },
     }),
     prisma.expense.aggregate({ where: { companyId, date: { gte: from } }, _sum: { amount: true } }),

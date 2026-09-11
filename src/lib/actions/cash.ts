@@ -43,11 +43,14 @@ export async function closeCashSession(_prev: unknown, formData: FormData) {
   if (!session) return { error: "Session introuvable." };
   if (session.closedAt) return { error: "Session déjà fermée." };
 
+  // Le montant attendu se base sur les ventes encaissées (validées) pendant la
+  // session, pas sur leur date de saisie : la caisse ne valide que le paiement,
+  // qui peut arriver après que la vente ait été saisie par quelqu'un d'autre.
   const sales = await prisma.sale.aggregate({
     where: {
       warehouseId: session.warehouseId,
-      userId: session.userId,
-      date: { gte: session.openedAt },
+      validatedById: session.userId,
+      validatedAt: { gte: session.openedAt },
       status: { not: "ANNULEE" },
       paymentMethod: { in: ["ESPECES", "MIXTE"] },
     },

@@ -24,20 +24,21 @@ export default async function VentesPage() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Point de vente</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Enregistrez une vente rapidement</p>
+          <h1 className="text-xl font-semibold text-slate-900">Nouvelle vente</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Saisissez le panier — le paiement sera encaissé séparément à la Caisse
+          </p>
         </div>
-        <Link href="/ventes/historique" className="text-sm text-blue-600 hover:underline">
-          Historique des ventes →
-        </Link>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/caisse-ventes" className="text-blue-600 hover:underline">
+            Caisse →
+          </Link>
+          <Link href="/ventes/historique" className="text-blue-600 hover:underline">
+            Historique des ventes →
+          </Link>
+        </div>
       </div>
-      <PosClient
-        products={products}
-        services={services}
-        warehouses={warehouses}
-        customers={customers}
-        cashierName={user?.name || ""}
-      />
+      <PosClient products={products} services={services} warehouses={warehouses} customers={customers} />
     </div>
   );
 }

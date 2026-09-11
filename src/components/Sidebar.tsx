@@ -26,12 +26,14 @@ import {
   X,
   Sparkles,
   CupSoda,
+  Banknote,
 } from "lucide-react";
 import { useState } from "react";
 
 const NAV = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
-  { href: "/ventes", label: "Ventes / Caisse", icon: ShoppingCart, roles: null },
+  { href: "/ventes", label: "Nouvelle vente", icon: ShoppingCart, roles: null },
+  { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
   { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
   { href: "/prestations", label: "Prestations", icon: Sparkles, roles: null },
   { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },

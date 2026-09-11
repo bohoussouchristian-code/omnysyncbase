@@ -38,6 +38,7 @@ enum PurchaseStatus {
 }
 
 enum SaleStatus {
+  EN_ATTENTE
   PAYEE
   PARTIELLE
   CREDIT
@@ -110,6 +111,7 @@ model User {
   company   Company? @relation(fields: [companyId], references: [id])
 
   sales             Sale[]
+  validatedSales    Sale[]          @relation("SaleValidatedBy")
   purchases         Purchase[]
   receivedPurchases Purchase[]      @relation("PurchaseReceivedBy")
   stockMovements    StockMovement[]
@@ -351,10 +353,17 @@ model Sale {
   totalAmount Float         @default(0)
   paidAmount  Float         @default(0)
   paymentMethod PaymentMethod @default(ESPECES)
-  status      SaleStatus    @default(PAYEE)
+  status      SaleStatus    @default(EN_ATTENTE)
   pointsEarned Float        @default(0)
   pointsUsed   Float        @default(0)
   notes       String?
+
+  // Trace de la validation en caisse : la vente est saisie (panier, client,
+  // articles) sans toucher au stock ni au paiement, puis validée séparément
+  // à la caisse — c'est cette validation qui décrémente le stock et encaisse.
+  validatedAt   DateTime?
+  validatedById String?
+  validatedBy   User?     @relation("SaleValidatedBy", fields: [validatedById], references: [id])
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])

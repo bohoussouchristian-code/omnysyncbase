@@ -28,14 +28,15 @@ export default async function DashboardPage() {
     pendingDeliveries,
     recentTransfers,
     warehouseNamesList,
+    pendingSales,
   ] = await Promise.all([
     prisma.sale.aggregate({
-      where: { companyId, date: { gte: startOfDay }, status: { not: "ANNULEE" } },
+      where: { companyId, date: { gte: startOfDay }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
       _sum: { paidAmount: true, totalAmount: true },
       _count: true,
     }),
     prisma.sale.findMany({
-      where: { companyId, date: { gte: startOfMonth }, status: { not: "ANNULEE" } },
+      where: { companyId, date: { gte: startOfMonth }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
       include: { items: { include: { product: true } } },
     }),
     prisma.expense.aggregate({
@@ -74,6 +75,12 @@ export default async function DashboardPage() {
       include: { product: true, warehouse: true, user: true },
     }),
     prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
+    prisma.sale.findMany({
+      where: { companyId, status: "EN_ATTENTE" },
+      orderBy: { date: "asc" },
+      take: 8,
+      include: { customer: true },
+    }),
   ]);
 
   const warehouseNames = new Map(warehouseNamesList.map((w) => [w.id, w.name]));
@@ -201,6 +208,28 @@ export default async function DashboardPage() {
                   <span className="text-slate-400">— {s.number} (échéance {formatDate(s.dueDate!)})</span>
                 </span>
                 <Badge tone="danger">{formatMoney(s.totalAmount - s.paidAmount)}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {pendingSales.length > 0 && (
+        <Card className="p-5 mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-slate-900">Ventes en attente de caisse</h2>
+            <Link href="/caisse-ventes" className="text-sm text-blue-600 hover:underline">
+              Aller à la caisse
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {pendingSales.map((s) => (
+              <li key={s.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700">
+                  {s.customer?.name || "Client comptant"}{" "}
+                  <span className="text-slate-400">— {s.number} (saisie le {formatDate(s.date)})</span>
+                </span>
+                <Badge tone="warning">{formatMoney(s.totalAmount)}</Badge>
               </li>
             ))}
           </ul>

@@ -1,4 +1,4 @@
-import type { Role, CustomerType, MovementType } from "@prisma/client";
+import type { Role, CustomerType, MovementType, PaymentMethod } from "@prisma/client";
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrateur",
@@ -23,6 +23,14 @@ export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
   PARTICULIER: "Particulier",
   PROFESSIONNEL: "Professionnel",
   REVENDEUR: "Revendeur",
+};
+
+export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  ESPECES: "Espèces",
+  MOBILE_MONEY: "Mobile Money",
+  VIREMENT: "Virement",
+  CREDIT: "Crédit",
+  MIXTE: "Mixte",
 };
 
 // Programme de fidélité : 1 point gagné par tranche de 100 FCFA d'achat,

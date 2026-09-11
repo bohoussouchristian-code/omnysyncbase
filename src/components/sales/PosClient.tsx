@@ -2,12 +2,13 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSale } from "@/lib/actions/sales";
 import { Card, Select, Badge } from "@/components/ui";
-import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 import { CUSTOMER_TYPE_LABELS, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
-import { Search, Trash2, Plus, Minus, Printer, PackagePlus, Star, Sparkles } from "lucide-react";
-import type { PaymentMethod, CustomerType } from "@prisma/client";
+import { Search, Trash2, Plus, Minus, PackagePlus, Star, Sparkles, ArrowRight } from "lucide-react";
+import type { CustomerType } from "@prisma/client";
 
 type Product = {
   id: string;
@@ -55,31 +56,6 @@ type Line = {
   maxQty: number;
 };
 
-type ReceiptData = {
-  number: string;
-  date: Date;
-  cashier: string;
-  warehouse: string;
-  customer: string;
-  items: Line[];
-  subtotal: number;
-  discount: number;
-  total: number;
-  paid: number;
-  paymentMethod: PaymentMethod;
-  dueDate: string | null;
-  pointsEarned: number;
-  pointsUsed: number;
-};
-
-const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  ESPECES: "Espèces",
-  MOBILE_MONEY: "Mobile Money",
-  VIREMENT: "Virement",
-  CREDIT: "Crédit",
-  MIXTE: "Mixte",
-};
-
 function priceForCustomer(p: Product, customerType: CustomerType | null) {
   if (customerType === "REVENDEUR" && p.wholesalePrice) return p.wholesalePrice;
   if (customerType === "PROFESSIONNEL" && p.proPrice) return p.proPrice;
@@ -96,25 +72,20 @@ export function PosClient({
   services,
   warehouses,
   customers,
-  cashierName,
 }: {
   products: Product[];
   services: Service[];
   warehouses: Warehouse[];
   customers: Customer[];
-  cashierName: string;
 }) {
   const router = useRouter();
   const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || "");
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<Line[]>([]);
   const [customerId, setCustomerId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("ESPECES");
-  const [amountPaid, setAmountPaid] = useState<string>("");
-  const [dueDate, setDueDate] = useState<string>("");
   const [pointsToRedeem, setPointsToRedeem] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [confirmation, setConfirmation] = useState<{ number: string; total: number } | null>(null);
   const [pending, startTransition] = useTransition();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -237,9 +208,6 @@ export function PosClient({
   function resetSale() {
     setCart([]);
     setCustomerId("");
-    setPaymentMethod("ESPECES");
-    setAmountPaid("");
-    setDueDate("");
     setPointsToRedeem("");
     setError(null);
   }
@@ -264,15 +232,10 @@ export function PosClient({
     }
   }
 
-  function handleValidate() {
+  function handleSubmit() {
     setError(null);
     if (cart.length === 0) {
       setError("Le panier est vide.");
-      return;
-    }
-    const paid = paymentMethod === "CREDIT" ? 0 : amountPaid === "" ? total : Number(amountPaid);
-    if (paid < total && !customerId) {
-      setError("Sélectionnez un client pour une vente à crédit ou un paiement partiel.");
       return;
     }
 
@@ -284,41 +247,19 @@ export function PosClient({
       const baseUnitPrice = (l.qty * l.unitPrice) / baseQty;
       return { productId: l.productId, quantity: baseQty, unitPrice: baseUnitPrice };
     });
-    const cartSnapshot = cart;
-    const warehouseName = warehouses.find((w) => w.id === warehouseId)?.name || "";
-    const customerName = customers.find((c) => c.id === customerId)?.name || "Client comptant";
-    const pointsEarned = customerId ? Math.floor(total / 100) : 0;
 
     startTransition(async () => {
       const res = await createSale({
         warehouseId,
         customerId: customerId || null,
         items,
-        paymentMethod,
-        amountPaid: paid,
-        dueDate: paid < total && dueDate ? dueDate : null,
         pointsToRedeem: pointsUsedNum,
       });
       if (res.error) {
         setError(res.error);
         return;
       }
-      setReceipt({
-        number: res.saleNumber!,
-        date: new Date(),
-        cashier: cashierName,
-        warehouse: warehouseName,
-        customer: customerName,
-        items: cartSnapshot,
-        subtotal,
-        discount,
-        total,
-        paid,
-        paymentMethod,
-        dueDate: paid < total && dueDate ? dueDate : null,
-        pointsEarned,
-        pointsUsed: pointsUsedNum,
-      });
+      setConfirmation({ number: res.saleNumber!, total });
       resetSale();
       router.refresh();
       searchRef.current?.focus();
@@ -519,45 +460,6 @@ export function PosClient({
               </div>
             )}
 
-            <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
-              {Object.entries(PAYMENT_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-
-            {paymentMethod !== "CREDIT" && (
-              <div>
-                <input
-                  type="number"
-                  min={0}
-                  step="1"
-                  placeholder={`Montant payé (défaut: ${total})`}
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {amountPaid !== "" && Number(amountPaid) < total && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Reste à payer : {formatMoney(total - Number(amountPaid))} (nécessite un client)
-                  </p>
-                )}
-              </div>
-            )}
-
-            {(paymentMethod === "CREDIT" || (amountPaid !== "" && Number(amountPaid) < total)) && (
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Échéance de paiement (optionnel)</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
-
             {error && (
               <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 {error}
@@ -565,111 +467,44 @@ export function PosClient({
             )}
 
             <button
-              onClick={handleValidate}
+              onClick={handleSubmit}
               disabled={pending || cart.length === 0}
               className="w-full rounded-lg bg-blue-600 text-white py-2.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
             >
-              {pending ? "Validation..." : "Valider la vente"}
+              {pending ? "Enregistrement..." : "Enregistrer la vente"}
             </button>
+            <p className="text-xs text-slate-400 text-center">
+              Le paiement sera encaissé séparément depuis la Caisse.
+            </p>
           </div>
         </Card>
       </div>
 
-      {receipt && (
+      {confirmation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setReceipt(null)} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmation(null)} />
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
-            <Badge tone="success">Vente enregistrée</Badge>
-            <p className="text-lg font-semibold mt-3">Vente n° {receipt.number}</p>
-            <p className="text-sm text-slate-500 mt-1">{formatMoney(receipt.total)}</p>
-            {receipt.pointsEarned > 0 && (
-              <p className="text-xs text-amber-600 mt-1">+{receipt.pointsEarned} points gagnés</p>
-            )}
+            <Badge tone="warning">En attente de paiement</Badge>
+            <p className="text-lg font-semibold mt-3">Vente n° {confirmation.number}</p>
+            <p className="text-sm text-slate-500 mt-1">{formatMoney(confirmation.total)}</p>
+            <p className="text-xs text-slate-400 mt-2">
+              Cette vente attend d&apos;être encaissée à la Caisse.
+            </p>
             <div className="flex gap-2 mt-5">
               <button
-                onClick={() => setReceipt(null)}
+                onClick={() => setConfirmation(null)}
                 className="flex-1 rounded-lg border border-slate-300 py-2 text-sm text-slate-600 hover:bg-slate-50"
               >
-                Fermer
+                Nouvelle vente
               </button>
-              <button
-                onClick={() => window.print()}
+              <Link
+                href="/caisse-ventes"
                 className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
               >
-                <Printer size={14} /> Imprimer
-              </button>
+                Aller à la caisse <ArrowRight size={14} />
+              </Link>
             </div>
           </div>
-        </div>
-      )}
-
-      {receipt && (
-        <div id="receipt-print" className="hidden">
-          <div className="text-center mb-2">
-            <p className="font-bold text-sm">OMNYSYNCBASE</p>
-            <p className="text-xs">{receipt.warehouse}</p>
-          </div>
-          <div className="border-t border-dashed border-black my-1" />
-          <p className="text-xs">Vente n° {receipt.number}</p>
-          <p className="text-xs">{formatDateTime(receipt.date)}</p>
-          <p className="text-xs">Caissier : {receipt.cashier}</p>
-          <p className="text-xs">Client : {receipt.customer}</p>
-          <div className="border-t border-dashed border-black my-1" />
-          <table className="w-full text-xs">
-            <tbody>
-              {receipt.items.map((it) => (
-                <tr key={it.key}>
-                  <td className="align-top py-0.5">
-                    {it.name}
-                    <br />
-                    {it.qty} {it.kind === "product" ? it.unitLabel : ""} × {formatMoney(it.unitPrice)}
-                  </td>
-                  <td className="align-top text-right py-0.5">{formatMoney(it.qty * it.unitPrice)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="border-t border-dashed border-black my-1" />
-          {receipt.discount > 0 && (
-            <>
-              <div className="flex justify-between text-xs">
-                <span>Sous-total</span>
-                <span>{formatMoney(receipt.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span>Réduction ({receipt.pointsUsed} pts)</span>
-                <span>-{formatMoney(receipt.discount)}</span>
-              </div>
-            </>
-          )}
-          <div className="flex justify-between text-xs font-bold">
-            <span>TOTAL</span>
-            <span>{formatMoney(receipt.total)}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span>Payé ({PAYMENT_LABELS[receipt.paymentMethod]})</span>
-            <span>{formatMoney(receipt.paid)}</span>
-          </div>
-          {receipt.paid < receipt.total && (
-            <div className="flex justify-between text-xs">
-              <span>Reste à payer</span>
-              <span>{formatMoney(receipt.total - receipt.paid)}</span>
-            </div>
-          )}
-          {receipt.dueDate && (
-            <div className="flex justify-between text-xs">
-              <span>Échéance</span>
-              <span>{formatDate(receipt.dueDate)}</span>
-            </div>
-          )}
-          {receipt.pointsEarned > 0 && (
-            <div className="flex justify-between text-xs">
-              <span>Points gagnés</span>
-              <span>+{receipt.pointsEarned}</span>
-            </div>
-          )}
-          <div className="border-t border-dashed border-black my-1" />
-          <p className="text-center text-xs mt-2">Merci de votre achat !</p>
         </div>
       )}
     </div>
