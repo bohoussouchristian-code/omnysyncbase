@@ -27,13 +27,17 @@ import {
   Sparkles,
   CupSoda,
   Banknote,
+  History,
 } from "lucide-react";
 import { useState } from "react";
 
 const NAV = [
   { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
+  // Tout ce qui concerne la vente reste groupé ici : saisie, encaissement, historique et achats clients.
   { href: "/ventes", label: "Nouvelle vente", icon: ShoppingCart, roles: null },
   { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
+  { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
+  { href: "/achats-clients", label: "Achats clients", icon: Receipt, roles: null },
   { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
   { href: "/prestations", label: "Prestations", icon: Sparkles, roles: null },
   { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
@@ -42,7 +46,6 @@ const NAV = [
   { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
   { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
   { href: "/clients", label: "Clients", icon: Users, roles: null },
-  { href: "/achats-clients", label: "Achats clients", icon: Receipt, roles: null },
   { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
   { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
   { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
@@ -64,6 +67,13 @@ export function Sidebar({
   const [open, setOpen] = useState(false);
 
   const items = NAV.filter((item) => !item.roles || (item.roles as readonly string[]).includes(userRole));
+
+  // Le lien actif est celui dont le href correspond le plus précisément au
+  // chemin courant (le plus long préfixe), pour qu'un sous-chemin ayant sa
+  // propre entrée (ex. /ventes/historique) n'allume pas aussi son parent (/ventes).
+  const activeHref = items
+    .filter((item) => pathname === item.href || pathname.startsWith(item.href + "/"))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   const content = (
     <div className="flex flex-col h-full">
@@ -87,7 +97,7 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {items.map((item) => {
           const Icon = item.icon;
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const active = item.href === activeHref;
           return (
             <Link
               key={item.href}
