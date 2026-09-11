@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { formatMoney, formatDate, formatDateTime } from "@/lib/utils";
 import { Card, StatCard, Badge, PageHeader } from "@/components/ui";
 import Link from "next/link";
-import { ShoppingCart, Boxes, Wallet, BarChart3, type LucideIcon } from "lucide-react";
+import { ShoppingCart, Wallet, BarChart3, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 export default async function DashboardPage() {
@@ -23,12 +23,9 @@ export default async function DashboardPage() {
     expensesMonth,
     customersDebt,
     suppliersDebt,
-    products,
     warehousesCount,
     overdueSales,
     pendingDeliveries,
-    recentTransfers,
-    warehouseNamesList,
     pendingSales,
     myOpenSessions,
     last7DaysSales,
@@ -48,10 +45,6 @@ export default async function DashboardPage() {
     }),
     prisma.customer.aggregate({ where: { companyId }, _sum: { creditBalance: true } }),
     prisma.supplier.aggregate({ where: { companyId }, _sum: { balance: true } }),
-    prisma.product.findMany({
-      where: { active: true, companyId },
-      include: { stocks: true },
-    }),
     prisma.warehouse.count({ where: { active: true, companyId } }),
     prisma.sale.findMany({
       where: { companyId, status: { in: ["CREDIT", "PARTIELLE"] }, dueDate: { lt: now } },
@@ -65,13 +58,6 @@ export default async function DashboardPage() {
       take: 8,
       include: { supplier: true },
     }),
-    prisma.stockMovement.findMany({
-      where: { companyId, type: "TRANSFERT_SORTIE" },
-      orderBy: { createdAt: "desc" },
-      take: 6,
-      include: { product: true, warehouse: true, user: true },
-    }),
-    prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
     prisma.sale.findMany({
       where: { companyId, status: "EN_ATTENTE" },
       orderBy: { date: "asc" },
@@ -87,8 +73,6 @@ export default async function DashboardPage() {
       select: { date: true, paidAmount: true },
     }),
   ]);
-
-  const warehouseNames = new Map(warehouseNamesList.map((w) => [w.id, w.name]));
 
   // Cumul en temps réel de chaque caisse ouverte par l'utilisateur : même calcul
   // que closeCashSession (fond initial + ventes espèces depuis l'ouverture - dépenses).
@@ -137,11 +121,6 @@ export default async function DashboardPage() {
     0
   );
   const profitMonth = revenueMonth - cogsMonth - (expensesMonth._sum.amount || 0);
-
-  const lowStock = products.filter((p) => {
-    const totalQty = p.stocks.reduce((s, st) => s + st.quantity, 0);
-    return p.reorderLevel > 0 && totalQty <= p.reorderLevel;
-  });
 
   return (
     <div>
@@ -235,63 +214,7 @@ export default async function DashboardPage() {
         )}
       </DashboardModule>
 
-      <DashboardModule title="Gestion du stock" icon={Boxes}>
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-900">Alertes stock bas</h3>
-            <Link href="/stock" className="text-sm text-blue-600 hover:underline">
-              Voir tout
-            </Link>
-          </div>
-          {lowStock.length === 0 ? (
-            <p className="text-sm text-slate-500">Aucune alerte pour le moment.</p>
-          ) : (
-            <ul className="space-y-2">
-              {lowStock.slice(0, 8).map((p) => {
-                const qty = p.stocks.reduce((s, st) => s + st.quantity, 0);
-                return (
-                  <li key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">{p.name}</span>
-                    <Badge tone="danger">{qty} restant(s)</Badge>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-900">Derniers transferts de stock</h3>
-            <Link href="/transferts" className="text-sm text-blue-600 hover:underline">
-              Voir tout
-            </Link>
-          </div>
-          {recentTransfers.length === 0 ? (
-            <p className="text-sm text-slate-500">Aucun transfert enregistré pour le moment.</p>
-          ) : (
-            <ul className="space-y-2">
-              {recentTransfers.map((t) => (
-                <li key={t.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">
-                    {t.product.name}{" "}
-                    <span className="text-slate-400">
-                      — {t.warehouse.name} → {(t.relatedWarehouseId && warehouseNames.get(t.relatedWarehouseId)) || "—"}
-                    </span>
-                  </span>
-                  <Badge tone="info">{t.quantity}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </DashboardModule>
-
-      <DashboardModule title="Gestion des finances" icon={Wallet}>
-        <div className="grid grid-cols-2 gap-4">
-          <StatCard label="Dépenses (mois)" value={formatMoney(expensesMonth._sum.amount || 0)} />
-        </div>
-
+      <DashboardModule title="Gestion financière" icon={Wallet}>
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-slate-900">État de ma caisse</h3>
@@ -330,9 +253,10 @@ export default async function DashboardPage() {
         </Card>
       </DashboardModule>
 
-      <DashboardModule title="Bilan du mois" icon={BarChart3} last>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <DashboardModule title="Bilan & état financier" icon={BarChart3} last>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard label="Chiffre d'affaires (mois)" value={formatMoney(revenueMonth)} />
+          <StatCard label="Dépenses (mois)" value={formatMoney(expensesMonth._sum.amount || 0)} />
           <StatCard
             label="Bénéfice estimé (mois)"
             value={formatMoney(profitMonth)}
