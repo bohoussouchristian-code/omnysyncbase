@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { Card, StatCard, Badge, PageHeader } from "@/components/ui";
 import Link from "next/link";
+import { ShoppingCart, Boxes, Wallet, BarChart3, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -96,143 +98,189 @@ export default async function DashboardPage() {
         subtitle={`Aperçu de votre entreprise — ${warehousesCount} dépôt(s)/boutique(s)`}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="Ventes aujourd'hui"
-          value={formatMoney(salesToday._sum.totalAmount || 0)}
-          hint={`${salesToday._count} vente(s)`}
-        />
-        <StatCard
-          label="Bénéfice estimé (mois)"
-          value={formatMoney(profitMonth)}
-          tone={profitMonth >= 0 ? "success" : "danger"}
-        />
-        <StatCard
-          label="Dettes clients"
-          value={formatMoney(customersDebt._sum.creditBalance || 0)}
-          tone="warning"
-        />
-        <StatCard
-          label="Dettes fournisseurs"
-          value={formatMoney(suppliersDebt._sum.balance || 0)}
-          tone="warning"
-        />
-      </div>
-
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-900">Alertes stock bas</h2>
-          <Link href="/stock" className="text-sm text-blue-600 hover:underline">
-            Voir tout
-          </Link>
+      <DashboardModule title="Gestion des ventes" icon={ShoppingCart}>
+        <div className="grid grid-cols-2 gap-4">
+          <StatCard
+            label="Ventes aujourd'hui"
+            value={formatMoney(salesToday._sum.totalAmount || 0)}
+            hint={`${salesToday._count} vente(s)`}
+          />
+          <StatCard
+            label="Dettes clients"
+            value={formatMoney(customersDebt._sum.creditBalance || 0)}
+            tone="warning"
+          />
         </div>
-        {lowStock.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucune alerte pour le moment.</p>
-        ) : (
-          <ul className="space-y-2">
-            {lowStock.slice(0, 8).map((p) => {
-              const qty = p.stocks.reduce((s, st) => s + st.quantity, 0);
-              return (
-                <li key={p.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">{p.name}</span>
-                  <Badge tone="danger">{qty} restant(s)</Badge>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
 
-      {overdueSales.length > 0 && (
-        <Card className="p-5 mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-slate-900">Dettes clients en retard</h2>
-            <Link href="/clients" className="text-sm text-blue-600 hover:underline">
-              Voir les clients
-            </Link>
-          </div>
-          <ul className="space-y-2">
-            {overdueSales.map((s) => (
-              <li key={s.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  {s.customer?.name || "Client comptant"}{" "}
-                  <span className="text-slate-400">— {s.number} (échéance {formatDate(s.dueDate!)})</span>
-                </span>
-                <Badge tone="danger">{formatMoney(s.totalAmount - s.paidAmount)}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {pendingSales.length > 0 && (
-        <Card className="p-5 mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-slate-900">Ventes en attente de caisse</h2>
-            <Link href="/caisse-ventes" className="text-sm text-blue-600 hover:underline">
-              Aller à la caisse
-            </Link>
-          </div>
-          <ul className="space-y-2">
-            {pendingSales.map((s) => (
-              <li key={s.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  {s.customer?.name || "Client comptant"}{" "}
-                  <span className="text-slate-400">— {s.number} (saisie le {formatDate(s.date)})</span>
-                </span>
-                <Badge tone="warning">{formatMoney(s.totalAmount)}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {pendingDeliveries.length > 0 && (
-        <Card className="p-5 mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-slate-900">Livraisons en attente</h2>
-            <Link href="/livraisons" className="text-sm text-blue-600 hover:underline">
-              Voir les livraisons
-            </Link>
-          </div>
-          <ul className="space-y-2">
-            {pendingDeliveries.map((p) => (
-              <li key={p.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  {p.supplier.name} <span className="text-slate-400">— {p.number} (commandée le {formatDate(p.date)})</span>
-                </span>
-                <Badge tone="warning">{formatMoney(p.totalAmount)}</Badge>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      <Card className="p-5 mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-slate-900">Derniers transferts de stock</h2>
-          <Link href="/transferts" className="text-sm text-blue-600 hover:underline">
-            Voir tout
-          </Link>
-        </div>
-        {recentTransfers.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucun transfert enregistré pour le moment.</p>
-        ) : (
-          <ul className="space-y-2">
-            {recentTransfers.map((t) => (
-              <li key={t.id} className="flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  {t.product.name}{" "}
-                  <span className="text-slate-400">
-                    — {t.warehouse.name} → {(t.relatedWarehouseId && warehouseNames.get(t.relatedWarehouseId)) || "—"}
+        {pendingSales.length > 0 && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900">Ventes en attente de caisse</h3>
+              <Link href="/caisse-ventes" className="text-sm text-blue-600 hover:underline">
+                Aller à la caisse
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {pendingSales.map((s) => (
+                <li key={s.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700">
+                    {s.customer?.name || "Client comptant"}{" "}
+                    <span className="text-slate-400">— {s.number} (saisie le {formatDate(s.date)})</span>
                   </span>
-                </span>
-                <Badge tone="info">{t.quantity}</Badge>
-              </li>
-            ))}
-          </ul>
+                  <Badge tone="warning">{formatMoney(s.totalAmount)}</Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
-      </Card>
+
+        {overdueSales.length > 0 && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900">Dettes clients en retard</h3>
+              <Link href="/clients" className="text-sm text-blue-600 hover:underline">
+                Voir les clients
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {overdueSales.map((s) => (
+                <li key={s.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700">
+                    {s.customer?.name || "Client comptant"}{" "}
+                    <span className="text-slate-400">— {s.number} (échéance {formatDate(s.dueDate!)})</span>
+                  </span>
+                  <Badge tone="danger">{formatMoney(s.totalAmount - s.paidAmount)}</Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </DashboardModule>
+
+      <DashboardModule title="Gestion du stock" icon={Boxes}>
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-900">Alertes stock bas</h3>
+            <Link href="/stock" className="text-sm text-blue-600 hover:underline">
+              Voir tout
+            </Link>
+          </div>
+          {lowStock.length === 0 ? (
+            <p className="text-sm text-slate-500">Aucune alerte pour le moment.</p>
+          ) : (
+            <ul className="space-y-2">
+              {lowStock.slice(0, 8).map((p) => {
+                const qty = p.stocks.reduce((s, st) => s + st.quantity, 0);
+                return (
+                  <li key={p.id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{p.name}</span>
+                    <Badge tone="danger">{qty} restant(s)</Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+
+        {pendingDeliveries.length > 0 && (
+          <Card className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900">Livraisons en attente</h3>
+              <Link href="/livraisons" className="text-sm text-blue-600 hover:underline">
+                Voir les livraisons
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {pendingDeliveries.map((p) => (
+                <li key={p.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700">
+                    {p.supplier.name} <span className="text-slate-400">— {p.number} (commandée le {formatDate(p.date)})</span>
+                  </span>
+                  <Badge tone="warning">{formatMoney(p.totalAmount)}</Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-900">Derniers transferts de stock</h3>
+            <Link href="/transferts" className="text-sm text-blue-600 hover:underline">
+              Voir tout
+            </Link>
+          </div>
+          {recentTransfers.length === 0 ? (
+            <p className="text-sm text-slate-500">Aucun transfert enregistré pour le moment.</p>
+          ) : (
+            <ul className="space-y-2">
+              {recentTransfers.map((t) => (
+                <li key={t.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700">
+                    {t.product.name}{" "}
+                    <span className="text-slate-400">
+                      — {t.warehouse.name} → {(t.relatedWarehouseId && warehouseNames.get(t.relatedWarehouseId)) || "—"}
+                    </span>
+                  </span>
+                  <Badge tone="info">{t.quantity}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </DashboardModule>
+
+      <DashboardModule title="Gestion des finances" icon={Wallet}>
+        <div className="grid grid-cols-2 gap-4">
+          <StatCard
+            label="Dettes fournisseurs"
+            value={formatMoney(suppliersDebt._sum.balance || 0)}
+            tone="warning"
+          />
+          <StatCard
+            label="Dépenses (mois)"
+            value={formatMoney(expensesMonth._sum.amount || 0)}
+          />
+        </div>
+      </DashboardModule>
+
+      <DashboardModule title="Bilan du mois" icon={BarChart3} last>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard label="Chiffre d'affaires (mois)" value={formatMoney(revenueMonth)} />
+          <StatCard
+            label="Bénéfice estimé (mois)"
+            value={formatMoney(profitMonth)}
+            tone={profitMonth >= 0 ? "success" : "danger"}
+          />
+          <StatCard
+            label="Marge (mois)"
+            value={revenueMonth > 0 ? `${Math.round((profitMonth / revenueMonth) * 100)}%` : "—"}
+            tone={profitMonth >= 0 ? "success" : "danger"}
+          />
+        </div>
+      </DashboardModule>
     </div>
+  );
+}
+
+function DashboardModule({
+  title,
+  icon: Icon,
+  children,
+  last = false,
+}: {
+  title: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <section className={last ? "" : "mb-8"}>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon size={16} className="text-blue-600" />
+        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{title}</h2>
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }
