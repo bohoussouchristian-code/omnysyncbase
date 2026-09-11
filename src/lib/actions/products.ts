@@ -105,7 +105,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
 export async function updateProduct(_prev: unknown, formData: FormData) {
   const check = await requireManager();
   if ("error" in check) return { error: check.error };
-  const { companyId } = check;
+  const { user, companyId } = check;
 
   const id = String(formData.get("id") || "");
   const name = String(formData.get("name") || "").trim();
@@ -126,13 +126,21 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
   const packPurchasePrice =
     packPurchasePriceRaw && String(packPurchasePriceRaw) !== "" ? Number(packPurchasePriceRaw) : null;
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
+  const stockWarehouseId = String(formData.get("warehouseId") || "");
+  const addQty = Number(formData.get("addQty") || 0);
 
   if (!id || !name) return { error: "Données invalides." };
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
+  if (addQty > 0 && !stockWarehouseId) return { error: "Sélectionnez un dépôt pour l'ajout de stock." };
 
   const existing = await prisma.product.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Produit introuvable." };
+
+  if (addQty > 0) {
+    const warehouse = await prisma.warehouse.findFirst({ where: { id: stockWarehouseId, companyId } });
+    if (!warehouse) return { error: "Dépôt introuvable." };
+  }
 
   try {
     await prisma.product.update({
@@ -153,6 +161,34 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
         packSalePrice: packUnitId ? packSalePrice : null,
       },
     });
+
+    // L'entrée de stock est désormais intégrée à la fiche produit plutôt qu'une
+    // action séparée sur la page Stock Général.
+    if (addQty > 0) {
+      const stock = await prisma.stock.findUnique({
+        where: { productId_warehouseId: { productId: id, warehouseId: stockWarehouseId } },
+      });
+      if (stock) {
+        await prisma.stock.update({ where: { id: stock.id }, data: { quantity: { increment: addQty } } });
+      } else {
+        await prisma.stock.create({
+          data: { productId: id, warehouseId: stockWarehouseId, quantity: addQty, companyId },
+        });
+      }
+      await prisma.stockMovement.create({
+        data: {
+          productId: id,
+          warehouseId: stockWarehouseId,
+          type: "ENTREE",
+          quantity: addQty,
+          reason: "Ajout depuis Configuration des produits",
+          userId: user.id,
+          companyId,
+        },
+      });
+      revalidatePath("/stock");
+    }
+
     revalidatePath("/produits");
     return { success: true };
   } catch {

@@ -25,6 +25,7 @@ import {
   Menu,
   X,
   Sparkles,
+  CupSoda,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -48,7 +49,15 @@ const NAV = [
   { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog, roles: ["ADMIN"] },
 ] as const;
 
-export function Sidebar({ userName, userRole }: { userName: string; userRole: Role }) {
+export function Sidebar({
+  userName,
+  userRole,
+  companyName,
+}: {
+  userName: string;
+  userRole: Role;
+  companyName?: string | null;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -57,10 +66,20 @@ export function Sidebar({ userName, userRole }: { userName: string; userRole: Ro
   const content = (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 h-16 border-b border-slate-800">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-wide">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-wide">
           OSB
         </div>
-        <span className="font-semibold text-white">OSB</span>
+        {companyName ? (
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-white">
+              <CupSoda size={14} className="shrink-0 text-blue-400" />
+              <span className="font-semibold truncate">{companyName}</span>
+            </div>
+            <p className="text-[10px] text-slate-400 leading-none">Gestion de dépôt de boissons</p>
+          </div>
+        ) : (
+          <span className="font-semibold text-white">OSB</span>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
@@ -109,7 +128,7 @@ export function Sidebar({ userName, userRole }: { userName: string; userRole: Ro
         <button onClick={() => setOpen(true)} className="text-white p-2">
           <Menu size={22} />
         </button>
-        <span className="text-white font-semibold ml-2">OSB</span>
+        <span className="text-white font-semibold ml-2 truncate">{companyName || "OSB"}</span>
       </div>
 
       <aside className="hidden lg:block w-64 bg-slate-900 shrink-0">{content}</aside>

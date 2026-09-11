@@ -15,7 +15,7 @@ import {
 } from "@/components/ui";
 import { toCSV } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
-import { ArrowDownCircle, ArrowUpCircle, SlidersHorizontal, Search } from "lucide-react";
+import { SlidersHorizontal, Search } from "lucide-react";
 
 type Product = {
   id: string;
@@ -35,7 +35,7 @@ export function StockClient({
 }) {
   const [warehouseId, setWarehouseId] = useState<string>("ALL");
   const [query, setQuery] = useState("");
-  const [modal, setModal] = useState<"ENTREE" | "SORTIE" | "AJUSTEMENT" | null>(null);
+  const [showAdjust, setShowAdjust] = useState(false);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,28 +68,14 @@ export function StockClient({
     <div>
       <PageHeader
         title="Stock Général"
-        subtitle="Niveaux de stock par dépôt — historique des mouvements dans Rapports"
+        subtitle="Niveaux de stock par dépôt — l'entrée se fait depuis Configuration des produits"
         action={
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setModal("ENTREE")}
-              className="flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-3 py-2 text-sm font-medium hover:bg-emerald-700"
-            >
-              <ArrowDownCircle size={16} /> Entrée
-            </button>
-            <button
-              onClick={() => setModal("SORTIE")}
-              className="flex items-center gap-2 rounded-lg bg-red-600 text-white px-3 py-2 text-sm font-medium hover:bg-red-700"
-            >
-              <ArrowUpCircle size={16} /> Sortie
-            </button>
-            <button
-              onClick={() => setModal("AJUSTEMENT")}
-              className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              <SlidersHorizontal size={16} /> Ajuster
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAdjust(true)}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <SlidersHorizontal size={16} /> Ajuster
+          </button>
         }
       />
 
@@ -159,26 +145,18 @@ export function StockClient({
         </div>
       </Card>
 
-      <Modal
-        open={modal === "ENTREE" || modal === "SORTIE" || modal === "AJUSTEMENT"}
-        onClose={() => setModal(null)}
-        title={
-          modal === "ENTREE" ? "Entrée de stock" : modal === "SORTIE" ? "Sortie de stock" : "Ajustement de stock"
-        }
-      >
-        {modal && <AdjustForm type={modal} products={products} warehouses={warehouses} onDone={() => setModal(null)} />}
+      <Modal open={showAdjust} onClose={() => setShowAdjust(false)} title="Ajustement de stock">
+        <AdjustForm products={products} warehouses={warehouses} onDone={() => setShowAdjust(false)} />
       </Modal>
     </div>
   );
 }
 
 function AdjustForm({
-  type,
   products,
   warehouses,
   onDone,
 }: {
-  type: "ENTREE" | "SORTIE" | "AJUSTEMENT";
   products: Product[];
   warehouses: Warehouse[];
   onDone: () => void;
@@ -192,7 +170,7 @@ function AdjustForm({
   return (
     <form action={formAction} className="space-y-4">
       <FormError error={state?.error} />
-      <input type="hidden" name="type" value={type} />
+      <input type="hidden" name="type" value="AJUSTEMENT" />
 
       <div>
         <Label>Produit</Label>
@@ -217,7 +195,7 @@ function AdjustForm({
       </div>
 
       <div>
-        <Label>{type === "AJUSTEMENT" ? "Nouvelle quantité" : "Quantité"}</Label>
+        <Label>Nouvelle quantité</Label>
         <Input type="number" name="quantity" min={0} step="1" required />
       </div>
 
