@@ -44,7 +44,6 @@ const NAV_GROUPS: readonly NavGroup[] = [
     icon: ShoppingCart,
     items: [
       { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
-      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
       { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
       { href: "/clients", label: "Clients", icon: Users, roles: null },
     ],
@@ -72,8 +71,9 @@ const NAV_GROUPS: readonly NavGroup[] = [
     label: "Gestion financière",
     icon: Wallet,
     items: [
-      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
+      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
       { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
+      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
       { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
     ],
   },
