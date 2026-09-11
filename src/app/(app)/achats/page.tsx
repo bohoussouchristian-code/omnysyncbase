@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { PurchasesClient } from "@/components/purchases/PurchasesClient";
+import { PurchaseOrdersClient } from "@/components/purchases/PurchaseOrdersClient";
 
 export default async function AchatsPage() {
   const user = await getCurrentUser();
@@ -30,7 +30,7 @@ export default async function AchatsPage() {
   ]);
 
   return (
-    <PurchasesClient
+    <PurchaseOrdersClient
       purchases={purchases}
       products={products}
       suppliers={suppliers}

@@ -11,6 +11,7 @@ import {
   Boxes,
   ShoppingCart,
   Truck,
+  ClipboardList,
   Users,
   Building2,
   Wallet,
@@ -30,7 +31,8 @@ const NAV = [
   { href: "/produits", label: "Produits", icon: Package, roles: null },
   { href: "/prestations", label: "Prestations", icon: Sparkles, roles: null },
   { href: "/stock", label: "Stock", icon: Boxes, roles: null },
-  { href: "/achats", label: "Achats", icon: Truck, roles: null },
+  { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
+  { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
   { href: "/clients", label: "Clients", icon: Users, roles: null },
   { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
   { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
@@ -52,7 +54,7 @@ export function Sidebar({ userName, userRole }: { userName: string; userRole: Ro
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-wide">
           OSB
         </div>
-        <span className="font-semibold text-white">OmnySyncBase</span>
+        <span className="font-semibold text-white">OSB</span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
@@ -101,7 +103,7 @@ export function Sidebar({ userName, userRole }: { userName: string; userRole: Ro
         <button onClick={() => setOpen(true)} className="text-white p-2">
           <Menu size={22} />
         </button>
-        <span className="text-white font-semibold ml-2">OmnySyncBase</span>
+        <span className="text-white font-semibold ml-2">OSB</span>
       </div>
 
       <aside className="hidden lg:block w-64 bg-slate-900 shrink-0">{content}</aside>

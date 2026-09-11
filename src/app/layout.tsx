@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OmnySyncBase — Le tout-en-un",
+  title: "OSB — Le tout-en-un",
   description: "Logiciel de gestion de stock, ventes et caisse",
 };
 

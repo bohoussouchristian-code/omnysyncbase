@@ -24,6 +24,7 @@ export default async function DashboardPage() {
     recentSales,
     warehousesCount,
     overdueSales,
+    pendingDeliveries,
   ] = await Promise.all([
     prisma.sale.aggregate({
       where: { companyId, date: { gte: startOfDay }, status: { not: "ANNULEE" } },
@@ -56,6 +57,12 @@ export default async function DashboardPage() {
       orderBy: { dueDate: "asc" },
       take: 8,
       include: { customer: true },
+    }),
+    prisma.purchase.findMany({
+      where: { companyId, status: "EN_ATTENTE" },
+      orderBy: { date: "asc" },
+      take: 8,
+      include: { supplier: true },
     }),
   ]);
 
@@ -192,6 +199,27 @@ export default async function DashboardPage() {
                   <span className="text-slate-400">— {s.number} (échéance {formatDate(s.dueDate!)})</span>
                 </span>
                 <Badge tone="danger">{formatMoney(s.totalAmount - s.paidAmount)}</Badge>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {pendingDeliveries.length > 0 && (
+        <Card className="p-5 mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-slate-900">Livraisons en attente</h2>
+            <Link href="/livraisons" className="text-sm text-blue-600 hover:underline">
+              Voir les livraisons
+            </Link>
+          </div>
+          <ul className="space-y-2">
+            {pendingDeliveries.map((p) => (
+              <li key={p.id} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700">
+                  {p.supplier.name} <span className="text-slate-400">— {p.number} (commandée le {formatDate(p.date)})</span>
+                </span>
+                <Badge tone="warning">{formatMoney(p.totalAmount)}</Badge>
               </li>
             ))}
           </ul>

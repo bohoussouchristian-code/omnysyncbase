@@ -15,7 +15,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white text-xs font-bold tracking-wide">
             OSB
           </div>
-          <h1 className="text-2xl font-semibold text-slate-900">OmnySyncBase</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">OSB</h1>
           <p className="text-sm text-slate-500 mt-1">
             Le tout-en-un pour gérer votre entreprise
           </p>

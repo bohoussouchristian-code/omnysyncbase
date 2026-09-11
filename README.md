@@ -1,4 +1,4 @@
-# OmnySyncBase (OSB) — Le tout-en-un
+# OSB — Le tout-en-un
 
 Logiciel de gestion d'entreprise : stock, ventes (caisse), achats, clients/fournisseurs (avec crédit), dépenses, caisse et rapports. Adapté aux entrepôts de boissons, quincailleries et commerces similaires, avec support multi-dépôts/boutiques.
 
