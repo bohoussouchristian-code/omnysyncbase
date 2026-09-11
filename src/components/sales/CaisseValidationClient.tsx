@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { validateSale, cancelSale } from "@/lib/actions/sales";
-import { Card, Modal, PageHeader, Select, Input, Label } from "@/components/ui";
+import { openCashSession, closeCashSession } from "@/lib/actions/cash";
+import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
-import { Eye, Wallet, Ban, Printer, Search } from "lucide-react";
+import { Eye, Wallet, Ban, Printer, Search, Lock, Unlock } from "lucide-react";
 import type { PaymentMethod } from "@prisma/client";
 
 type SaleItem = {
@@ -29,11 +30,20 @@ type SaleRow = {
   status: string;
   customerId: string | null;
   customer: { name: string; creditBalance: number } | null;
+  warehouseId: string;
   warehouse: { name: string };
   user: { name: string } | null;
   validatedAt: Date | null;
   validatedBy: { name: string } | null;
   items: SaleItem[];
+};
+type Warehouse = { id: string; name: string };
+type OpenSession = {
+  id: string;
+  warehouseId: string;
+  openingAmount: number;
+  openedAt: Date;
+  warehouse: { name: string };
 };
 type ReceiptData = {
   number: string;
@@ -52,11 +62,15 @@ export function CaisseValidationClient({
   validated,
   from,
   to,
+  warehouses,
+  openSessions,
 }: {
   pending: SaleRow[];
   validated: SaleRow[];
   from: string;
   to: string;
+  warehouses: Warehouse[];
+  openSessions: OpenSession[];
 }) {
   const [viewing, setViewing] = useState<SaleRow | null>(null);
   const [validating, setValidating] = useState<SaleRow | null>(null);
@@ -64,6 +78,8 @@ export function CaisseValidationClient({
   const [query, setQuery] = useState("");
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const openWarehouseIds = useMemo(() => new Set(openSessions.map((s) => s.warehouseId)), [openSessions]);
 
   // Un seul ticket, en attente ou déjà validé : pas deux listes séparées,
   // le statut de chaque ligne suffit à distinguer.
@@ -91,6 +107,8 @@ export function CaisseValidationClient({
   return (
     <div>
       <PageHeader title="Caisse" subtitle="Validez le paiement des ventes saisies — la caisse ne fait qu'encaisser" />
+
+      <CashSessionBar warehouses={warehouses} openSessions={openSessions} />
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">
@@ -160,14 +178,23 @@ export function CaisseValidationClient({
                             >
                               <Ban size={16} />
                             </button>
-                            <button
-                              onClick={() => setValidating(s)}
-                              disabled={isPending}
-                              title="Encaisser"
-                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
-                            >
-                              <Wallet size={14} /> Encaisser
-                            </button>
+                            {openWarehouseIds.has(s.warehouseId) ? (
+                              <button
+                                onClick={() => setValidating(s)}
+                                disabled={isPending}
+                                title="Encaisser"
+                                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
+                              >
+                                <Wallet size={14} /> Encaisser
+                              </button>
+                            ) : (
+                              <span
+                                title={`Ouvrez votre caisse pour ${s.warehouse.name} avant d'encaisser`}
+                                className="flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed"
+                              >
+                                <Lock size={14} /> Caisse fermée
+                              </span>
+                            )}
                           </>
                         )}
                       </div>
@@ -347,6 +374,143 @@ export function CaisseValidationClient({
         </div>
       )}
     </div>
+  );
+}
+
+function CashSessionBar({ warehouses, openSessions }: { warehouses: Warehouse[]; openSessions: OpenSession[] }) {
+  const [opening, setOpening] = useState(false);
+  const [closing, setClosing] = useState<OpenSession | null>(null);
+  const availableWarehouses = warehouses.filter((w) => !openSessions.some((s) => s.warehouseId === w.id));
+
+  return (
+    <Card className="p-4 mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-slate-700 mr-1">Votre caisse :</span>
+        {openSessions.length === 0 && (
+          <span className="text-sm text-slate-400">Aucune caisse ouverte — encaissement bloqué</span>
+        )}
+        {openSessions.map((s) => (
+          <div
+            key={s.id}
+            className="flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 pl-3 pr-1.5 py-1 text-xs font-medium text-emerald-700"
+          >
+            <Unlock size={12} />
+            {s.warehouse.name}
+            <span className="font-normal text-emerald-500">depuis {formatDateTime(s.openedAt)}</span>
+            <button
+              onClick={() => setClosing(s)}
+              className="ml-1 rounded-full bg-white/70 hover:bg-white text-emerald-700 px-2 py-0.5 text-[11px] font-semibold"
+            >
+              Fermer
+            </button>
+          </div>
+        ))}
+        {availableWarehouses.length > 0 && (
+          <button
+            onClick={() => setOpening(true)}
+            className="flex items-center gap-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1 text-xs font-medium hover:bg-blue-100"
+          >
+            <Unlock size={12} /> Ouvrir une caisse
+          </button>
+        )}
+      </div>
+
+      <Modal open={opening} onClose={() => setOpening(false)} title="Ouvrir une caisse">
+        <OpenSessionForm warehouses={availableWarehouses} onDone={() => setOpening(false)} />
+      </Modal>
+
+      <Modal open={!!closing} onClose={() => setClosing(null)} title={`Fermer la caisse — ${closing?.warehouse.name || ""}`}>
+        {closing && <CloseSessionForm session={closing} onDone={() => setClosing(null)} />}
+      </Modal>
+    </Card>
+  );
+}
+
+function OpenSessionForm({ warehouses, onDone }: { warehouses: Warehouse[]; onDone: () => void }) {
+  const [state, formAction] = useActionState(openCashSession, undefined as { error?: string; success?: boolean } | undefined);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success) {
+      onDone();
+      router.refresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.success]);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <div>
+        <Label>Dépôt / Boutique</Label>
+        <Select name="warehouseId" required>
+          {warehouses.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label>Fond de caisse initial</Label>
+        <Input type="number" name="openingAmount" min={0} step="1" defaultValue={0} required />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Ouvrir la caisse</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+function CloseSessionForm({ session, onDone }: { session: OpenSession; onDone: () => void }) {
+  const [state, formAction] = useActionState(closeCashSession, undefined as
+    | { error?: string; success?: boolean; expectedAmount?: number }
+    | undefined);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success) router.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.success]);
+
+  if (state?.success) {
+    return (
+      <div className="space-y-4">
+        <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+          Session fermée. Montant attendu : {formatMoney(state.expectedAmount || 0)}
+        </div>
+        <div className="flex justify-end">
+          <button onClick={onDone} className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
+            Fermer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <input type="hidden" name="id" value={session.id} />
+      <p className="text-sm text-slate-500">Fond initial : {formatMoney(session.openingAmount)}</p>
+      <div>
+        <Label>Montant compté en caisse</Label>
+        <Input type="number" name="closingAmount" min={0} step="1" required />
+      </div>
+      <div>
+        <Label>Remarques (optionnel)</Label>
+        <Input name="notes" />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Fermer la caisse</SubmitButton>
+      </div>
+    </form>
   );
 }
 

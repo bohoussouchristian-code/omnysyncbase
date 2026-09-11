@@ -26,7 +26,7 @@ export default async function CaisseVentesPage({
 
   const itemsInclude = { include: { product: true, service: true } } as const;
 
-  const [pending, validated] = await Promise.all([
+  const [pending, validated, warehouses, openSessions] = await Promise.all([
     // Une vente en attente reste visible quelle que soit la période : c'est
     // une file d'action, pas un historique à filtrer par date.
     prisma.sale.findMany({
@@ -52,7 +52,21 @@ export default async function CaisseVentesPage({
         items: itemsInclude,
       },
     }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.cashSession.findMany({
+      where: { companyId, userId: user.id, closedAt: null },
+      include: { warehouse: true },
+    }),
   ]);
 
-  return <CaisseValidationClient pending={pending} validated={validated} from={fromStr} to={toStr} />;
+  return (
+    <CaisseValidationClient
+      pending={pending}
+      validated={validated}
+      from={fromStr}
+      to={toStr}
+      warehouses={warehouses}
+      openSessions={openSessions}
+    />
+  );
 }

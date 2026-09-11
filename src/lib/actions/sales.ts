@@ -112,6 +112,13 @@ export async function validateSale(input: {
   if (!sale) return { error: "Vente introuvable." };
   if (sale.status !== "EN_ATTENTE") return { error: "Cette vente a déjà été traitée." };
 
+  // Un agent ne peut encaisser que s'il a ouvert sa caisse pour ce dépôt :
+  // c'est cette session qui absorbe le paiement et qu'il devra justifier à la fermeture.
+  const openSession = await prisma.cashSession.findFirst({
+    where: { companyId, warehouseId: sale.warehouseId, userId: user.id, closedAt: null },
+  });
+  if (!openSession) return { error: "Ouvrez d'abord votre caisse pour ce dépôt avant d'encaisser." };
+
   const paid = Math.max(0, amountPaid);
   const total = sale.totalAmount;
   if (paid < total && !sale.customerId)
