@@ -34,14 +34,14 @@ import { useState } from "react";
 
 type NavItem = { href: string; label: string; icon: LucideIcon; roles: readonly Role[] | null };
 type NavGroup = { label: string; icon: LucideIcon; items: readonly NavItem[] };
+type NavEntry = ({ kind: "link" } & NavItem) | ({ kind: "group" } & NavGroup);
 
-const STANDALONE: readonly NavItem[] = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
-  { href: "/bilan", label: "Bilan & état financier", icon: Scale, roles: null },
-];
-
-const NAV_GROUPS: readonly NavGroup[] = [
+// Ordre d'affichage du menu : liens seuls et groupes dépliables mélangés,
+// dans l'ordre exact souhaité (Bilan & état financier juste avant Administration).
+const NAV: readonly NavEntry[] = [
+  { kind: "link", href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
   {
+    kind: "group",
     label: "Gestion des ventes",
     icon: ShoppingCart,
     items: [
@@ -51,6 +51,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
+    kind: "group",
     label: "Gestion financière",
     icon: Wallet,
     items: [
@@ -61,6 +62,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
+    kind: "group",
     label: "Gestion appro & fournisseurs",
     icon: ClipboardList,
     items: [
@@ -70,6 +72,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
+    kind: "group",
     label: "Gestion du stock",
     icon: Boxes,
     items: [
@@ -79,7 +82,9 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
     ],
   },
+  { kind: "link", href: "/bilan", label: "Bilan & état financier", icon: Scale, roles: null },
   {
+    kind: "group",
     label: "Administration",
     icon: UserCog,
     items: [
@@ -101,12 +106,13 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const visibleGroups = NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => !item.roles || item.roles.includes(userRole)),
-  })).filter((group) => group.items.length > 0);
+  const visibleEntries = NAV.map((entry) =>
+    entry.kind === "group"
+      ? { ...entry, items: entry.items.filter((item) => !item.roles || item.roles.includes(userRole)) }
+      : entry
+  ).filter((entry) => entry.kind === "link" || entry.items.length > 0);
 
-  const allItems = [...STANDALONE, ...visibleGroups.flatMap((g) => g.items)];
+  const allItems = visibleEntries.flatMap((entry) => (entry.kind === "link" ? [entry] : entry.items));
 
   // Le lien actif est celui dont le href correspond le plus précisément au
   // chemin courant (le plus long préfixe), pour qu'un sous-chemin ayant sa
@@ -115,7 +121,9 @@ export function Sidebar({
     .filter((item) => pathname === item.href || pathname.startsWith(item.href + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
-  const activeGroupLabel = visibleGroups.find((g) => g.items.some((i) => i.href === activeHref))?.label;
+  const activeGroupLabel = visibleEntries.find(
+    (entry) => entry.kind === "group" && entry.items.some((i) => i.href === activeHref)
+  )?.label;
 
   const [openGroup, setOpenGroup] = useState<string | null>(activeGroupLabel ?? null);
   // Quand la navigation change de groupe actif, on ré-ouvre ce groupe (ajustement
@@ -146,32 +154,32 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {STANDALONE.map((item) => {
-          const Icon = item.icon;
-          const active = item.href === activeHref;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                active ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              <Icon size={18} />
-              {item.label}
-            </Link>
-          );
-        })}
+        {visibleEntries.map((entry) => {
+          if (entry.kind === "link") {
+            const Icon = entry.icon;
+            const active = entry.href === activeHref;
+            return (
+              <Link
+                key={entry.href}
+                href={entry.href}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  active ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Icon size={18} />
+                {entry.label}
+              </Link>
+            );
+          }
 
-        {visibleGroups.map((group) => {
-          const GroupIcon = group.icon;
-          const isOpen = openGroup === group.label;
-          const groupHasActive = group.items.some((i) => i.href === activeHref);
+          const GroupIcon = entry.icon;
+          const isOpen = openGroup === entry.label;
+          const groupHasActive = entry.items.some((i) => i.href === activeHref);
           return (
-            <div key={group.label} className="pt-1">
+            <div key={entry.label} className="pt-1">
               <button
-                onClick={() => setOpenGroup(isOpen ? null : group.label)}
+                onClick={() => setOpenGroup(isOpen ? null : entry.label)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   groupHasActive && !isOpen
                     ? "text-white"
@@ -179,7 +187,7 @@ export function Sidebar({
                 }`}
               >
                 <GroupIcon size={18} />
-                <span className="flex-1 text-left">{group.label}</span>
+                <span className="flex-1 text-left">{entry.label}</span>
                 <ChevronDown
                   size={14}
                   className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -187,7 +195,7 @@ export function Sidebar({
               </button>
               {isOpen && (
                 <div className="mt-0.5 ml-3 pl-3 border-l border-slate-800 space-y-0.5">
-                  {group.items.map((item) => {
+                  {entry.items.map((item) => {
                     const Icon = item.icon;
                     const active = item.href === activeHref;
                     return (
