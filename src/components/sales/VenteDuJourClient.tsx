@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, type ComponentProps } from "react";
-import Link from "next/link";
 import { Plus, X } from "lucide-react";
 import { PosClient } from "@/components/sales/PosClient";
 import { RecentSalesTable } from "@/components/sales/RecentSalesTable";
@@ -34,12 +33,6 @@ export function VenteDuJourClient({
           </p>
         </div>
         <div className="flex items-center gap-4 text-sm">
-          <Link href="/caisse-ventes" className="text-blue-600 hover:underline">
-            Caisse →
-          </Link>
-          <Link href="/ventes/historique" className="text-blue-600 hover:underline">
-            Historique des ventes →
-          </Link>
           <button
             onClick={() => setFormOpen(true)}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-700"
