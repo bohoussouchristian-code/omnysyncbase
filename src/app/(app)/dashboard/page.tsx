@@ -130,7 +130,7 @@ export default async function DashboardPage() {
       />
 
       <DashboardModule title="Gestion des achats et ventes" icon={ShoppingCart}>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <StatCard
             label="Ventes aujourd'hui"
             value={formatMoney(salesToday._sum.totalAmount || 0)}
@@ -139,11 +139,6 @@ export default async function DashboardPage() {
           <StatCard
             label="Dettes clients"
             value={formatMoney(customersDebt._sum.creditBalance || 0)}
-            tone="warning"
-          />
-          <StatCard
-            label="Dettes fournisseurs"
-            value={formatMoney(suppliersDebt._sum.balance || 0)}
             tone="warning"
           />
         </div>
@@ -164,28 +159,6 @@ export default async function DashboardPage() {
                     <span className="text-slate-400">— {s.number} (saisie le {formatDate(s.date)})</span>
                   </span>
                   <Badge tone="warning">{formatMoney(s.totalAmount)}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
-        {overdueSales.length > 0 && (
-          <Card className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900">Dettes clients en retard</h3>
-              <Link href="/clients" className="text-sm text-blue-600 hover:underline">
-                Voir les clients
-              </Link>
-            </div>
-            <ul className="space-y-2">
-              {overdueSales.map((s) => (
-                <li key={s.id} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">
-                    {s.customer?.name || "Client comptant"}{" "}
-                    <span className="text-slate-400">— {s.number} (échéance {formatDate(s.dueDate!)})</span>
-                  </span>
-                  <Badge tone="danger">{formatMoney(s.totalAmount - s.paidAmount)}</Badge>
                 </li>
               ))}
             </ul>
@@ -268,6 +241,43 @@ export default async function DashboardPage() {
             tone={profitMonth >= 0 ? "success" : "danger"}
           />
         </div>
+
+        <Card className="p-5">
+          <h3 className="font-semibold text-slate-900 mb-3">Dettes et retards</h3>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <StatCard
+              label="Dettes fournisseurs"
+              value={formatMoney(suppliersDebt._sum.balance || 0)}
+              tone="warning"
+            />
+            <StatCard
+              label="Dettes clients en retard"
+              value={formatMoney(overdueSales.reduce((s, sale) => s + (sale.totalAmount - sale.paidAmount), 0))}
+              tone="danger"
+            />
+          </div>
+          {overdueSales.length > 0 && (
+            <div className="border-t border-slate-100 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Clients en retard</p>
+                <Link href="/clients" className="text-sm text-blue-600 hover:underline">
+                  Voir les clients
+                </Link>
+              </div>
+              <ul className="space-y-2">
+                {overdueSales.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">
+                      {s.customer?.name || "Client comptant"}{" "}
+                      <span className="text-slate-400">— {s.number} (échéance {formatDate(s.dueDate!)})</span>
+                    </span>
+                    <Badge tone="danger">{formatMoney(s.totalAmount - s.paidAmount)}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
       </DashboardModule>
     </div>
   );
