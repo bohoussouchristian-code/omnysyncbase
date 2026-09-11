@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { Card, StatCard, Badge, PageHeader } from "@/components/ui";
+import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import Link from "next/link";
 
 export default async function DashboardPage() {
@@ -148,17 +149,7 @@ export default async function DashboardPage() {
                       <td className="py-2 text-slate-600">{s.customer?.name || "Client comptant"}</td>
                       <td className="py-2 text-slate-600">{s.warehouse.name}</td>
                       <td className="py-2">
-                        <Badge
-                          tone={
-                            s.status === "PAYEE"
-                              ? "success"
-                              : s.status === "ANNULEE"
-                              ? "danger"
-                              : "warning"
-                          }
-                        >
-                          {s.status}
-                        </Badge>
+                        <SaleStatusBadge status={s.status} />
                       </td>
                       <td className="py-2 text-right font-medium">{formatMoney(s.totalAmount)}</td>
                     </tr>

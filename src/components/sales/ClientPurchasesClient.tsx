@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Card, Badge, Modal, PageHeader, Select } from "@/components/ui";
+import { Card, Modal, PageHeader, Select } from "@/components/ui";
+import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime, toCSV } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { Eye, Search } from "lucide-react";
@@ -112,9 +113,7 @@ export function ClientPurchasesClient({ sales, customers }: { sales: Sale[]; cus
                   <td className="px-4 py-3 text-slate-600">{s.customer?.name}</td>
                   <td className="px-4 py-3 text-slate-600">{s.warehouse.name}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={s.status === "PAYEE" ? "success" : s.status === "ANNULEE" ? "danger" : "warning"}>
-                      {s.status}
-                    </Badge>
+                    <SaleStatusBadge status={s.status} />
                   </td>
                   <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
                   <td className="px-4 py-3 text-right text-slate-600">{formatMoney(s.paidAmount)}</td>
