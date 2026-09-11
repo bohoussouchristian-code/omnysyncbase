@@ -13,8 +13,7 @@ import {
   PageHeader,
   Card,
 } from "@/components/ui";
-import { formatDateTime, toCSV } from "@/lib/utils";
-import { MOVEMENT_TYPE_LABELS } from "@/lib/constants";
+import { toCSV } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { ArrowDownCircle, ArrowUpCircle, SlidersHorizontal, Search } from "lucide-react";
 
@@ -26,38 +25,13 @@ type Product = {
   stocks: { warehouseId: string; quantity: number }[];
 };
 type Warehouse = { id: string; name: string };
-type Movement = {
-  id: string;
-  type: string;
-  quantity: number;
-  reason: string | null;
-  reference: string | null;
-  createdAt: Date;
-  product: { name: string };
-  warehouse: { name: string };
-  user: { name: string } | null;
-};
-
-const TYPE_TONE: Record<string, "success" | "danger" | "warning" | "info" | "default"> = {
-  ENTREE: "success",
-  SORTIE: "danger",
-  TRANSFERT_ENTREE: "info",
-  TRANSFERT_SORTIE: "info",
-  AJUSTEMENT: "warning",
-  VENTE: "danger",
-  ACHAT: "success",
-  RETOUR_VENTE: "success",
-  RETOUR_ACHAT: "danger",
-};
 
 export function StockClient({
   products,
   warehouses,
-  movements,
 }: {
   products: Product[];
   warehouses: Warehouse[];
-  movements: Movement[];
 }) {
   const [warehouseId, setWarehouseId] = useState<string>("ALL");
   const [query, setQuery] = useState("");
@@ -94,7 +68,7 @@ export function StockClient({
     <div>
       <PageHeader
         title="Stock Général"
-        subtitle="Niveaux de stock, mouvements et transferts entre dépôts"
+        subtitle="Niveaux de stock par dépôt — historique des mouvements dans Rapports"
         action={
           <div className="flex flex-wrap gap-2">
             <button
@@ -177,45 +151,6 @@ export function StockClient({
                 <tr>
                   <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
                     Aucun produit trouvé.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="font-semibold text-slate-900 mb-3">Historique des mouvements récents</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-slate-500 border-b border-slate-100">
-                <th className="pb-2 font-medium">Date</th>
-                <th className="pb-2 font-medium">Produit</th>
-                <th className="pb-2 font-medium">Dépôt</th>
-                <th className="pb-2 font-medium">Type</th>
-                <th className="pb-2 font-medium text-right">Quantité</th>
-                <th className="pb-2 font-medium">Utilisateur</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movements.map((m) => (
-                <tr key={m.id} className="border-b border-slate-50 last:border-0">
-                  <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(m.createdAt)}</td>
-                  <td className="py-2 text-slate-700">{m.product.name}</td>
-                  <td className="py-2 text-slate-600">{m.warehouse.name}</td>
-                  <td className="py-2">
-                    <Badge tone={TYPE_TONE[m.type] || "default"}>{MOVEMENT_TYPE_LABELS[m.type as keyof typeof MOVEMENT_TYPE_LABELS] || m.type}</Badge>
-                  </td>
-                  <td className="py-2 text-right font-medium">{m.quantity}</td>
-                  <td className="py-2 text-slate-500">{m.user?.name || "—"}</td>
-                </tr>
-              ))}
-              {movements.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400">
-                    Aucun mouvement enregistré.
                   </td>
                 </tr>
               )}
