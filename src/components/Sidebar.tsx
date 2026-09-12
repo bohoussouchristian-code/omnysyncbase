@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import type { Role } from "@prisma/client";
 import {
   LayoutDashboard,
@@ -18,7 +19,6 @@ import {
   Wallet,
   Landmark,
   BarChart3,
-  UserCog,
   Menu,
   X,
   CupSoda,
@@ -81,15 +81,6 @@ const NAV: readonly NavEntry[] = [
     ],
   },
   { kind: "link", href: "/bilan", label: "Bilan & état financier", icon: Scale, roles: null },
-  {
-    kind: "group",
-    label: "Administration",
-    icon: UserCog,
-    items: [
-      { href: "/entrepots", label: "Dépôts / Boutiques", icon: Building2, roles: ["ADMIN"] },
-      { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog, roles: ["ADMIN"] },
-    ],
-  },
 ] as const;
 
 export function Sidebar({
@@ -220,6 +211,12 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {userRole === "ADMIN" && (
+        <div className="border-t border-slate-800 p-3 flex justify-end">
+          <SettingsMenu theme="dark" dropDirection="up" />
+        </div>
+      )}
     </div>
   );
 
