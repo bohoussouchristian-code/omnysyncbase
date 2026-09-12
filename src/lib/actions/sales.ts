@@ -294,6 +294,20 @@ export async function cancelSale(saleId: string, reason: string) {
     return { success: true };
   }
 
+  // Une fois la session de caisse dans laquelle la vente a été encaissée
+  // clôturée, la caissière a déjà justifié son compte sur ce total : la
+  // vente est figée et ne peut plus être annulée.
+  if (sale.validatedById && sale.validatedAt) {
+    const [coveringSession] = await prisma.cashSession.findMany({
+      where: { companyId, warehouseId: sale.warehouseId, userId: sale.validatedById, openedAt: { lte: sale.validatedAt } },
+      orderBy: { openedAt: "desc" },
+      take: 1,
+    });
+    if (coveringSession?.closedAt) {
+      return { error: "Impossible d'annuler : la caisse a déjà été clôturée pour cette vente." };
+    }
+  }
+
   await prisma.$transaction(async (tx) => {
     // Les lignes de prestation n'ont pas de stock à restituer.
     for (const item of sale.items.filter((i) => i.productId)) {
@@ -333,12 +347,16 @@ export async function cancelSale(saleId: string, reason: string) {
       });
     }
 
-    await tx.sale.update({ where: { id: saleId }, data: { status: "ANNULEE" } });
+    await tx.sale.update({
+      where: { id: saleId },
+      data: { status: "ANNULEE", cancelReason: trimmedReason, cancelledAt: new Date(), cancelledById: user.id },
+    });
   });
 
   revalidatePath("/ventes");
   revalidatePath("/caisse-ventes");
   revalidatePath("/stock");
   revalidatePath("/clients");
+  revalidatePath("/annulations");
   return { success: true };
 }

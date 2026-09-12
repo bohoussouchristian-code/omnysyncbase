@@ -6,7 +6,7 @@ import { cancelSale } from "@/lib/actions/sales";
 import { Card, Modal, PageHeader, Badge } from "@/components/ui";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Search, Ban } from "lucide-react";
+import { Search, Ban, Lock } from "lucide-react";
 
 type ActiveSale = {
   id: string;
@@ -17,6 +17,7 @@ type ActiveSale = {
   customer: { name: string } | null;
   warehouse: { name: string };
   user: { name: string } | null;
+  locked: boolean;
 };
 type CancelledSale = {
   id: string;
@@ -126,13 +127,22 @@ export function AnnulationsClient({
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
                   <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
                   <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => openCancel(s)}
-                      title="Annuler cette facture"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-1.5 text-xs font-medium hover:bg-red-100"
-                    >
-                      <Ban size={14} /> Annuler
-                    </button>
+                    {s.locked ? (
+                      <span
+                        title="Caisse déjà clôturée : cette vente ne peut plus être annulée"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed"
+                      >
+                        <Lock size={14} /> Verrouillée
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => openCancel(s)}
+                        title="Annuler cette facture"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 text-red-700 px-3 py-1.5 text-xs font-medium hover:bg-red-100"
+                      >
+                        <Ban size={14} /> Annuler
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
