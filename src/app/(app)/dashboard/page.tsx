@@ -42,6 +42,7 @@ export default async function DashboardPage() {
       links: [
         { href: "/caisse-ventes", label: "Caisse" },
         { href: "/caisse", label: "État de mes caisses" },
+        ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         { href: "/depenses", label: "Dépenses" },
         ...(canSeeRapports ? [{ href: "/rapports", label: "Rapports" }] : []),
       ],

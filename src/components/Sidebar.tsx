@@ -25,6 +25,7 @@ import {
   Banknote,
   History,
   Scale,
+  Vault,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -55,6 +56,12 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
       { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
+      {
+        href: "/gestion-caisses-depots",
+        label: "Gestion des caisses et dépôts",
+        icon: Vault,
+        roles: ["ADMIN", "GERANT"],
+      },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
       { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
     ],
