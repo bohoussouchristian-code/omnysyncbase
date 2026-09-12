@@ -50,7 +50,7 @@ export async function updateCustomer(_prev: unknown, formData: FormData) {
   const existing = await prisma.customer.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Client introuvable." };
 
-  await prisma.customer.update({ where: { id }, data: { name, phone, address, creditLimit, type } });
+  await prisma.customer.update({ where: { id, companyId }, data: { name, phone, address, creditLimit, type } });
   revalidatePath("/clients");
   return { success: true };
 }
@@ -72,7 +72,7 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
     prisma.payment.create({
       data: { type: "DETTE_CLIENT", customerId, amount, userId: user.id, companyId },
     }),
-    prisma.customer.update({ where: { id: customerId }, data: { creditBalance: { decrement: amount } } }),
+    prisma.customer.update({ where: { id: customerId, companyId }, data: { creditBalance: { decrement: amount } } }),
   ]);
 
   revalidatePath("/clients");
@@ -110,7 +110,7 @@ export async function updateSupplier(_prev: unknown, formData: FormData) {
   const existing = await prisma.supplier.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Fournisseur introuvable." };
 
-  await prisma.supplier.update({ where: { id }, data: { name, phone, address } });
+  await prisma.supplier.update({ where: { id, companyId }, data: { name, phone, address } });
   revalidatePath("/fournisseurs");
   return { success: true };
 }

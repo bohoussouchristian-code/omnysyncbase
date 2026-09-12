@@ -40,7 +40,7 @@ export async function setGeneralWarehouse(id: string) {
 
   await prisma.$transaction([
     prisma.warehouse.updateMany({ where: { companyId, isGeneral: true }, data: { isGeneral: false } }),
-    prisma.warehouse.update({ where: { id }, data: { isGeneral: true } }),
+    prisma.warehouse.update({ where: { id, companyId }, data: { isGeneral: true } }),
   ]);
   revalidatePath("/entrepots");
   return { success: true };

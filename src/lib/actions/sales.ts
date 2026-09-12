@@ -237,7 +237,7 @@ export async function validateSale(input: {
 
     if (sale.customerId) {
       await tx.customer.update({
-        where: { id: sale.customerId },
+        where: { id: sale.customerId, companyId },
         data: {
           ...(paid < total ? { creditBalance: { increment: total - paid } } : {}),
           loyaltyPoints: { increment: sale.pointsEarned - sale.pointsUsed },
@@ -246,7 +246,7 @@ export async function validateSale(input: {
     }
 
     await tx.sale.update({
-      where: { id: saleId },
+      where: { id: saleId, companyId },
       data: {
         status,
         paidAmount: paid,
@@ -285,7 +285,7 @@ export async function cancelSale(saleId: string, reason: string) {
   // le client : il suffit de l'annuler, rien à réverser.
   if (sale.status === "EN_ATTENTE") {
     await prisma.sale.update({
-      where: { id: saleId },
+      where: { id: saleId, companyId },
       data: { status: "ANNULEE", cancelReason: trimmedReason, cancelledAt: new Date(), cancelledById: user.id },
     });
     revalidatePath("/ventes");
@@ -315,7 +315,7 @@ export async function cancelSale(saleId: string, reason: string) {
         where: { productId_warehouseId: { productId: item.productId!, warehouseId: sale.warehouseId } },
       });
       if (stock) {
-        await tx.stock.update({ where: { id: stock.id }, data: { quantity: stock.quantity + item.quantity } });
+        await tx.stock.update({ where: { id: stock.id, companyId }, data: { quantity: stock.quantity + item.quantity } });
       } else {
         await tx.stock.create({
           data: { productId: item.productId!, warehouseId: sale.warehouseId, quantity: item.quantity, companyId },
@@ -336,7 +336,7 @@ export async function cancelSale(saleId: string, reason: string) {
 
     if (sale.customerId) {
       await tx.customer.update({
-        where: { id: sale.customerId },
+        where: { id: sale.customerId, companyId },
         data: {
           ...(sale.totalAmount > sale.paidAmount
             ? { creditBalance: { decrement: sale.totalAmount - sale.paidAmount } }
@@ -348,7 +348,7 @@ export async function cancelSale(saleId: string, reason: string) {
     }
 
     await tx.sale.update({
-      where: { id: saleId },
+      where: { id: saleId, companyId },
       data: { status: "ANNULEE", cancelReason: trimmedReason, cancelledAt: new Date(), cancelledById: user.id },
     });
   });

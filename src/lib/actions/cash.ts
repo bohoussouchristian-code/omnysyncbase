@@ -62,9 +62,11 @@ async function computeExpectedAmount(session: {
 export async function previewCashClosing(sessionId: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
-  const { companyId } = check;
+  const { user, companyId } = check;
 
-  const session = await prisma.cashSession.findFirst({ where: { id: sessionId, companyId } });
+  // Chacun ne peut consulter/fermer que sa propre session : la caisse
+  // représente l'argent physique dont cet agent est responsable.
+  const session = await prisma.cashSession.findFirst({ where: { id: sessionId, companyId, userId: user.id } });
   if (!session) return { error: "Session introuvable." };
   if (session.closedAt) return { error: "Session déjà fermée." };
 
@@ -75,13 +77,14 @@ export async function previewCashClosing(sessionId: string) {
 export async function closeCashSession(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
-  const { companyId } = check;
+  const { user, companyId } = check;
 
   const id = String(formData.get("id") || "");
   const closingAmount = Number(formData.get("closingAmount") || 0);
   const notes = String(formData.get("notes") || "").trim() || null;
 
-  const session = await prisma.cashSession.findFirst({ where: { id, companyId } });
+  // Même règle qu'à l'ouverture : on ne ferme que sa propre session.
+  const session = await prisma.cashSession.findFirst({ where: { id, companyId, userId: user.id } });
   if (!session) return { error: "Session introuvable." };
   if (session.closedAt) return { error: "Session déjà fermée." };
 
@@ -98,7 +101,7 @@ export async function closeCashSession(_prev: unknown, formData: FormData) {
   }
 
   await prisma.cashSession.update({
-    where: { id },
+    where: { id, companyId, userId: user.id },
     data: { closingAmount, expectedAmount, closedAt: new Date(), notes },
   });
 

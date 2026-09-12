@@ -167,7 +167,7 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
 
   try {
     await prisma.product.update({
-      where: { id },
+      where: { id, companyId },
       data: {
         name,
         categoryId,

@@ -7,6 +7,10 @@ import type { Role } from "@prisma/client";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
+// Hash factice pour un compte inexistant : on lui fait subir le même coût
+// bcrypt qu'une vérification réelle, sinon la réponse plus rapide sur un
+// email inconnu permettrait de deviner quels comptes existent (timing attack).
+const DUMMY_HASH = "$2a$10$CwTycUXWue0Thq9StjUM0uJ8Q6r/i6HW9Aq6pTn/oXjxHKWKwRlxK";
 
 export async function login(_prevState: unknown, formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -18,6 +22,7 @@ export async function login(_prevState: unknown, formData: FormData) {
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.active) {
+    await verifyPassword(password, DUMMY_HASH);
     return { error: "Identifiants incorrects." };
   }
 

@@ -7,6 +7,15 @@ import { SESSION_IDLE_MINUTES } from "./constants";
 import type { Role } from "@prisma/client";
 
 const COOKIE_NAME = "session";
+// En production, un secret par défaut connu de tout le monde (visible dans le
+// code source) permettrait à quiconque de forger une session valide pour
+// n'importe quel utilisateur : on refuse de démarrer plutôt que de signer
+// silencieusement des sessions avec un secret public.
+if (!process.env.SESSION_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "SESSION_SECRET manquant : définissez cette variable d'environnement avant de déployer en production."
+  );
+}
 const secretKey = new TextEncoder().encode(
   process.env.SESSION_SECRET || "dev-secret-change-in-production-please-32chars-min"
 );

@@ -57,7 +57,7 @@ export async function updateService(_prev: unknown, formData: FormData) {
   if (!existing) return { error: "Prestation introuvable." };
 
   await prisma.service.update({
-    where: { id },
+    where: { id, companyId },
     data: { name, categoryId, durationMin, price, proPrice },
   });
 

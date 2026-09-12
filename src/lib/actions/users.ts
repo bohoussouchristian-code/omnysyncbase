@@ -40,7 +40,7 @@ export async function toggleUserActive(id: string) {
   const target = await prisma.user.findFirst({ where: { id, companyId } });
   if (!target) return { error: "Utilisateur introuvable." };
 
-  await prisma.user.update({ where: { id }, data: { active: !target.active } });
+  await prisma.user.update({ where: { id, companyId }, data: { active: !target.active } });
   revalidatePath("/utilisateurs");
   return { success: true };
 }
@@ -60,7 +60,7 @@ export async function resetUserPassword(_prev: unknown, formData: FormData) {
   if (!target) return { error: "Utilisateur introuvable." };
 
   const passwordHash = await hashPassword(password);
-  await prisma.user.update({ where: { id }, data: { passwordHash } });
+  await prisma.user.update({ where: { id, companyId }, data: { passwordHash } });
   revalidatePath("/utilisateurs");
   return { success: true };
 }
@@ -78,7 +78,7 @@ export async function updateUserRole(_prev: unknown, formData: FormData) {
   const target = await prisma.user.findFirst({ where: { id, companyId } });
   if (!target) return { error: "Utilisateur introuvable." };
 
-  await prisma.user.update({ where: { id }, data: { role } });
+  await prisma.user.update({ where: { id, companyId }, data: { role } });
   revalidatePath("/utilisateurs");
   return { success: true };
 }
@@ -98,7 +98,7 @@ export async function updateUser(_prev: unknown, formData: FormData) {
   if (!target) return { error: "Utilisateur introuvable." };
 
   try {
-    await prisma.user.update({ where: { id }, data: { name, email } });
+    await prisma.user.update({ where: { id, companyId }, data: { name, email } });
     revalidatePath("/utilisateurs");
     return { success: true };
   } catch {

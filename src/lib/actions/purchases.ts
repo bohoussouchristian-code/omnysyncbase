@@ -85,9 +85,9 @@ export async function updatePurchase(
   const paid = Math.max(0, Math.min(amountPaid, total));
 
   await prisma.$transaction(async (tx) => {
-    await tx.purchaseItem.deleteMany({ where: { purchaseId } });
+    await tx.purchaseItem.deleteMany({ where: { purchaseId, companyId } });
     await tx.purchase.update({
-      where: { id: purchaseId },
+      where: { id: purchaseId, companyId },
       data: {
         supplierId,
         totalAmount: total,
@@ -137,10 +137,10 @@ export async function validatePurchase(purchaseId: string) {
     }
     const due = purchase.totalAmount - purchase.paidAmount;
     if (due > 0) {
-      await tx.supplier.update({ where: { id: purchase.supplierId }, data: { balance: { increment: due } } });
+      await tx.supplier.update({ where: { id: purchase.supplierId, companyId }, data: { balance: { increment: due } } });
     }
     await tx.purchase.update({
-      where: { id: purchaseId },
+      where: { id: purchaseId, companyId },
       data: { validatedAt: new Date(), validatedById: user.id },
     });
   });
@@ -189,7 +189,7 @@ export async function receivePurchase(purchaseId: string) {
       });
     }
     await tx.purchase.update({
-      where: { id: purchaseId },
+      where: { id: purchaseId, companyId },
       data: { status: "RECUE", receivedAt: new Date(), receivedById: user.id },
     });
   });
@@ -222,9 +222,9 @@ export async function addSupplierPayment(_prev: unknown, formData: FormData) {
     await tx.payment.create({
       data: { type: "DETTE_FOURNISSEUR", supplierId, purchaseId, amount, userId: user.id, companyId },
     });
-    await tx.supplier.update({ where: { id: supplierId }, data: { balance: { decrement: amount } } });
+    await tx.supplier.update({ where: { id: supplierId, companyId }, data: { balance: { decrement: amount } } });
     if (purchaseId) {
-      await tx.purchase.update({ where: { id: purchaseId }, data: { paidAmount: { increment: amount } } });
+      await tx.purchase.update({ where: { id: purchaseId, companyId }, data: { paidAmount: { increment: amount } } });
     }
   });
 

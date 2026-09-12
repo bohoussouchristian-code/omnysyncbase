@@ -96,7 +96,7 @@ export async function deleteProforma(id: string) {
   const proforma = await prisma.proforma.findFirst({ where: { id, companyId } });
   if (!proforma) return { error: "Devis introuvable." };
 
-  await prisma.proforma.delete({ where: { id } });
+  await prisma.proforma.delete({ where: { id, companyId } });
   revalidatePath("/proformas");
   return { success: true };
 }
