@@ -23,6 +23,7 @@ export default async function DashboardPage() {
   const warehousesCount = await prisma.warehouse.count({ where: { active: true, companyId } });
 
   const canSeeRapports = user.role === "ADMIN" || user.role === "GERANT";
+  const isAdmin = user.role === "ADMIN";
 
   const modules: Module[] = [
     {
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
       links: [
         { href: "/ventes", label: "Vente du jour" },
         { href: "/ventes/historique", label: "Historique des ventes" },
+        ...(isAdmin ? [{ href: "/annulations", label: "Annulation de facture" }] : []),
         { href: "/clients", label: "Clients" },
       ],
     },

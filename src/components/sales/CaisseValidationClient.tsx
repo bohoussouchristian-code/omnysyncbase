@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { validateSale, cancelSale } from "@/lib/actions/sales";
+import { validateSale } from "@/lib/actions/sales";
 import { openCashSession } from "@/lib/actions/cash";
 import { CashClosingForm } from "@/components/cash/CashClosingForm";
 import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton } from "@/components/ui";
@@ -11,7 +11,7 @@ import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
 import { ReceiptDocument, type ReceiptData } from "@/components/sales/ReceiptDocument";
-import { Eye, Wallet, Ban, Printer, Search, Lock, Unlock } from "lucide-react";
+import { Eye, Wallet, Printer, Search, Lock, Unlock } from "lucide-react";
 import type { PaymentMethod } from "@prisma/client";
 
 type SaleItem = {
@@ -68,7 +68,6 @@ export function CaisseValidationClient({
   const [validating, setValidating] = useState<SaleRow | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [query, setQuery] = useState("");
-  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   const openWarehouseIds = useMemo(() => new Set(openSessions.map((s) => s.warehouseId)), [openSessions]);
@@ -86,15 +85,6 @@ export function CaisseValidationClient({
       (s) => s.number.toLowerCase().includes(q) || (s.customer?.name.toLowerCase().includes(q) ?? false)
     );
   }, [allSales, query]);
-
-  function handleCancel(id: string) {
-    if (!confirm("Annuler cette vente en attente ? Elle ne sera ni encaissée ni livrée.")) return;
-    startTransition(async () => {
-      await cancelSale(id);
-      router.refresh();
-      setViewing(null);
-    });
-  }
 
   return (
     <div>
@@ -162,18 +152,9 @@ export function CaisseValidationClient({
                         </button>
                         {isPendingRow && (
                           <>
-                            <button
-                              onClick={() => handleCancel(s.id)}
-                              disabled={isPending}
-                              title="Annuler"
-                              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-red-600 disabled:opacity-60"
-                            >
-                              <Ban size={16} />
-                            </button>
                             {openWarehouseIds.has(s.warehouseId) ? (
                               <button
                                 onClick={() => setValidating(s)}
-                                disabled={isPending}
                                 title="Encaisser"
                                 className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
                               >

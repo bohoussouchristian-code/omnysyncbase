@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cancelSale } from "@/lib/actions/sales";
 import { Card, Modal, PageHeader } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Eye, Ban, Search } from "lucide-react";
+import { Eye, Search } from "lucide-react";
 
 type Sale = {
   id: string;
@@ -32,18 +31,15 @@ type Sale = {
 
 export function SalesHistoryClient({
   sales,
-  canCancel,
   from,
   to,
 }: {
   sales: Sale[];
-  canCancel: boolean;
   from: string;
   to: string;
 }) {
   const [detail, setDetail] = useState<Sale | null>(null);
   const [query, setQuery] = useState("");
-  const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   const filteredSales = useMemo(() => {
@@ -53,15 +49,6 @@ export function SalesHistoryClient({
       (s) => s.number.toLowerCase().includes(q) || (s.customer?.name.toLowerCase().includes(q) ?? false)
     );
   }, [sales, query]);
-
-  function handleCancel(id: string) {
-    if (!confirm("Annuler cette vente ? Le stock sera remis à jour.")) return;
-    startTransition(async () => {
-      await cancelSale(id);
-      router.refresh();
-      setDetail(null);
-    });
-  }
 
   return (
     <div>
@@ -111,15 +98,6 @@ export function SalesHistoryClient({
                       <button onClick={() => setDetail(s)} className="text-slate-400 hover:text-blue-600">
                         <Eye size={16} />
                       </button>
-                      {canCancel && s.status !== "ANNULEE" && (
-                        <button
-                          onClick={() => handleCancel(s.id)}
-                          disabled={pending}
-                          className="text-slate-400 hover:text-red-600"
-                        >
-                          <Ban size={16} />
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>

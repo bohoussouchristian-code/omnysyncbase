@@ -119,6 +119,7 @@ model User {
 
   sales             Sale[]
   validatedSales    Sale[]          @relation("SaleValidatedBy")
+  cancelledSales    Sale[]          @relation("SaleCancelledBy")
   purchases         Purchase[]
   receivedPurchases Purchase[]      @relation("PurchaseReceivedBy")
   stockMovements    StockMovement[]
@@ -418,6 +419,13 @@ model Sale {
   validatedAt   DateTime?
   validatedById String?
   validatedBy   User?     @relation("SaleValidatedBy", fields: [validatedById], references: [id])
+
+  // Traçabilité de l'annulation : centralisée dans le module "Annulation de
+  // facture", un motif est obligatoire et conservé pour l'audit.
+  cancelReason   String?
+  cancelledAt    DateTime?
+  cancelledById  String?
+  cancelledBy    User?     @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])

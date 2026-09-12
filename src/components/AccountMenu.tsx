@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import { logout, changeOwnPassword } from "@/lib/actions/auth";
 import { ROLE_LABELS } from "@/lib/constants";
 import { Modal, Input, Label, FormError, SubmitButton } from "@/components/ui";
@@ -18,6 +19,7 @@ export function AccountMenu({
   userRole: Role;
   theme?: "light" | "dark";
 }) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -91,7 +93,10 @@ export function AccountMenu({
               {notifStatus === "granted" ? "Notifications activées" : "Activer les notifications"}
             </button>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                router.push("/dashboard");
+                router.refresh();
+              }}
               className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
               <RefreshCw size={16} /> Actualiser la page

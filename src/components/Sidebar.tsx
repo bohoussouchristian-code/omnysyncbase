@@ -27,6 +27,7 @@ import {
   Scale,
   Vault,
   FileText,
+  Ban,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
       { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
+      { href: "/annulations", label: "Annulation de facture", icon: Ban, roles: ["ADMIN"] },
       { href: "/clients", label: "Clients", icon: Users, roles: null },
     ],
   },

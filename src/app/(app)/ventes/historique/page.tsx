@@ -35,5 +35,5 @@ export default async function SalesHistoryPage({
     },
   });
 
-  return <SalesHistoryClient sales={sales} canCancel={user.role === "ADMIN"} from={fromStr} to={toStr} />;
+  return <SalesHistoryClient sales={sales} from={fromStr} to={toStr} />;
 }

@@ -266,12 +266,16 @@ export async function validateSale(input: {
   return { success: true, changeGiven };
 }
 
-export async function cancelSale(saleId: string) {
+// Toute annulation passe désormais par le module "Annulation de facture" :
+// un motif est obligatoire, conservé pour l'audit (qui, quand, pourquoi).
+export async function cancelSale(saleId: string, reason: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
   if (user.role !== "ADMIN")
     return { error: "Seul un administrateur peut annuler une vente." };
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) return { error: "Le motif d'annulation est obligatoire." };
 
   const sale = await prisma.sale.findFirst({ where: { id: saleId, companyId }, include: { items: true } });
   if (!sale) return { error: "Vente introuvable." };
@@ -280,9 +284,13 @@ export async function cancelSale(saleId: string) {
   // Une vente encore en attente à la caisse n'a jamais touché ni le stock ni
   // le client : il suffit de l'annuler, rien à réverser.
   if (sale.status === "EN_ATTENTE") {
-    await prisma.sale.update({ where: { id: saleId }, data: { status: "ANNULEE" } });
+    await prisma.sale.update({
+      where: { id: saleId },
+      data: { status: "ANNULEE", cancelReason: trimmedReason, cancelledAt: new Date(), cancelledById: user.id },
+    });
     revalidatePath("/ventes");
     revalidatePath("/caisse-ventes");
+    revalidatePath("/annulations");
     return { success: true };
   }
 
