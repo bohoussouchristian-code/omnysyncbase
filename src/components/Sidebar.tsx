@@ -54,7 +54,7 @@ const NAV: readonly NavEntry[] = [
     icon: Wallet,
     items: [
       { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
-      { href: "/caisse", label: "Sessions de caisse", icon: Landmark, roles: null },
+      { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
       { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
     ],
