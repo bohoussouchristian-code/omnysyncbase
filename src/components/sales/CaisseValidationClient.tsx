@@ -8,8 +8,9 @@ import { CashClosingForm } from "@/components/cash/CashClosingForm";
 import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
-import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
+import { formatMoney, formatDateTime } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
+import { ReceiptDocument, type ReceiptData } from "@/components/sales/ReceiptDocument";
 import { Eye, Wallet, Ban, Printer, Search, Lock, Unlock } from "lucide-react";
 import type { PaymentMethod } from "@prisma/client";
 
@@ -32,7 +33,7 @@ type SaleRow = {
   customerId: string | null;
   customer: { name: string; creditBalance: number } | null;
   warehouseId: string;
-  warehouse: { name: string };
+  warehouse: { name: string; address: string | null };
   user: { name: string } | null;
   validatedAt: Date | null;
   validatedBy: { name: string } | null;
@@ -46,20 +47,6 @@ type OpenSession = {
   openedAt: Date;
   warehouse: { name: string };
 };
-type ReceiptData = {
-  number: string;
-  warehouse: string;
-  customer: string;
-  items: SaleItem[];
-  total: number;
-  paid: number;
-  received: number;
-  changeGiven: number;
-  paymentMethod: PaymentMethod;
-  dueDate: string | null;
-  pointsEarned: number;
-};
-
 export function CaisseValidationClient({
   pending,
   validated,
@@ -67,6 +54,7 @@ export function CaisseValidationClient({
   to,
   warehouses,
   openSessions,
+  companyName,
 }: {
   pending: SaleRow[];
   validated: SaleRow[];
@@ -74,6 +62,7 @@ export function CaisseValidationClient({
   to: string;
   warehouses: Warehouse[];
   openSessions: OpenSession[];
+  companyName: string;
 }) {
   const [viewing, setViewing] = useState<SaleRow | null>(null);
   const [validating, setValidating] = useState<SaleRow | null>(null);
@@ -282,6 +271,7 @@ export function CaisseValidationClient({
         {validating && (
           <ValidateForm
             sale={validating}
+            companyName={companyName}
             onDone={() => setValidating(null)}
             onReceipt={(r) => setReceipt(r)}
           />
@@ -291,24 +281,8 @@ export function CaisseValidationClient({
       {receipt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setReceipt(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
-            <p className="text-lg font-semibold">Vente n° {receipt.number} encaissée</p>
-            <p className="text-sm text-slate-500 mt-1">
-              {formatMoney(receipt.paid)} ({PAYMENT_LABELS[receipt.paymentMethod]})
-            </p>
-            {receipt.paid < receipt.total && (
-              <p className="text-xs text-amber-600 mt-1">
-                Reste à payer : {formatMoney(receipt.total - receipt.paid)}
-              </p>
-            )}
-            {receipt.changeGiven > 0 && (
-              <p className="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-2">
-                Monnaie à rendre au client : {formatMoney(receipt.changeGiven)}
-              </p>
-            )}
-            {receipt.pointsEarned > 0 && (
-              <p className="text-xs text-amber-600 mt-1">+{receipt.pointsEarned} points gagnés</p>
-            )}
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+            <ReceiptDocument data={receipt} />
             <div className="flex gap-2 mt-5">
               <button
                 onClick={() => setReceipt(null)}
@@ -329,68 +303,7 @@ export function CaisseValidationClient({
 
       {receipt && (
         <div id="receipt-print" className="hidden">
-          <div className="text-center mb-2">
-            <p className="font-bold text-sm">{receipt.warehouse}</p>
-          </div>
-          <div className="border-t border-dashed border-black my-1" />
-          <p className="text-xs">Vente n° {receipt.number}</p>
-          <p className="text-xs">Client : {receipt.customer}</p>
-          <div className="border-t border-dashed border-black my-1" />
-          <table className="w-full text-xs">
-            <tbody>
-              {receipt.items.map((it) => (
-                <tr key={it.id}>
-                  <td className="align-top py-0.5">
-                    {it.product?.name ?? it.service?.name}
-                    <br />
-                    {it.quantity} × {formatMoney(it.unitPrice)}
-                  </td>
-                  <td className="align-top text-right py-0.5">{formatMoney(it.subtotal)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="border-t border-dashed border-black my-1" />
-          <div className="flex justify-between text-xs font-bold">
-            <span>TOTAL</span>
-            <span>{formatMoney(receipt.total)}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span>Payé ({PAYMENT_LABELS[receipt.paymentMethod]})</span>
-            <span>{formatMoney(receipt.paid)}</span>
-          </div>
-          {receipt.changeGiven > 0 && (
-            <>
-              <div className="flex justify-between text-xs">
-                <span>Reçu</span>
-                <span>{formatMoney(receipt.received)}</span>
-              </div>
-              <div className="flex justify-between text-xs font-bold">
-                <span>Monnaie rendue</span>
-                <span>{formatMoney(receipt.changeGiven)}</span>
-              </div>
-            </>
-          )}
-          {receipt.paid < receipt.total && (
-            <div className="flex justify-between text-xs">
-              <span>Reste à payer</span>
-              <span>{formatMoney(receipt.total - receipt.paid)}</span>
-            </div>
-          )}
-          {receipt.dueDate && (
-            <div className="flex justify-between text-xs">
-              <span>Échéance</span>
-              <span>{formatDate(receipt.dueDate)}</span>
-            </div>
-          )}
-          {receipt.pointsEarned > 0 && (
-            <div className="flex justify-between text-xs">
-              <span>Points gagnés</span>
-              <span>+{receipt.pointsEarned}</span>
-            </div>
-          )}
-          <div className="border-t border-dashed border-black my-1" />
-          <p className="text-center text-xs mt-2">Merci de votre achat !</p>
+          <ReceiptDocument data={receipt} />
         </div>
       )}
     </div>
@@ -500,10 +413,12 @@ function CloseSessionForm({ session, onDone }: { session: OpenSession; onDone: (
 
 function ValidateForm({
   sale,
+  companyName,
   onDone,
   onReceipt,
 }: {
   sale: SaleRow;
+  companyName: string;
   onDone: () => void;
   onReceipt: (r: ReceiptData) => void;
 }) {
@@ -541,7 +456,9 @@ function ValidateForm({
       }
       onReceipt({
         number: sale.number,
+        companyName,
         warehouse: sale.warehouse.name,
+        warehouseAddress: sale.warehouse.address,
         customer: sale.customer?.name || "Client comptant",
         items: sale.items,
         total,
@@ -551,6 +468,7 @@ function ValidateForm({
         paymentMethod,
         dueDate: paid < total && dueDate ? dueDate : null,
         pointsEarned: sale.pointsEarned,
+        issuedAt: new Date(),
       });
       onDone();
       router.refresh();

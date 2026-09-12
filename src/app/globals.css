@@ -49,6 +49,10 @@ body {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
   body * {
     visibility: hidden;
   }
@@ -61,8 +65,7 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 78mm;
-    padding: 8px;
+    width: 100%;
     color: #000;
   }
 }
