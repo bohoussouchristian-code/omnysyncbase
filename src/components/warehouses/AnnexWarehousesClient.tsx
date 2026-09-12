@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Card, Badge, PageHeader } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
-import { Building2, ArrowLeftRight, Boxes } from "lucide-react";
+import { Boxes, ArrowLeftRight } from "lucide-react";
 
 type Annex = {
   id: string;
@@ -42,52 +42,55 @@ export function AnnexWarehousesClient({
           .
         </Card>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {annexes.map((a) => (
-            <Card key={a.id} className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                    <Building2 size={18} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{a.name}</p>
-                    <p className="text-xs text-slate-400">{a.type === "ENTREPOT" ? "Entrepôt" : "Boutique"}</p>
-                  </div>
-                </div>
-                <Badge tone={a.active ? "success" : "default"}>{a.active ? "Actif" : "Inactif"}</Badge>
-              </div>
-
-              {a.address && <p className="text-xs text-slate-500 mb-3">{a.address}</p>}
-
-              <div className="grid grid-cols-2 gap-3 text-sm mb-4 pt-3 border-t border-slate-100">
-                <div>
-                  <p className="text-slate-400 text-xs">Produits référencés</p>
-                  <p className="font-medium text-slate-800">{a.productCount}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400 text-xs">Valeur du stock</p>
-                  <p className="font-medium text-slate-800">{formatMoney(a.stockValue)}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Link
-                  href="/stock"
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  <Boxes size={14} /> Voir le stock
-                </Link>
-                <Link
-                  href="/transferts"
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-                >
-                  <ArrowLeftRight size={14} /> Transférer
-                </Link>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr className="text-left">
+                  <th className="px-4 py-3 font-medium">Nom</th>
+                  <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">Adresse</th>
+                  <th className="px-4 py-3 font-medium">Produits référencés</th>
+                  <th className="px-4 py-3 font-medium">Valeur du stock</th>
+                  <th className="px-4 py-3 font-medium">Statut</th>
+                  <th className="px-4 py-3 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {annexes.map((a) => (
+                  <tr key={a.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium text-slate-800">{a.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{a.type === "ENTREPOT" ? "Entrepôt" : "Boutique"}</td>
+                    <td className="px-4 py-3 text-slate-600">{a.address || "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{a.productCount}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatMoney(a.stockValue)}</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={a.active ? "success" : "default"}>{a.active ? "Actif" : "Inactif"}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-3">
+                        <Link
+                          href="/stock"
+                          title="Voir le stock"
+                          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600"
+                        >
+                          <Boxes size={14} /> Stock
+                        </Link>
+                        <Link
+                          href="/transferts"
+                          title="Transférer du stock"
+                          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600"
+                        >
+                          <ArrowLeftRight size={14} /> Transférer
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );
