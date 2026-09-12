@@ -178,7 +178,13 @@ export function PageHeader({
         <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
         {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
-      {action}
+      <div className="flex items-center gap-4">
+        {action}
+        {/* Réserve la place du menu compte/réglages (positionné en absolu en
+            haut à droite par le layout), pour que ce bouton d'action passe à
+            la ligne plutôt que de passer dessous. */}
+        <div className="hidden lg:block w-64 shrink-0" aria-hidden="true" />
+      </div>
     </div>
   );
 }
