@@ -302,7 +302,7 @@ export function PosClient({
         )}
 
         {products.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 mb-6">
+          <div className="border border-slate-200 rounded-xl bg-white divide-y divide-slate-100 overflow-hidden mb-6">
             {filtered.map((p) => {
               const baseQty = availableBase.get(p.id) || 0;
               const packQty = p.packUnit ? Math.floor(baseQty / p.piecesPerPack) : 0;
@@ -310,53 +310,46 @@ export function PosClient({
               const inCartQty = cart.find((l) => l.key === `p:${p.id}:piece`)?.qty || 0;
               const lowStock = baseQty <= 5;
               return (
-                <div
-                  key={p.id}
-                  className="group relative flex flex-col bg-white border border-slate-200 rounded-2xl p-3 hover:border-blue-300 hover:shadow-md transition-all"
-                >
-                  {inCartQty > 0 && (
-                    <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5 shadow-sm">
-                      {inCartQty}
-                    </span>
-                  )}
-                  <button onClick={() => addToCart(p, "piece")} className="flex-1 w-full text-left flex flex-col">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 mb-2 group-hover:bg-blue-100 transition-colors">
+                <div key={p.id} className="group flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors">
+                  <button onClick={() => addToCart(p, "piece")} className="flex flex-1 min-w-0 items-center gap-3 text-left">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-100 transition-colors">
                       <CupSoda size={17} />
                     </div>
-                    <p className="font-semibold text-slate-800 text-sm leading-snug mb-1.5 line-clamp-2 min-h-[2.5em]">
-                      {p.name}
-                    </p>
-                    <div className="mt-auto flex items-end justify-between gap-1">
-                      <p className="text-blue-700 font-bold text-[15px] leading-none">
-                        {formatMoney(price)}
-                        <span className="text-slate-400 font-normal text-xs"> /{p.unit?.symbol}</span>
-                      </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm truncate">{p.name}</p>
+                      <span
+                        className={`mt-0.5 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                          lowStock ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${lowStock ? "bg-amber-500" : "bg-emerald-500"}`} />
+                        {baseQty} {p.unit?.symbol} en stock
+                      </span>
                     </div>
-                    <span
-                      className={`mt-2 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        lowStock ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
-                      }`}
-                    >
-                      <span className={`h-1.5 w-1.5 rounded-full ${lowStock ? "bg-amber-500" : "bg-emerald-500"}`} />
-                      {baseQty} {p.unit?.symbol} en stock
-                    </span>
+                    <p className="text-blue-700 font-bold text-[15px] text-right shrink-0 whitespace-nowrap">
+                      {formatMoney(price)}
+                      <span className="text-slate-400 font-normal text-xs"> /{p.unit?.symbol}</span>
+                    </p>
                   </button>
                   {p.packUnit && (
                     <button
                       onClick={() => addToCart(p, "pack")}
                       disabled={packQty <= 0}
-                      className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="shrink-0 flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold px-2.5 py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                      <PackagePlus size={12} />+ 1 {p.packUnit.symbol} ({formatMoney(p.packSalePrice ?? p.salePrice * p.piecesPerPack)})
+                      <PackagePlus size={12} />+1 {p.packUnit.symbol} ({formatMoney(p.packSalePrice ?? p.salePrice * p.piecesPerPack)})
                     </button>
+                  )}
+                  {inCartQty > 0 && (
+                    <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5">
+                      {inCartQty}
+                    </span>
                   )}
                 </div>
               );
             })}
             {filtered.length === 0 && (
-              <p className="col-span-full text-center text-slate-400 py-6">
-                Aucun produit disponible dans ce dépôt.
-              </p>
+              <p className="text-center text-slate-400 py-6">Aucun produit disponible dans ce dépôt.</p>
             )}
           </div>
         )}
@@ -366,7 +359,7 @@ export function PosClient({
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 mb-3">
               <Sparkles size={14} /> Prestations
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="border border-slate-200 rounded-xl bg-white divide-y divide-slate-100 overflow-hidden">
               {filteredServices.map((s) => {
                 const price = priceForCustomerService(s, selectedCustomer?.type ?? null);
                 const inCartQty = cart.find((l) => l.key === `s:${s.id}`)?.qty || 0;
@@ -374,30 +367,30 @@ export function PosClient({
                   <button
                     key={s.id}
                     onClick={() => addServiceToCart(s)}
-                    className="group relative flex flex-col bg-white border border-slate-200 rounded-2xl p-3 text-left hover:border-blue-300 hover:shadow-md transition-all"
+                    className="group w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors"
                   >
-                    {inCartQty > 0 && (
-                      <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5 shadow-sm">
-                        {inCartQty}
-                      </span>
-                    )}
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-2 group-hover:bg-amber-100 transition-colors">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-colors">
                       <Sparkles size={17} />
                     </div>
-                    <p className="font-semibold text-slate-800 text-sm leading-snug mb-1.5 line-clamp-2 min-h-[2.5em]">
-                      {s.name}
-                    </p>
-                    <p className="text-blue-700 font-bold text-[15px] leading-none">{formatMoney(price)}</p>
-                    {s.durationMin && (
-                      <span className="mt-2 inline-flex w-fit items-center rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-[11px] font-medium">
-                        {s.durationMin} min
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm truncate">{s.name}</p>
+                      {s.durationMin && (
+                        <span className="mt-0.5 inline-flex w-fit items-center rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-[11px] font-medium">
+                          {s.durationMin} min
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-blue-700 font-bold text-[15px] shrink-0 whitespace-nowrap">{formatMoney(price)}</p>
+                    {inCartQty > 0 && (
+                      <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5">
+                        {inCartQty}
                       </span>
                     )}
                   </button>
                 );
               })}
               {filteredServices.length === 0 && (
-                <p className="col-span-full text-center text-slate-400 py-6">Aucune prestation trouvée.</p>
+                <p className="text-center text-slate-400 py-6">Aucune prestation trouvée.</p>
               )}
             </div>
           </div>
