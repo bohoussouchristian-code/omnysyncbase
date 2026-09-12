@@ -410,6 +410,11 @@ model Payment {
   supplier    Supplier?   @relation(fields: [supplierId], references: [id])
   amount      Float
   method      PaymentMethod @default(ESPECES)
+  // Pour un paiement en espèces avec appoint : montant physique reçu du
+  // client et monnaie rendue, pour une traçabilité complète de la caisse
+  // (amount reste toujours plafonné au montant dû, jamais gonflé par l'appoint).
+  cashReceived Float?
+  changeGiven  Float?
   date        DateTime    @default(now())
   userId      String?
   user        User?       @relation(fields: [userId], references: [id])

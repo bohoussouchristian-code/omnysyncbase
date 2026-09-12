@@ -146,14 +146,14 @@ export async function createSale(input: {
 export async function validateSale(input: {
   saleId: string;
   paymentMethod: PaymentMethod;
-  amountPaid: number;
+  amountReceived: number;
   dueDate?: string | null;
 }) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
 
-  const { saleId, paymentMethod, amountPaid, dueDate } = input;
+  const { saleId, paymentMethod, amountReceived, dueDate } = input;
 
   const sale = await prisma.sale.findFirst({
     where: { id: saleId, companyId },
@@ -169,8 +169,13 @@ export async function validateSale(input: {
   });
   if (!openSession) return { error: "Ouvrez d'abord votre caisse pour ce dépôt avant d'encaisser." };
 
-  const paid = Math.max(0, amountPaid);
   const total = sale.totalAmount;
+  // Le client peut donner plus que le dû (appoint en espèces) : le montant reçu
+  // ne sert jamais à gonfler la vente au-delà du total, l'excédent est de la
+  // monnaie à rendre, tracée séparément sur le paiement (jamais dans paidAmount).
+  const received = Math.max(0, amountReceived);
+  const paid = Math.min(received, total);
+  const changeGiven = paymentMethod === "ESPECES" ? Math.max(0, received - total) : 0;
   if (paid < total && !sale.customerId)
     return { error: "Un client est requis pour une vente à crédit ou paiement partiel." };
 
@@ -222,6 +227,8 @@ export async function validateSale(input: {
           customerId: sale.customerId,
           amount: paid,
           method: paymentMethod,
+          cashReceived: paymentMethod === "ESPECES" ? received : null,
+          changeGiven: paymentMethod === "ESPECES" ? changeGiven : null,
           userId: user.id,
           companyId,
         },
@@ -256,7 +263,7 @@ export async function validateSale(input: {
   revalidatePath("/stock");
   revalidatePath("/clients");
   revalidatePath("/dashboard");
-  return { success: true };
+  return { success: true, changeGiven };
 }
 
 export async function cancelSale(saleId: string) {

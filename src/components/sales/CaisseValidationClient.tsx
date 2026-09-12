@@ -52,6 +52,8 @@ type ReceiptData = {
   items: SaleItem[];
   total: number;
   paid: number;
+  received: number;
+  changeGiven: number;
   paymentMethod: PaymentMethod;
   dueDate: string | null;
   pointsEarned: number;
@@ -298,6 +300,11 @@ export function CaisseValidationClient({
                 Reste à payer : {formatMoney(receipt.total - receipt.paid)}
               </p>
             )}
+            {receipt.changeGiven > 0 && (
+              <p className="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-2">
+                Monnaie à rendre au client : {formatMoney(receipt.changeGiven)}
+              </p>
+            )}
             {receipt.pointsEarned > 0 && (
               <p className="text-xs text-amber-600 mt-1">+{receipt.pointsEarned} points gagnés</p>
             )}
@@ -351,6 +358,18 @@ export function CaisseValidationClient({
             <span>Payé ({PAYMENT_LABELS[receipt.paymentMethod]})</span>
             <span>{formatMoney(receipt.paid)}</span>
           </div>
+          {receipt.changeGiven > 0 && (
+            <>
+              <div className="flex justify-between text-xs">
+                <span>Reçu</span>
+                <span>{formatMoney(receipt.received)}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold">
+                <span>Monnaie rendue</span>
+                <span>{formatMoney(receipt.changeGiven)}</span>
+              </div>
+            </>
+          )}
           {receipt.paid < receipt.total && (
             <div className="flex justify-between text-xs">
               <span>Reste à payer</span>
@@ -531,7 +550,12 @@ function ValidateForm({
   const router = useRouter();
 
   const total = sale.totalAmount;
-  const paid = paymentMethod === "CREDIT" ? 0 : amountPaid === "" ? total : Number(amountPaid);
+  // "Montant reçu" = ce que le client remet physiquement (peut dépasser le
+  // total en espèces) ; "paid" = ce qui est effectivement appliqué à la vente,
+  // jamais plus que le total — l'excédent est de la monnaie à rendre.
+  const received = paymentMethod === "CREDIT" ? 0 : amountPaid === "" ? total : Number(amountPaid);
+  const paid = Math.min(received, total);
+  const changeDue = paymentMethod === "ESPECES" ? Math.max(0, received - total) : 0;
 
   function submit() {
     setError(null);
@@ -543,7 +567,7 @@ function ValidateForm({
       const res = await validateSale({
         saleId: sale.id,
         paymentMethod,
-        amountPaid: paid,
+        amountReceived: received,
         dueDate: paid < total && dueDate ? dueDate : null,
       });
       if (res.error) {
@@ -557,6 +581,8 @@ function ValidateForm({
         items: sale.items,
         total,
         paid,
+        received,
+        changeGiven: res.changeGiven ?? changeDue,
         paymentMethod,
         dueDate: paid < total && dueDate ? dueDate : null,
         pointsEarned: sale.pointsEarned,
@@ -594,7 +620,7 @@ function ValidateForm({
 
       {paymentMethod !== "CREDIT" && (
         <div>
-          <Label>Montant payé</Label>
+          <Label>{paymentMethod === "ESPECES" ? "Montant reçu du client" : "Montant payé"}</Label>
           <Input
             type="number"
             min={0}
@@ -606,6 +632,11 @@ function ValidateForm({
           {amountPaid !== "" && Number(amountPaid) < total && (
             <p className="text-xs text-amber-600 mt-1">
               Reste à payer : {formatMoney(total - Number(amountPaid))} (nécessite un client)
+            </p>
+          )}
+          {changeDue > 0 && (
+            <p className="text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 mt-2">
+              Monnaie à rendre au client : {formatMoney(changeDue)}
             </p>
           )}
         </div>
