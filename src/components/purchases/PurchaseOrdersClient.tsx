@@ -189,12 +189,17 @@ function PurchaseForm({
   const [mode, setMode] = useState<"piece" | "pack">("piece");
   const [qty, setQty] = useState(1);
   const [price, setPrice] = useState(products[0]?.purchasePrice || 0);
-  const [amountPaid, setAmountPaid] = useState(0);
+  // Tant que l'admin n'a pas saisi lui-même un montant, celui-ci suit
+  // automatiquement le total de la commande (le cas le plus courant est un
+  // paiement intégral) ; une fois modifié à la main, il reste figé pour
+  // permettre un paiement partiel même si d'autres articles sont ajoutés.
+  const [amountPaidOverride, setAmountPaidOverride] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selectedProduct = products.find((p) => p.id === productId);
   const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const amountPaid = amountPaidOverride ?? total;
 
   function selectProduct(id: string) {
     setProductId(id);
@@ -346,8 +351,17 @@ function PurchaseForm({
       )}
 
       <div>
-        <Label>Montant payé au fournisseur (optionnel)</Label>
-        <Input type="number" min={0} max={total} value={amountPaid} onChange={(e) => setAmountPaid(Number(e.target.value))} />
+        <Label>Montant à payer au fournisseur</Label>
+        <Input
+          type="number"
+          min={0}
+          max={total}
+          value={amountPaid}
+          onChange={(e) => setAmountPaidOverride(Number(e.target.value))}
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Rempli automatiquement avec le total de la commande — modifiez-le pour un paiement partiel.
+        </p>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
