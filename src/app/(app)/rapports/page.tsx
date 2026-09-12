@@ -50,7 +50,7 @@ export default async function RapportsPage({
   }
   const periodLabel = isCustom ? `${fromParam}_${toParam}` : periode || "30j";
 
-  const [sales, expenses, products, customersDebt, suppliersDebt, stockMovements] = await Promise.all([
+  const [sales, expenses, products, customersDebt, suppliersDebt, stockMovements, warehousesForMovements] = await Promise.all([
     prisma.sale.findMany({
       where: { companyId, date: { gte: from, lte: to }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
       include: { items: { include: { product: true, service: true } }, user: true },
@@ -72,7 +72,23 @@ export default async function RapportsPage({
         user: true,
       },
     }),
+    prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
   ]);
+
+  const warehouseNameById = new Map(warehousesForMovements.map((w) => [w.id, w.name]));
+  // Pour un transfert, "Dépôt" seul ne dit pas d'où il vient (sortie) ni où il
+  // va (entrée) : on reconstruit l'autre bout depuis relatedWarehouseId.
+  function movementDepotLabel(m: (typeof stockMovements)[number]) {
+    if (m.type === "TRANSFERT_SORTIE") {
+      const to = m.relatedWarehouseId ? warehouseNameById.get(m.relatedWarehouseId) : null;
+      return `${m.warehouse.name} → ${to || "—"}`;
+    }
+    if (m.type === "TRANSFERT_ENTREE") {
+      const from = m.relatedWarehouseId ? warehouseNameById.get(m.relatedWarehouseId) : null;
+      return `${from || "—"} → ${m.warehouse.name}`;
+    }
+    return m.warehouse.name;
+  }
 
   const revenue = sales.reduce((s, sale) => s + sale.totalAmount, 0);
   // Les prestations n'ont pas de coût de revient (0) — les charges d'un métier de
@@ -171,7 +187,7 @@ export default async function RapportsPage({
     stockMovements.map((m) => [
       formatDateTime(m.createdAt),
       m.product.name,
-      m.warehouse.name,
+      movementDepotLabel(m),
       MOVEMENT_TYPE_LABELS[m.type] || m.type,
       formatStockQty(m.quantity, m.product),
       m.user?.name || "—",
@@ -342,7 +358,7 @@ export default async function RapportsPage({
                   <tr key={m.id} className="border-b border-slate-50 last:border-0">
                     <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(m.createdAt)}</td>
                     <td className="py-2 text-slate-700">{m.product.name}</td>
-                    <td className="py-2 text-slate-600">{m.warehouse.name}</td>
+                    <td className="py-2 text-slate-600">{movementDepotLabel(m)}</td>
                     <td className="py-2">
                       <Badge tone={MOVEMENT_TYPE_TONE[m.type] || "default"}>
                         {MOVEMENT_TYPE_LABELS[m.type] || m.type}

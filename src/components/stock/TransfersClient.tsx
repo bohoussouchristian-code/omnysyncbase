@@ -15,7 +15,11 @@ type Product = {
   piecesPerPack: number;
   stocks: { warehouseId: string; quantity: number }[];
 };
-type Warehouse = { id: string; name: string };
+type Warehouse = { id: string; name: string; type: string };
+
+function warehouseLabel(w: Warehouse) {
+  return `${w.name} (${w.type === "ENTREPOT" ? "Entrepôt" : "Boutique"})`;
+}
 type Transfer = {
   id: string;
   quantity: number;
@@ -54,7 +58,7 @@ export function TransfersClient({
     <div>
       <PageHeader
         title="Transferts de stock"
-        subtitle="Distribution du Dépôt Général vers les boutiques, et retours"
+        subtitle="Entre tous vos dépôts et boutiques, dans les deux sens"
         action={
           <button
             onClick={() => setShowCreate(true)}
@@ -187,7 +191,7 @@ function TransferForm({
           <Select value={fromWarehouseId} onChange={(e) => setFromWarehouseId(e.target.value)}>
             {warehouses.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.name}
+                {warehouseLabel(w)}
               </option>
             ))}
           </Select>
@@ -197,7 +201,7 @@ function TransferForm({
           <Select value={toWarehouseId} onChange={(e) => setToWarehouseId(e.target.value)}>
             {warehouses.map((w) => (
               <option key={w.id} value={w.id}>
-                {w.name}
+                {warehouseLabel(w)}
               </option>
             ))}
           </Select>
