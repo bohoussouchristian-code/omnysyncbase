@@ -2,11 +2,17 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 import Link from "next/link";
-import { Building2, UserCog, type LucideIcon } from "lucide-react";
+import { Info, Building2, UserCog, type LucideIcon } from "lucide-react";
 
 type SettingLink = { href: string; label: string; description: string; icon: LucideIcon };
 
 const SETTINGS_LINKS: SettingLink[] = [
+  {
+    href: "/entreprise",
+    label: "Informations de l'entreprise",
+    description: "Nom, logo, en-tête et coordonnées affichés sur les documents",
+    icon: Info,
+  },
   {
     href: "/entrepots",
     label: "Dépôts / Boutiques",

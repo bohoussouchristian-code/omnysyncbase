@@ -76,6 +76,14 @@ model Company {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  // Informations affichées sur les documents officiels (reçus, factures...).
+  director  String?
+  headerText String?
+  logoUrl   String?  @db.Text
+  phone     String?
+  email     String?
+  address   String?
+
   users          User[]
   warehouses     Warehouse[]
   categories     Category[]
