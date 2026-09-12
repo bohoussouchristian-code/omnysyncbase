@@ -93,6 +93,8 @@ model Company {
   expenses       Expense[]
   cashSessions   CashSession[]
   services       Service[]
+  proformas      Proforma[]
+  proformaItems  ProformaItem[]
 }
 
 model User {
@@ -123,6 +125,7 @@ model User {
   expenses          Expense[]
   cashSessions      CashSession[]
   payments          Payment[]
+  proformas         Proforma[]
 }
 
 model Warehouse {
@@ -210,6 +213,7 @@ model Product {
   movements      StockMovement[]
   saleItems      SaleItem[]
   purchaseItems  PurchaseItem[]
+  proformaItems  ProformaItem[]
 
   @@unique([companyId, barcode])
 }
@@ -230,7 +234,8 @@ model Service {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 
-  saleItems SaleItem[]
+  saleItems     SaleItem[]
+  proformaItems ProformaItem[]
 }
 
 model Stock {
@@ -340,8 +345,52 @@ model Customer {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 
-  sales    Sale[]
-  payments Payment[]
+  sales     Sale[]
+  payments  Payment[]
+  proformas Proforma[]
+}
+
+// Devis non contractuel remis à un client avant une vente (pour financement,
+// validation interne...) : mêmes lignes qu'une vente mais aucun effet sur le
+// stock, aucun encaissement — un document informatif, convertible plus tard
+// en vraie vente si le client accepte.
+model Proforma {
+  id          String    @id @default(cuid())
+  number      String
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  // Client ponctuel non enregistré (nom/téléphone libres) si aucun compte client.
+  clientName  String?
+  clientPhone String?
+  validUntil  DateTime?
+  totalAmount Float     @default(0)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  items ProformaItem[]
+
+  @@unique([companyId, number])
+}
+
+model ProformaItem {
+  id         String   @id @default(cuid())
+  proformaId String
+  proforma   Proforma @relation(fields: [proformaId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id])
+  serviceId  String?
+  service    Service? @relation(fields: [serviceId], references: [id])
+  quantity   Float
+  unitPrice  Float
+  subtotal   Float
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
 }
 
 model Sale {

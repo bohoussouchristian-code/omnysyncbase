@@ -41,6 +41,7 @@ export default async function DashboardPage() {
       icon: Wallet,
       links: [
         { href: "/caisse-ventes", label: "Caisse" },
+        { href: "/proformas", label: "Proformas" },
         { href: "/caisse", label: "État de mes caisses" },
         ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         { href: "/depenses", label: "Dépenses" },

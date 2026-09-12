@@ -26,6 +26,7 @@ import {
   History,
   Scale,
   Vault,
+  FileText,
   ChevronDown,
   type LucideIcon,
 } from "lucide-react";
@@ -55,6 +56,7 @@ const NAV: readonly NavEntry[] = [
     icon: Wallet,
     items: [
       { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
+      { href: "/proformas", label: "Proformas", icon: FileText, roles: null },
       { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
       {
         href: "/gestion-caisses-depots",
