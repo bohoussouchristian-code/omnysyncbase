@@ -45,7 +45,6 @@ export default async function DashboardPage() {
         { href: "/caisse", label: "État de mes caisses" },
         ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         { href: "/depenses", label: "Dépenses" },
-        ...(canSeeRapports ? [{ href: "/rapports", label: "Rapports" }] : []),
       ],
     },
     {
@@ -73,7 +72,10 @@ export default async function DashboardPage() {
       title: "Bilan & état financier",
       acronym: "BEF",
       icon: Scale,
-      links: [{ href: "/bilan", label: "Voir le bilan complet" }],
+      links: [
+        { href: "/bilan", label: "Voir le bilan complet" },
+        ...(canSeeRapports ? [{ href: "/rapports", label: "Rapports" }] : []),
+      ],
     },
   ];
 

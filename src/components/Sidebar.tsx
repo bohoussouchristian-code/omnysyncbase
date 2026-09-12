@@ -65,7 +65,6 @@ const NAV: readonly NavEntry[] = [
         roles: ["ADMIN", "GERANT"],
       },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
-      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
     ],
   },
   {
@@ -89,7 +88,15 @@ const NAV: readonly NavEntry[] = [
       { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
     ],
   },
-  { kind: "link", href: "/bilan", label: "Bilan & état financier", icon: Scale, roles: null },
+  {
+    kind: "group",
+    label: "Bilan & état financier",
+    icon: Scale,
+    items: [
+      { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
+      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
+    ],
+  },
 ] as const;
 
 export function Sidebar({
