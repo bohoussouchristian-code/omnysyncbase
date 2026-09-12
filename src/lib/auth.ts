@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { SESSION_IDLE_MINUTES } from "./constants";
 import type { Role } from "@prisma/client";
 
 const COOKIE_NAME = "session";
@@ -30,7 +31,7 @@ export async function createSession(payload: SessionPayload) {
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("30d")
+    .setExpirationTime(`${SESSION_IDLE_MINUTES}m`)
     .sign(secretKey);
 
   const cookieStore = await cookies();
@@ -39,7 +40,7 @@ export async function createSession(payload: SessionPayload) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * SESSION_IDLE_MINUTES,
   });
 }
 

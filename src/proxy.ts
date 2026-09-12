@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import { SESSION_IDLE_MINUTES } from "@/lib/constants";
 
 const COOKIE_NAME = "session";
 const secretKey = new TextEncoder().encode(
@@ -22,11 +23,13 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let isPlatformOwner = false;
   let authenticated = false;
+  let claims: JWTPayload | null = null;
   if (token) {
     try {
       const { payload } = await jwtVerify(token, secretKey);
       authenticated = true;
       isPlatformOwner = payload.isPlatformOwner === true;
+      claims = payload;
     } catch {
       authenticated = false;
     }
@@ -46,7 +49,29 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/console", request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+
+  // Session active et requête reçue : on prolonge son expiration (fenêtre
+  // glissante). Sans nouvelle requête pendant SESSION_IDLE_MINUTES, le cookie
+  // expire de lui-même et l'utilisateur est déconnecté à la requête suivante.
+  if (claims) {
+    const { exp: _exp, iat: _iat, ...rest } = claims;
+    const refreshed = await new SignJWT(rest)
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime(`${SESSION_IDLE_MINUTES}m`)
+      .sign(secretKey);
+
+    response.cookies.set(COOKIE_NAME, refreshed, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * SESSION_IDLE_MINUTES,
+    });
+  }
+
+  return response;
 }
 
 export const config = {

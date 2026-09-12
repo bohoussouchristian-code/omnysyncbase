@@ -1,5 +1,10 @@
 import type { Role, CustomerType, MovementType, PaymentMethod } from "@prisma/client";
 
+// Déconnexion automatique après ce délai d'inactivité (aucune requête reçue).
+// Le middleware prolonge la session à chaque requête tant que l'utilisateur
+// est actif ; sans activité, le cookie expire et l'utilisateur est déconnecté.
+export const SESSION_IDLE_MINUTES = 30;
+
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrateur",
   GERANT: "Gérant",
