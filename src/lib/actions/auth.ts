@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession, verifyPassword, getCurrentUser } from "@/lib/auth";
+import { createSession, destroySession, verifyPassword, hashPassword, getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 
@@ -62,6 +62,33 @@ export async function login(_prevState: unknown, formData: FormData) {
 export async function logout() {
   await destroySession();
   redirect("/login");
+}
+
+// Contrairement à resetUserPassword (réservé aux admins, pour un AUTRE
+// utilisateur), ceci permet à n'importe quel utilisateur connecté de changer
+// son propre mot de passe, à condition de connaître l'actuel.
+export async function changeOwnPassword(_prevState: unknown, formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Non authentifié." };
+
+  const currentPassword = String(formData.get("currentPassword") || "");
+  const newPassword = String(formData.get("newPassword") || "");
+
+  if (!currentPassword || !newPassword) {
+    return { error: "Veuillez remplir tous les champs." };
+  }
+  if (newPassword.length < 8) {
+    return { error: "Le nouveau mot de passe doit contenir au moins 8 caractères." };
+  }
+
+  const valid = await verifyPassword(currentPassword, user.passwordHash);
+  if (!valid) {
+    return { error: "Mot de passe actuel incorrect." };
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  return { success: true };
 }
 
 export async function requireRole(roles: Role[]) {
