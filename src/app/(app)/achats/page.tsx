@@ -18,6 +18,7 @@ export default async function AchatsPage() {
         warehouse: true,
         items: { include: { product: true } },
         receivedBy: true,
+        validatedBy: true,
       },
     }),
     prisma.product.findMany({

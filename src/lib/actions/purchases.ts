@@ -33,20 +33,66 @@ export async function createPurchase(input: {
   const paid = Math.max(0, Math.min(amountPaid, total));
   const number = generateNumber("A");
 
-  // Une commande n'est qu'un bon de commande : elle n'impacte jamais le stock.
-  // Le stock n'entre au Dépôt Général qu'à la réception (bon de livraison, voir receivePurchase).
-  const result = await prisma.$transaction(async (tx) => {
-    const purchase = await tx.purchase.create({
+  // Une commande est d'abord un brouillon librement modifiable : ni le stock
+  // ni la dette fournisseur ne sont touchés tant qu'elle n'est pas validée
+  // (voir validatePurchase). Le stock n'entre qu'à la réception (receivePurchase).
+  const purchase = await prisma.purchase.create({
+    data: {
+      number,
+      supplierId,
+      warehouseId: generalWarehouse.id,
+      userId: user.id,
+      totalAmount: total,
+      paidAmount: paid,
+      status: "EN_ATTENTE",
+      notes,
+      companyId,
+      items: {
+        create: items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          companyId,
+        })),
+      },
+    },
+  });
+
+  revalidatePath("/achats");
+  return { success: true, purchaseId: purchase.id, purchaseNumber: purchase.number };
+}
+
+export async function updatePurchase(
+  purchaseId: string,
+  input: { supplierId: string; items: PurchaseCartItem[]; amountPaid: number; notes?: string }
+) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const { supplierId, items, amountPaid, notes } = input;
+  if (!supplierId) return { error: "Fournisseur requis." };
+  if (!items || items.length === 0) return { error: "Ajoutez au moins un article." };
+
+  const existing = await prisma.purchase.findFirst({ where: { id: purchaseId, companyId } });
+  if (!existing) return { error: "Commande introuvable." };
+  if (existing.validatedAt) return { error: "Cette commande est validée : elle ne peut plus être modifiée." };
+
+  const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, companyId } });
+  if (!supplier) return { error: "Fournisseur introuvable." };
+
+  const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const paid = Math.max(0, Math.min(amountPaid, total));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.purchaseItem.deleteMany({ where: { purchaseId } });
+    await tx.purchase.update({
+      where: { id: purchaseId },
       data: {
-        number,
         supplierId,
-        warehouseId: generalWarehouse.id,
-        userId: user.id,
         totalAmount: total,
         paidAmount: paid,
-        status: "EN_ATTENTE",
         notes,
-        companyId,
         items: {
           create: items.map((i) => ({
             productId: i.productId,
@@ -57,23 +103,51 @@ export async function createPurchase(input: {
         },
       },
     });
+  });
 
-    if (paid > 0) {
+  revalidatePath("/achats");
+  return { success: true };
+}
+
+// Fige définitivement le contenu de la commande (fournisseur, articles,
+// montants) et enregistre à cet instant seulement le paiement et la dette
+// fournisseur — jamais avant, tant que la commande n'est qu'un brouillon.
+export async function validatePurchase(purchaseId: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user, companyId } = check;
+
+  const purchase = await prisma.purchase.findFirst({ where: { id: purchaseId, companyId } });
+  if (!purchase) return { error: "Commande introuvable." };
+  if (purchase.validatedAt) return { error: "Commande déjà validée." };
+  if (purchase.status === "ANNULEE") return { error: "Commande annulée." };
+
+  await prisma.$transaction(async (tx) => {
+    if (purchase.paidAmount > 0) {
       await tx.payment.create({
-        data: { type: "ACHAT", purchaseId: purchase.id, supplierId, amount: paid, userId: user.id, companyId },
+        data: {
+          type: "ACHAT",
+          purchaseId: purchase.id,
+          supplierId: purchase.supplierId,
+          amount: purchase.paidAmount,
+          userId: user.id,
+          companyId,
+        },
       });
     }
-
-    if (total - paid > 0) {
-      await tx.supplier.update({ where: { id: supplierId }, data: { balance: { increment: total - paid } } });
+    const due = purchase.totalAmount - purchase.paidAmount;
+    if (due > 0) {
+      await tx.supplier.update({ where: { id: purchase.supplierId }, data: { balance: { increment: due } } });
     }
-
-    return purchase;
+    await tx.purchase.update({
+      where: { id: purchaseId },
+      data: { validatedAt: new Date(), validatedById: user.id },
+    });
   });
 
   revalidatePath("/achats");
   revalidatePath("/fournisseurs");
-  return { success: true, purchaseId: result.id, purchaseNumber: result.number };
+  return { success: true };
 }
 
 export async function receivePurchase(purchaseId: string) {
@@ -86,6 +160,7 @@ export async function receivePurchase(purchaseId: string) {
     include: { items: true },
   });
   if (!purchase) return { error: "Commande introuvable." };
+  if (!purchase.validatedAt) return { error: "Validez d'abord la commande avant de la réceptionner." };
   if (purchase.status === "RECUE") return { error: "Déjà réceptionnée." };
   if (purchase.status === "ANNULEE") return { error: "Commande annulée." };
 
@@ -140,6 +215,7 @@ export async function addSupplierPayment(_prev: unknown, formData: FormData) {
   if (purchaseId) {
     const purchase = await prisma.purchase.findFirst({ where: { id: purchaseId, companyId } });
     if (!purchase) return { error: "Commande introuvable." };
+    if (!purchase.validatedAt) return { error: "Validez d'abord cette commande avant d'y rattacher un paiement." };
   }
 
   await prisma.$transaction(async (tx) => {

@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createPurchase, type PurchaseCartItem } from "@/lib/actions/purchases";
+import { createPurchase, updatePurchase, validatePurchase, type PurchaseCartItem } from "@/lib/actions/purchases";
 import { Modal, Select, Input, Label, Badge, PageHeader, Card } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Plus, Trash2, Eye } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil, CheckCircle2 } from "lucide-react";
 
 type Product = {
   id: string;
@@ -26,11 +26,21 @@ type Purchase = {
   totalAmount: number;
   paidAmount: number;
   receivedAt: Date | null;
+  validatedAt: Date | null;
+  supplierId: string;
   supplier: { name: string };
   warehouse: { name: string };
   receivedBy: { name: string } | null;
-  items: { id: string; quantity: number; unitPrice: number; product: { name: string } }[];
+  validatedBy: { name: string } | null;
+  items: { id: string; productId: string; quantity: number; unitPrice: number; product: { name: string } }[];
 };
+
+function statusBadge(p: Purchase) {
+  if (p.status === "ANNULEE") return <Badge tone="danger">Annulée</Badge>;
+  if (p.status === "RECUE") return <Badge tone="success">Reçue</Badge>;
+  if (!p.validatedAt) return <Badge tone="warning">Brouillon</Badge>;
+  return <Badge tone="info">En attente de livraison</Badge>;
+}
 
 export function PurchaseOrdersClient({
   purchases,
@@ -44,6 +54,8 @@ export function PurchaseOrdersClient({
   generalWarehouseName: string | null;
 }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<Purchase | null>(null);
+  const [validating, setValidating] = useState<Purchase | null>(null);
   const [viewing, setViewing] = useState<Purchase | null>(null);
   const router = useRouter();
 
@@ -77,33 +89,56 @@ export function PurchaseOrdersClient({
                 <th className="px-4 py-3 font-medium">Fournisseur</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
                 <th className="px-4 py-3 font-medium text-right">Total</th>
-                <th className="px-4 py-3 font-medium"></th>
+                <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {purchases.map((p) => (
-                <tr key={p.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-700">
-                    <div className="flex items-center gap-1.5">
-                      {p.number}
-                      <CopyButton text={p.number} />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
-                  <td className="px-4 py-3 text-slate-600">{p.supplier.name}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={p.status === "RECUE" ? "success" : p.status === "ANNULEE" ? "danger" : "warning"}>
-                      {p.status === "EN_ATTENTE" ? "En attente de livraison" : p.status === "RECUE" ? "Validée" : p.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium">{formatMoney(p.totalAmount)}</td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => setViewing(p)} className="text-slate-400 hover:text-blue-600 float-right">
-                      <Eye size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {purchases.map((p) => {
+                const isDraft = !p.validatedAt && p.status !== "ANNULEE";
+                return (
+                  <tr key={p.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium text-slate-700">
+                      <div className="flex items-center gap-1.5">
+                        {p.number}
+                        <CopyButton text={p.number} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
+                    <td className="px-4 py-3 text-slate-600">{p.supplier.name}</td>
+                    <td className="px-4 py-3">{statusBadge(p)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatMoney(p.totalAmount)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <button
+                          onClick={() => setViewing(p)}
+                          title="Voir le détail"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        {isDraft && (
+                          <>
+                            <button
+                              onClick={() => setEditing(p)}
+                              title="Modifier"
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => setValidating(p)}
+                              title="Valider la commande"
+                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700"
+                            >
+                              <CheckCircle2 size={14} /> Valider
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {purchases.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
@@ -126,6 +161,25 @@ export function PurchaseOrdersClient({
             router.refresh();
           }}
         />
+      </Modal>
+
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Modifier la commande ${editing?.number || ""}`}>
+        {editing && (
+          <PurchaseForm
+            products={products}
+            suppliers={suppliers}
+            generalWarehouseName={generalWarehouseName}
+            purchase={editing}
+            onDone={() => {
+              setEditing(null);
+              router.refresh();
+            }}
+          />
+        )}
+      </Modal>
+
+      <Modal open={!!validating} onClose={() => setValidating(null)} title={`Valider la commande ${validating?.number || ""}`}>
+        {validating && <ValidateForm purchase={validating} onDone={() => { setValidating(null); router.refresh(); }} />}
       </Modal>
 
       <Modal open={!!viewing} onClose={() => setViewing(null)} title={`Commande ${viewing?.number || ""}`}>
@@ -153,9 +207,16 @@ export function PurchaseOrdersClient({
               <span>Total</span>
               <span>{formatMoney(viewing.totalAmount)}</span>
             </div>
-            {viewing.status === "EN_ATTENTE" && (
+            {!viewing.validatedAt && viewing.status !== "ANNULEE" && (
               <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                En attente de livraison — réceptionnez-la depuis Bons de livraison.
+                Brouillon — encore modifiable. Validez-la pour figer son contenu et l&apos;envoyer au fournisseur.
+              </p>
+            )}
+            {viewing.validatedAt && viewing.status === "EN_ATTENTE" && (
+              <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                Validée{viewing.validatedBy ? ` par ${viewing.validatedBy.name}` : ""} le{" "}
+                {formatDateTime(viewing.validatedAt)} — en attente de livraison (réceptionnez-la depuis Bons de
+                livraison).
               </p>
             )}
             {viewing.status === "RECUE" && (
@@ -171,20 +232,100 @@ export function PurchaseOrdersClient({
   );
 }
 
+function ValidateForm({ purchase, onDone }: { purchase: Purchase; onDone: () => void }) {
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function submit() {
+    if (!confirmed) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await validatePurchase(purchase.id);
+      if (res && "error" in res && res.error) {
+        setError(res.error);
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="text-sm bg-slate-50 rounded-lg p-3">
+        <div className="flex justify-between">
+          <span className="text-slate-500">Fournisseur</span>
+          <span className="font-medium">{purchase.supplier.name}</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-slate-500">Articles</span>
+          <span className="font-medium">{purchase.items.length}</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-slate-500">Total</span>
+          <span className="font-semibold">{formatMoney(purchase.totalAmount)}</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-slate-500">Montant à payer</span>
+          <span className="font-semibold">{formatMoney(purchase.paidAmount)}</span>
+        </div>
+      </div>
+
+      <label className="flex items-start gap-2.5 text-sm text-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          onChange={(e) => setConfirmed(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300"
+        />
+        <span>
+          Je confirme que les informations de cette commande sont correctes. Une fois validée, elle{" "}
+          <strong>ne pourra plus être modifiée</strong>.
+        </span>
+      </label>
+
+      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <button
+          onClick={submit}
+          disabled={pending || !confirmed}
+          className="rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {pending ? "Validation..." : "Confirmer la validation"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PurchaseForm({
   products,
   suppliers,
   generalWarehouseName,
+  purchase,
   onDone,
 }: {
   products: Product[];
   suppliers: Supplier[];
   generalWarehouseName: string | null;
+  purchase?: Purchase;
   onDone: () => void;
 }) {
-  const [supplierId, setSupplierId] = useState(suppliers[0]?.id || "");
-  const [items, setItems] = useState<PurchaseCartItem[]>([]);
-  const [itemLabels, setItemLabels] = useState<Record<string, string>>({});
+  const [supplierId, setSupplierId] = useState(purchase?.supplierId || suppliers[0]?.id || "");
+  const [items, setItems] = useState<PurchaseCartItem[]>(
+    purchase ? purchase.items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })) : []
+  );
+  const [itemLabels, setItemLabels] = useState<Record<string, string>>(
+    purchase
+      ? Object.fromEntries(
+          purchase.items.map((i) => [i.productId, `${i.quantity} ${products.find((p) => p.id === i.productId)?.unit?.symbol || ""}`])
+        )
+      : {}
+  );
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [mode, setMode] = useState<"piece" | "pack">("piece");
   const [qty, setQty] = useState(1);
@@ -193,7 +334,7 @@ function PurchaseForm({
   // automatiquement le total de la commande (le cas le plus courant est un
   // paiement intégral) ; une fois modifié à la main, il reste figé pour
   // permettre un paiement partiel même si d'autres articles sont ajoutés.
-  const [amountPaidOverride, setAmountPaidOverride] = useState<number | null>(null);
+  const [amountPaidOverride, setAmountPaidOverride] = useState<number | null>(purchase?.paidAmount ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -255,7 +396,9 @@ function PurchaseForm({
     if (items.length === 0) return setError("Ajoutez au moins un article.");
 
     startTransition(async () => {
-      const res = await createPurchase({ supplierId, items, amountPaid, notes: undefined });
+      const res = purchase
+        ? await updatePurchase(purchase.id, { supplierId, items, amountPaid, notes: undefined })
+        : await createPurchase({ supplierId, items, amountPaid, notes: undefined });
       if (res.error) {
         setError(res.error);
         return;
@@ -373,7 +516,7 @@ function PurchaseForm({
           disabled={pending}
           className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
         >
-          {pending ? "Enregistrement..." : "Créer le bon de commande"}
+          {pending ? "Enregistrement..." : purchase ? "Enregistrer les modifications" : "Créer le bon de commande"}
         </button>
       </div>
     </div>

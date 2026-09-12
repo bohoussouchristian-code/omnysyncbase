@@ -9,7 +9,9 @@ export default async function LivraisonsPage() {
   const companyId = user.companyId;
 
   const purchases = await prisma.purchase.findMany({
-    where: { companyId, status: { in: ["EN_ATTENTE", "RECUE"] } },
+    // Un brouillon (non encore validé) n'a pas été envoyé au fournisseur :
+    // il n'apparaît pas ici tant qu'il n'est pas validé depuis Bons de commande.
+    where: { companyId, status: { in: ["EN_ATTENTE", "RECUE"] }, validatedAt: { not: null } },
     orderBy: { date: "desc" },
     take: 150,
     include: {

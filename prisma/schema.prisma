@@ -122,6 +122,7 @@ model User {
   cancelledSales    Sale[]          @relation("SaleCancelledBy")
   purchases         Purchase[]
   receivedPurchases Purchase[]      @relation("PurchaseReceivedBy")
+  validatedPurchases Purchase[]     @relation("PurchaseValidatedBy")
   stockMovements    StockMovement[]
   expenses          Expense[]
   cashSessions      CashSession[]
@@ -308,6 +309,15 @@ model Purchase {
   receivedAt   DateTime?
   receivedById String?
   receivedBy   User?     @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
+
+  // Tant qu'une commande n'est pas validée, c'est un brouillon librement
+  // modifiable et sans effet sur la dette fournisseur. La validation fige
+  // définitivement le contenu (fournisseur, articles, montants) et ne peut
+  // être faite qu'une fois — c'est à ce moment que le paiement et le solde
+  // fournisseur sont réellement enregistrés.
+  validatedAt   DateTime?
+  validatedById String?
+  validatedBy   User?     @relation("PurchaseValidatedBy", fields: [validatedById], references: [id])
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
