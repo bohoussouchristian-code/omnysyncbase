@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { Card, StatCard, Badge, PageHeader } from "@/components/ui";
+import { PrintButton } from "@/components/PrintButton";
 import Link from "next/link";
 
 export default async function BilanPage() {
@@ -40,7 +41,11 @@ export default async function BilanPage() {
 
   return (
     <div>
-      <PageHeader title="Bilan & état financier" subtitle="Résultat du mois et situation des dettes" />
+      <PageHeader
+        title="Bilan & état financier"
+        subtitle="Résultat du mois et situation des dettes"
+        action={<PrintButton />}
+      />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard label="Chiffre d'affaires (mois)" value={formatMoney(revenueMonth)} />
@@ -75,7 +80,7 @@ export default async function BilanPage() {
           <div className="border-t border-slate-100 pt-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Clients en retard</p>
-              <Link href="/clients" className="text-sm text-blue-600 hover:underline">
+              <Link href="/clients" className="no-print text-sm text-blue-600 hover:underline">
                 Voir les clients
               </Link>
             </div>

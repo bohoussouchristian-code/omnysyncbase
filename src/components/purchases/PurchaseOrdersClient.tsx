@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { createPurchase, updatePurchase, validatePurchase, type PurchaseCartItem } from "@/lib/actions/purchases";
 import { Modal, Select, Input, Label, Badge, PageHeader, Card } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
+import { PurchaseOrderDocument } from "@/components/purchases/PurchaseOrderDocument";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Plus, Trash2, Eye, Pencil, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Eye, Pencil, CheckCircle2, Printer } from "lucide-react";
 
 type Product = {
   id: string;
@@ -47,17 +48,25 @@ export function PurchaseOrdersClient({
   products,
   suppliers,
   generalWarehouseName,
+  companyName,
 }: {
   purchases: Purchase[];
   products: Product[];
   suppliers: Supplier[];
   generalWarehouseName: string | null;
+  companyName: string;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Purchase | null>(null);
   const [validating, setValidating] = useState<Purchase | null>(null);
   const [viewing, setViewing] = useState<Purchase | null>(null);
+  const [printing, setPrinting] = useState<Purchase | null>(null);
   const router = useRouter();
+
+  function handlePrint(p: Purchase) {
+    setPrinting(p);
+    setTimeout(() => window.print(), 50);
+  }
 
   return (
     <div>
@@ -225,9 +234,32 @@ export function PurchaseOrdersClient({
                 {viewing.receivedBy ? ` par ${viewing.receivedBy.name}` : ""} — {viewing.warehouse.name}
               </p>
             )}
+            <button
+              onClick={() => handlePrint(viewing)}
+              className="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+            >
+              <Printer size={14} /> Imprimer
+            </button>
           </div>
         )}
       </Modal>
+
+      {printing && (
+        <div id="receipt-print" className="hidden">
+          <PurchaseOrderDocument
+            data={{
+              number: printing.number,
+              companyName,
+              supplierName: printing.supplier.name,
+              date: printing.date,
+              totalAmount: printing.totalAmount,
+              paidAmount: printing.paidAmount,
+              items: printing.items,
+              status: printing.status,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

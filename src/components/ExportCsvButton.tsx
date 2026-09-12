@@ -19,7 +19,7 @@ export function ExportCsvButton({ filename, csv, label = "Exporter CSV" }: { fil
     <button
       onClick={handleClick}
       type="button"
-      className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+      className="no-print flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
     >
       <Download size={16} /> {label}
     </button>

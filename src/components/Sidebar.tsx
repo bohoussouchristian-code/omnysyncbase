@@ -240,7 +240,7 @@ export function Sidebar({
 
   return (
     <>
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 flex items-center px-3 z-40">
+      <div className="no-print lg:hidden fixed top-0 left-0 right-0 h-14 bg-slate-900 flex items-center px-3 z-40">
         <button onClick={() => setOpen(true)} className="text-white p-2">
           <Menu size={22} />
         </button>
@@ -248,10 +248,10 @@ export function Sidebar({
         <AccountMenu userName={userName} userEmail={userEmail} userRole={userRole} theme="dark" />
       </div>
 
-      <aside className="hidden lg:block w-64 bg-slate-900 shrink-0">{content}</aside>
+      <aside className="no-print hidden lg:block w-64 bg-slate-900 shrink-0">{content}</aside>
 
       {open && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="no-print lg:hidden fixed inset-0 z-50 flex">
           <div className="w-64 bg-slate-900 relative">
             <button
               onClick={() => setOpen(false)}

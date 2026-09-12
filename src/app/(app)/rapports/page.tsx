@@ -7,6 +7,7 @@ import { MOVEMENT_TYPE_LABELS } from "@/lib/constants";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { SalesTrendChart } from "@/components/reports/SalesTrendChart";
 import { PeriodControls } from "@/components/reports/PeriodControls";
+import { PrintButton } from "@/components/PrintButton";
 
 const PERIODS = {
   "7j": 7,
@@ -200,13 +201,16 @@ export default async function RapportsPage({
         title="Rapports"
         subtitle="Analyse des performances de votre entreprise"
         action={
-          <PeriodControls
-            basePath="/rapports"
-            activePeriode={periode || "30j"}
-            isCustom={isCustom}
-            from={fromParam || ""}
-            to={toParam || ""}
-          />
+          <div className="flex items-center gap-2">
+            <PeriodControls
+              basePath="/rapports"
+              activePeriode={periode || "30j"}
+              isCustom={isCustom}
+              from={fromParam || ""}
+              to={toParam || ""}
+            />
+            <PrintButton />
+          </div>
         }
       />
 

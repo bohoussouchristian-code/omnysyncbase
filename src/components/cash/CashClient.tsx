@@ -7,6 +7,7 @@ import { Card, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader,
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 import { CashClosingForm } from "@/components/cash/CashClosingForm";
+import { PrintButton } from "@/components/PrintButton";
 import { Search, Wallet } from "lucide-react";
 
 type Warehouse = { id: string; name: string };
@@ -62,7 +63,10 @@ export function CashClient({
         title="État de mes caisses"
         subtitle={`Activité du ${formatDate(from)} au ${formatDate(to)}`}
         action={
-          <DateRangePicker from={from} to={to} onApply={(f, t) => router.push(`/caisse?from=${f}&to=${t}`)} />
+          <div className="flex items-center gap-2">
+            <DateRangePicker from={from} to={to} onApply={(f, t) => router.push(`/caisse?from=${f}&to=${t}`)} />
+            <PrintButton />
+          </div>
         }
       />
 
@@ -76,7 +80,7 @@ export function CashClient({
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4 mb-6">
-        <Card className="p-5 lg:col-span-1">
+        <Card className="no-print p-5 lg:col-span-1">
           {mySession ? (
             <div className="space-y-4">
               {cumul != null && (
@@ -97,7 +101,7 @@ export function CashClient({
             <h2 className="font-semibold text-slate-900">
               Liste des sessions de caisse <span className="text-slate-400 font-normal">[ {filtered.length} ]</span>
             </h2>
-            <div className="relative">
+            <div className="no-print relative">
               <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
               <input
                 value={query}

@@ -115,7 +115,7 @@ export function DateRangePicker({
         onClick={toggle}
         title={label}
         aria-label={label}
-        className="flex items-center justify-center rounded-lg border border-slate-300 h-9 w-9 text-slate-600 hover:bg-slate-50"
+        className="no-print flex items-center justify-center rounded-lg border border-slate-300 h-9 w-9 text-slate-600 hover:bg-slate-50"
       >
         <CalendarDays size={16} />
       </button>

@@ -22,7 +22,7 @@ export function PeriodControls({
   const router = useRouter();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="no-print flex flex-wrap items-center gap-2">
       {PERIODS.map((p) => (
         <Link
           key={p}

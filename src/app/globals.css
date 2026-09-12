@@ -53,11 +53,22 @@ body {
     size: A4;
     margin: 16mm;
   }
-  body * {
+
+  /* Éléments d'interface (sidebar, menu compte, barres de recherche,
+     boutons...) jamais imprimés, qu'il s'agisse d'un reçu ou d'une page de
+     rapport imprimée telle quelle. */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reçu/devis : document caché à l'écran, affiché seul à l'impression — le
+     reste de la page est masqué UNIQUEMENT quand un tel document est présent
+     (sinon une page de rapport imprimée directement resterait vide). */
+  body:has(#receipt-print) * {
     visibility: hidden;
   }
-  #receipt-print,
-  #receipt-print * {
+  body:has(#receipt-print) #receipt-print,
+  body:has(#receipt-print) #receipt-print * {
     visibility: visible;
   }
   #receipt-print {

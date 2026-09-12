@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, Badge, PageHeader, StatCard } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { PrintButton } from "@/components/PrintButton";
 import { formatMoney, formatDateTime, formatDate, toCSV } from "@/lib/utils";
 import { Search } from "lucide-react";
 
@@ -82,11 +83,14 @@ export function CaissesDepotsClient({
         title="Gestion des caisses et dépôts"
         subtitle={`Activité du ${formatDate(from)} au ${formatDate(to)}`}
         action={
-          <DateRangePicker
-            from={from}
-            to={to}
-            onApply={(f, t) => router.push(`/gestion-caisses-depots?from=${f}&to=${t}`)}
-          />
+          <div className="flex items-center gap-2">
+            <DateRangePicker
+              from={from}
+              to={to}
+              onApply={(f, t) => router.push(`/gestion-caisses-depots?from=${f}&to=${t}`)}
+            />
+            <PrintButton />
+          </div>
         }
       />
 
@@ -109,7 +113,7 @@ export function CaissesDepotsClient({
           <h2 className="font-semibold text-slate-900">
             Liste des clôtures de caisse <span className="text-slate-400 font-normal">[ {filtered.length} ]</span>
           </h2>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="no-print flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
               <input
