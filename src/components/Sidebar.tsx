@@ -229,6 +229,12 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {userRole === "ADMIN" && (
+        <div className="border-t border-slate-800 p-3 flex justify-end">
+          <SettingsMenu theme="dark" />
+        </div>
+      )}
     </div>
   );
 
@@ -239,7 +245,6 @@ export function Sidebar({
           <Menu size={22} />
         </button>
         <span className="text-white font-semibold ml-2 truncate flex-1">{companyName || "OSB"}</span>
-        {userRole === "ADMIN" && <SettingsMenu theme="dark" />}
         <AccountMenu userName={userName} userEmail={userEmail} userRole={userRole} theme="dark" />
       </div>
 
