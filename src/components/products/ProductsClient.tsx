@@ -225,8 +225,12 @@ function ProductForm({
       </div>
 
       <div>
-        <Label>Code-barres (optionnel)</Label>
-        <Input name="barcode" defaultValue={product?.barcode || ""} placeholder="Ex: 6001234567890" />
+        <Label>Code-barres</Label>
+        <Input
+          disabled
+          value={product ? product.barcode || "" : "Généré automatiquement à la création"}
+          className="bg-slate-100 text-slate-500 cursor-not-allowed"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

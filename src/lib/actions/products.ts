@@ -21,13 +21,36 @@ async function requireManager() {
 const DELETE_LOCKED_MESSAGE =
   "Cette action est désactivée en attendant une validation. Contactez le développeur pour l'activer.";
 
+// Chiffre de contrôle EAN-13 standard (poids 1/3 alternés sur les 12 premiers chiffres).
+function ean13CheckDigit(code12: string): number {
+  const sum = code12
+    .split("")
+    .reduce((acc, d, i) => acc + Number(d) * (i % 2 === 0 ? 1 : 3), 0);
+  return (10 - (sum % 10)) % 10;
+}
+
+// Le code-barres n'est plus saisi manuellement : on le génère nous-mêmes au
+// format EAN-13, avec le préfixe 20-29 réservé à l'usage interne (jamais
+// attribué par GS1), pour éviter toute collision avec un vrai code produit.
+async function generateUniqueBarcode(companyId: string): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const random = Math.floor(Math.random() * 1e10)
+      .toString()
+      .padStart(10, "0");
+    const code12 = `20${random}`;
+    const barcode = `${code12}${ean13CheckDigit(code12)}`;
+    const exists = await prisma.product.findFirst({ where: { companyId, barcode } });
+    if (!exists) return barcode;
+  }
+  throw new Error("Impossible de générer un code-barres unique.");
+}
+
 export async function createProduct(_prev: unknown, formData: FormData) {
   const check = await requireManager();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
 
   const name = String(formData.get("name") || "").trim();
-  const barcode = String(formData.get("barcode") || "").trim() || null;
   const categoryId = String(formData.get("categoryId") || "") || null;
   const unitId = String(formData.get("unitId") || "") || null;
   const purchasePrice = Number(formData.get("purchasePrice") || 0);
@@ -56,6 +79,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   if (!warehouse) return { error: "Dépôt introuvable." };
 
   try {
+    const barcode = await generateUniqueBarcode(companyId);
     const product = await prisma.product.create({
       data: {
         name,
@@ -109,7 +133,6 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
 
   const id = String(formData.get("id") || "");
   const name = String(formData.get("name") || "").trim();
-  const barcode = String(formData.get("barcode") || "").trim() || null;
   const categoryId = String(formData.get("categoryId") || "") || null;
   const unitId = String(formData.get("unitId") || "") || null;
   const purchasePrice = Number(formData.get("purchasePrice") || 0);
@@ -147,7 +170,6 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
       where: { id },
       data: {
         name,
-        barcode,
         categoryId,
         unitId,
         purchasePrice,
