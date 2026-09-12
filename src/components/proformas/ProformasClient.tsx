@@ -121,7 +121,6 @@ export function ProformasClient({
     <div>
       <PageHeader
         title="Proformas"
-        subtitle="Devis non contractuels à remettre à un client avant la vente"
         action={
           <button
             onClick={() => setShowCreate(true)}

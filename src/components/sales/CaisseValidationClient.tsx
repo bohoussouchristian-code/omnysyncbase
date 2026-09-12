@@ -93,7 +93,7 @@ export function CaisseValidationClient({
 
   return (
     <div>
-      <PageHeader title="Caisse" subtitle="Validez le paiement des ventes saisies — la caisse ne fait qu'encaisser" />
+      <PageHeader title="Caisse" />
 
       <CashSessionBar warehouses={warehouses} openSessions={openSessions} />
 

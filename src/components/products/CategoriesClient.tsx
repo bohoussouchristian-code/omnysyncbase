@@ -13,7 +13,7 @@ export function CategoriesClient({ categories, units }: { categories: Category[]
 
   return (
     <div>
-      <PageHeader title="Catégories & unités" subtitle="Organisez votre catalogue de produits" />
+      <PageHeader title="Catégories & unités" />
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card className="p-5">

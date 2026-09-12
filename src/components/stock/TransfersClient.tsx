@@ -58,7 +58,6 @@ export function TransfersClient({
     <div>
       <PageHeader
         title="Transferts de stock"
-        subtitle="Entre tous vos dépôts et boutiques, dans les deux sens"
         action={
           <button
             onClick={() => setShowCreate(true)}

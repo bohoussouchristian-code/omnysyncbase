@@ -199,7 +199,6 @@ export default async function RapportsPage({
     <div>
       <PageHeader
         title="Rapports"
-        subtitle="Analyse des performances de votre entreprise"
         action={
           <div className="flex items-center gap-2">
             <PeriodControls

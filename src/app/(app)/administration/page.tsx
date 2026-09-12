@@ -4,27 +4,12 @@ import { PageHeader } from "@/components/ui";
 import Link from "next/link";
 import { Info, Building2, UserCog, type LucideIcon } from "lucide-react";
 
-type SettingLink = { href: string; label: string; description: string; icon: LucideIcon };
+type SettingLink = { href: string; label: string; icon: LucideIcon };
 
 const SETTINGS_LINKS: SettingLink[] = [
-  {
-    href: "/entreprise",
-    label: "Informations de l'entreprise",
-    description: "Nom, logo, en-tête et coordonnées affichés sur les documents",
-    icon: Info,
-  },
-  {
-    href: "/entrepots",
-    label: "Dépôts / Boutiques",
-    description: "Gérer les dépôts et boutiques de l'entreprise",
-    icon: Building2,
-  },
-  {
-    href: "/utilisateurs",
-    label: "Utilisateurs",
-    description: "Gérer les comptes et rôles des utilisateurs",
-    icon: UserCog,
-  },
+  { href: "/entreprise", label: "Informations de l'entreprise", icon: Info },
+  { href: "/entrepots", label: "Dépôts / Boutiques", icon: Building2 },
+  { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog },
 ];
 
 export default async function AdministrationPage() {
@@ -35,7 +20,7 @@ export default async function AdministrationPage() {
 
   return (
     <div>
-      <PageHeader title="Administration" subtitle="Paramètres généraux de l'entreprise" />
+      <PageHeader title="Administration" />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {SETTINGS_LINKS.map((item) => (
@@ -48,7 +33,6 @@ export default async function AdministrationPage() {
               <item.icon size={22} />
             </div>
             <h2 className="font-bold text-slate-900 text-sm">{item.label}</h2>
-            <p className="text-xs text-slate-400 mt-1">{item.description}</p>
           </Link>
         ))}
       </div>

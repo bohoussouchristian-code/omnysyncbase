@@ -49,7 +49,7 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
 
   return (
     <div>
-      <PageHeader title="Bons de livraison" subtitle="Réception des commandes fournisseur au Dépôt Général" />
+      <PageHeader title="Bons de livraison" />
 
       <div className="relative max-w-xs mb-4">
         <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />

@@ -52,7 +52,7 @@ export function EntrepriseClient({ company }: { company: Company }) {
 
   return (
     <div>
-      <PageHeader title="Informations de l'entreprise" subtitle="Ces informations apparaissent sur les documents officiels (reçus, rapports...)." />
+      <PageHeader title="Informations de l'entreprise" />
 
       <Card className="p-5 mb-6 flex items-center gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700 overflow-hidden">

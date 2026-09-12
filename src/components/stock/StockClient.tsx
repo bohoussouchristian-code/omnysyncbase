@@ -68,7 +68,6 @@ export function StockClient({
     <div>
       <PageHeader
         title="Stock Général"
-        subtitle="Niveaux de stock par dépôt — l'entrée se fait depuis Configuration des produits"
         action={
           <button
             onClick={() => setShowAdjust(true)}

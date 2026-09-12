@@ -82,10 +82,7 @@ export function AnnulationsClient({
 
   return (
     <div>
-      <PageHeader
-        title="Annulation de facture"
-        subtitle="Gère toutes les annulations de ventes — un motif est obligatoire"
-      />
+      <PageHeader title="Annulation de facture" />
 
       <Card className="overflow-hidden mb-6">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">

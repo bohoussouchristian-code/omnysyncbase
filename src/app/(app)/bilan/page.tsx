@@ -43,7 +43,6 @@ export default async function BilanPage() {
     <div>
       <PageHeader
         title="Bilan & état financier"
-        subtitle="Résultat du mois et situation des dettes"
         action={<PrintButton />}
       />
 
