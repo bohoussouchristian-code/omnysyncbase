@@ -6,7 +6,9 @@ import { Card, Modal, PageHeader } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Eye, Search } from "lucide-react";
+import { Eye, Search, Printer } from "lucide-react";
+import { ReceiptDocument, buildReceiptData, type ReceiptData } from "@/components/sales/ReceiptDocument";
+import type { PaymentMethod } from "@prisma/client";
 
 type Sale = {
   id: string;
@@ -14,10 +16,13 @@ type Sale = {
   date: Date;
   totalAmount: number;
   paidAmount: number;
+  paymentMethod: PaymentMethod;
+  dueDate: Date | null;
+  pointsEarned: number;
   status: string;
-  paymentMethod: string;
+  validatedAt: Date | null;
   customer: { name: string } | null;
-  warehouse: { name: string };
+  warehouse: { name: string; address: string | null };
   user: { name: string } | null;
   items: {
     id: string;
@@ -27,18 +32,22 @@ type Sale = {
     product: { name: string } | null;
     service: { name: string } | null;
   }[];
+  payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
 };
 
 export function SalesHistoryClient({
   sales,
   from,
   to,
+  companyName,
 }: {
   sales: Sale[];
   from: string;
   to: string;
+  companyName: string;
 }) {
   const [detail, setDetail] = useState<Sale | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [query, setQuery] = useState("");
   const router = useRouter();
 
@@ -163,9 +172,49 @@ export function SalesHistoryClient({
               <span>Total</span>
               <span>{formatMoney(detail.totalAmount)}</span>
             </div>
+            {detail.status !== "EN_ATTENTE" && (
+              <button
+                onClick={() => {
+                  setReceipt(buildReceiptData(detail, companyName));
+                  setDetail(null);
+                }}
+                className="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+              >
+                <Printer size={14} /> Imprimer le reçu
+              </button>
+            )}
           </div>
         )}
       </Modal>
+
+      {receipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setReceipt(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+            <ReceiptDocument data={receipt} />
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setReceipt(null)}
+                className="flex-1 rounded-lg border border-slate-300 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+              >
+                <Printer size={14} /> Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receipt && (
+        <div id="receipt-print" className="hidden">
+          <ReceiptDocument data={receipt} />
+        </div>
+      )}
     </div>
   );
 }

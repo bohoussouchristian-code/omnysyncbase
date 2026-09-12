@@ -23,17 +23,21 @@ export default async function SalesHistoryPage({
   const from = new Date(`${fromStr}T00:00:00`);
   const to = new Date(`${toStr}T23:59:59.999`);
 
-  const sales = await prisma.sale.findMany({
-    where: { companyId: user.companyId, date: { gte: from, lte: to } },
-    orderBy: { date: "desc" },
-    take: 500,
-    include: {
-      customer: true,
-      warehouse: true,
-      user: true,
-      items: { include: { product: true, service: true } },
-    },
-  });
+  const [sales, company] = await Promise.all([
+    prisma.sale.findMany({
+      where: { companyId: user.companyId, date: { gte: from, lte: to } },
+      orderBy: { date: "desc" },
+      take: 500,
+      include: {
+        customer: true,
+        warehouse: true,
+        user: true,
+        items: { include: { product: true, service: true } },
+        payments: { select: { amount: true, cashReceived: true, changeGiven: true } },
+      },
+    }),
+    prisma.company.findUnique({ where: { id: user.companyId }, select: { name: true } }),
+  ]);
 
-  return <SalesHistoryClient sales={sales} from={fromStr} to={toStr} />;
+  return <SalesHistoryClient sales={sales} from={fromStr} to={toStr} companyName={company?.name ?? ""} />;
 }

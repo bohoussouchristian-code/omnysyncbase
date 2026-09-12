@@ -38,6 +38,7 @@ export default async function CaisseVentesPage({
         user: true,
         validatedBy: true,
         items: itemsInclude,
+        payments: { select: { amount: true, cashReceived: true, changeGiven: true } },
       },
     }),
     prisma.sale.findMany({
@@ -50,6 +51,7 @@ export default async function CaisseVentesPage({
         user: true,
         validatedBy: true,
         items: itemsInclude,
+        payments: { select: { amount: true, cashReceived: true, changeGiven: true } },
       },
     }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),

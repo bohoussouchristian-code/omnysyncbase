@@ -29,6 +29,47 @@ export type ReceiptData = {
   issuedAt: Date;
 };
 
+// Reconstitue le reçu d'une vente déjà encaissée (pour le réimprimer plus
+// tard, depuis Caisse ou Historique des ventes) : la monnaie rendue et le
+// montant reçu se déduisent des paiements enregistrés, pas d'un état encore
+// en mémoire — un reçu doit rester imprimable à tout moment après coup.
+export function buildReceiptData(
+  sale: {
+    number: string;
+    date: Date;
+    validatedAt: Date | null;
+    totalAmount: number;
+    paidAmount: number;
+    paymentMethod: PaymentMethod;
+    dueDate: Date | null;
+    pointsEarned: number;
+    customer: { name: string } | null;
+    warehouse: { name: string; address: string | null };
+    items: ReceiptItem[];
+    payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
+  },
+  companyName: string
+): ReceiptData {
+  const changeGiven = sale.payments.reduce((s, p) => s + (p.changeGiven || 0), 0);
+  const received = sale.payments.reduce((s, p) => s + (p.cashReceived ?? p.amount), 0) || sale.paidAmount;
+  return {
+    number: sale.number,
+    companyName,
+    warehouse: sale.warehouse.name,
+    warehouseAddress: sale.warehouse.address,
+    customer: sale.customer?.name || "Client comptant",
+    items: sale.items,
+    total: sale.totalAmount,
+    paid: sale.paidAmount,
+    received,
+    changeGiven,
+    paymentMethod: sale.paymentMethod,
+    dueDate: sale.dueDate ? sale.dueDate.toISOString() : null,
+    pointsEarned: sale.pointsEarned,
+    issuedAt: sale.validatedAt || sale.date,
+  };
+}
+
 function StatusPill({ paid, total }: { paid: number; total: number }) {
   if (paid >= total) {
     return (

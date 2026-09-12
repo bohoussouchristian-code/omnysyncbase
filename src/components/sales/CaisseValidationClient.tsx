@@ -10,7 +10,7 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
-import { ReceiptDocument, type ReceiptData } from "@/components/sales/ReceiptDocument";
+import { ReceiptDocument, buildReceiptData, type ReceiptData } from "@/components/sales/ReceiptDocument";
 import { Eye, Wallet, Printer, Search, Lock, Unlock } from "lucide-react";
 import type { PaymentMethod } from "@prisma/client";
 
@@ -27,6 +27,9 @@ type SaleRow = {
   number: string;
   date: Date;
   totalAmount: number;
+  paidAmount: number;
+  paymentMethod: PaymentMethod;
+  dueDate: Date | null;
   pointsEarned: number;
   pointsUsed: number;
   status: string;
@@ -38,7 +41,9 @@ type SaleRow = {
   validatedAt: Date | null;
   validatedBy: { name: string } | null;
   items: SaleItem[];
+  payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
 };
+
 type Warehouse = { id: string; name: string };
 type OpenSession = {
   id: string;
@@ -244,6 +249,17 @@ export function CaisseValidationClient({
               <span>Total</span>
               <span>{formatMoney(viewing.totalAmount)}</span>
             </div>
+            {viewing.status !== "EN_ATTENTE" && (
+              <button
+                onClick={() => {
+                  setReceipt(buildReceiptData(viewing, companyName));
+                  setViewing(null);
+                }}
+                className="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+              >
+                <Printer size={14} /> Imprimer le reçu
+              </button>
+            )}
           </div>
         )}
       </Modal>
