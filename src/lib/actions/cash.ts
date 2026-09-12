@@ -87,6 +87,16 @@ export async function closeCashSession(_prev: unknown, formData: FormData) {
 
   const expectedAmount = await computeExpectedAmount(session);
 
+  // Un manquant bloque totalement la fermeture (il faut remettre l'argent en
+  // caisse et recompter) ; un excédent doit au moins être justifié. Revérifié
+  // ici pour ne pas dépendre uniquement du contrôle côté client.
+  if (closingAmount < expectedAmount) {
+    return { error: "Montant compté inférieur au montant attendu : remettez le montant manquant en caisse avant de fermer." };
+  }
+  if (closingAmount > expectedAmount && !notes) {
+    return { error: "Un excédent de caisse doit être justifié avant de confirmer la fermeture." };
+  }
+
   await prisma.cashSession.update({
     where: { id },
     data: { closingAmount, expectedAmount, closedAt: new Date(), notes },

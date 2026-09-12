@@ -49,8 +49,21 @@ export function CashClosingForm({
     });
   }
 
+  // Un excédent (compté > attendu) doit être justifié avant de pouvoir
+  // confirmer : un surplus inexpliqué est aussi suspect qu'un manquant.
+  const requiresJustification = (diff || 0) > 0;
+  // Un manquant (compté < attendu) bloque totalement la fermeture : impossible
+  // de la contourner par une simple note, il faut remettre l'argent manquant
+  // en caisse et recompter avant de pouvoir continuer.
+  const isShortfall = (diff || 0) < 0;
+
   function confirmClose() {
     setError(null);
+    if (isShortfall) return;
+    if (requiresJustification && notes.trim() === "") {
+      setError("Un excédent de caisse doit être justifié avant de confirmer la fermeture.");
+      return;
+    }
     startTransition(async () => {
       const formData = new FormData();
       formData.set("id", session.id);
@@ -138,9 +151,28 @@ export function CashClosingForm({
               <span>{formatMoney(Math.abs(diff || 0))}</span>
             </div>
           </div>
-          <p className="text-xs text-slate-400">
-            Vérifiez le fond de caisse avant de confirmer : la fermeture est définitive.
-          </p>
+          {isShortfall && (
+            <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Fermeture bloquée : il manque {formatMoney(Math.abs(diff || 0))} en caisse. Remettez le
+              montant manquant en place, puis recomptez avant de pouvoir continuer.
+            </div>
+          )}
+          {requiresJustification && (
+            <div>
+              <Label>Justificatif de l&apos;excédent (obligatoire)</Label>
+              <Input
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Ex : pourboire non déclaré, erreur de rendu-monnaie retrouvée..."
+                required
+              />
+            </div>
+          )}
+          {diff === 0 && (
+            <p className="text-xs text-slate-400">
+              Vérifiez le fond de caisse avant de confirmer : la fermeture est définitive.
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"
@@ -148,16 +180,18 @@ export function CashClosingForm({
               disabled={pending}
               className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60"
             >
-              Modifier
+              {isShortfall ? "Recompter" : "Modifier"}
             </button>
-            <button
-              type="button"
-              onClick={confirmClose}
-              disabled={pending}
-              className="flex-1 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {pending ? "Fermeture..." : "Confirmer la fermeture"}
-            </button>
+            {!isShortfall && (
+              <button
+                type="button"
+                onClick={confirmClose}
+                disabled={pending || (requiresJustification && notes.trim() === "")}
+                className="flex-1 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {pending ? "Fermeture..." : "Confirmer la fermeture"}
+              </button>
+            )}
           </div>
         </>
       )}
