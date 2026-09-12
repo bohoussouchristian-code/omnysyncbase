@@ -109,7 +109,7 @@ export function DateRangePicker({
   const today = new Date();
 
   return (
-    <div className="relative">
+    <>
       <button
         type="button"
         onClick={toggle}
@@ -120,33 +120,37 @@ export function DateRangePicker({
         <CalendarDays size={16} />
       </button>
       {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 z-50 w-[380px] bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          {/* Modale centrée en plein écran (et non un menu ancré au bouton) :
+              s'affiche intégralement quel que soit l'endroit de la page où se
+              trouve le déclencheur, sans jamais être coupée par un conteneur
+              voisin. */}
+          <div className="relative w-full max-w-[420px] max-h-[90vh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 sticky top-0 bg-white">
               <h3 className="font-semibold text-slate-900 text-sm">Sélectionner la date</h3>
               <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={16} />
               </button>
             </div>
-            <div className="flex">
-              <div className="w-24 shrink-0 bg-blue-600 text-white flex flex-col items-center justify-center text-center py-6 px-2">
+            <div className="flex flex-col sm:flex-row">
+              <div className="sm:w-24 shrink-0 bg-blue-600 text-white flex flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 text-center py-4 sm:py-6 px-2">
                 {daysCount != null && rangeStart ? (
                   <>
                     <p className="text-xs opacity-80">
                       {MONTHS_SHORT[rangeStart.getMonth()]} {rangeStart.getFullYear()}
                     </p>
-                    <p className="text-2xl font-bold leading-tight mt-1">{daysCount}</p>
+                    <p className="text-2xl font-bold leading-tight sm:mt-1">{daysCount}</p>
                     <p className="text-xs opacity-80">jour{daysCount > 1 ? "s" : ""}</p>
                   </>
                 ) : (
                   <>
                     <p className="text-lg font-semibold opacity-70">—</p>
-                    <p className="text-lg font-semibold opacity-70 mt-2">—</p>
+                    <p className="text-lg font-semibold opacity-70 sm:mt-2">—</p>
                   </>
                 )}
               </div>
-              <div className="flex-1 p-4">
+              <div className="flex-1 p-4 min-w-0">
                 <div className="flex items-center justify-between mb-3 text-sm font-medium text-slate-700">
                   <button type="button" onClick={() => changeMonth(-1)} className="p-1 rounded hover:bg-slate-100 text-slate-400">
                     <ChevronLeft size={16} />
@@ -216,13 +220,13 @@ export function DateRangePicker({
               type="button"
               onClick={apply}
               disabled={!rangeStart}
-              className="w-full rounded-none bg-blue-600 text-white py-3 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+              className="w-full rounded-b-xl bg-blue-600 text-white py-3 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 sticky bottom-0"
             >
               Valider
             </button>
           </div>
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 }
