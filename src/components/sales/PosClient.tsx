@@ -7,7 +7,7 @@ import { createSale } from "@/lib/actions/sales";
 import { Card, Select, Badge } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { CUSTOMER_TYPE_LABELS, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
-import { Search, Trash2, Plus, Minus, PackagePlus, Star, Sparkles, ArrowRight } from "lucide-react";
+import { Search, Trash2, Plus, Minus, PackagePlus, Star, Sparkles, ArrowRight, CupSoda } from "lucide-react";
 import type { CustomerType } from "@prisma/client";
 
 type Product = {
@@ -307,25 +307,45 @@ export function PosClient({
               const baseQty = availableBase.get(p.id) || 0;
               const packQty = p.packUnit ? Math.floor(baseQty / p.piecesPerPack) : 0;
               const price = priceForCustomer(p, selectedCustomer?.type ?? null);
+              const inCartQty = cart.find((l) => l.key === `p:${p.id}:piece`)?.qty || 0;
+              const lowStock = baseQty <= 5;
               return (
                 <div
                   key={p.id}
-                  className="bg-white border border-slate-200 rounded-xl p-3 text-left hover:border-blue-400 hover:shadow-sm transition-all"
+                  className="group relative flex flex-col bg-white border border-slate-200 rounded-2xl p-3 hover:border-blue-300 hover:shadow-md transition-all"
                 >
-                  <button onClick={() => addToCart(p, "piece")} className="w-full text-left">
-                    <p className="font-medium text-slate-800 text-sm leading-tight mb-1">{p.name}</p>
-                    <p className="text-blue-600 font-semibold text-sm">
-                      {formatMoney(price)} <span className="text-slate-400 font-normal">/ {p.unit?.symbol}</span>
+                  {inCartQty > 0 && (
+                    <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5 shadow-sm">
+                      {inCartQty}
+                    </span>
+                  )}
+                  <button onClick={() => addToCart(p, "piece")} className="flex-1 w-full text-left flex flex-col">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 mb-2 group-hover:bg-blue-100 transition-colors">
+                      <CupSoda size={17} />
+                    </div>
+                    <p className="font-semibold text-slate-800 text-sm leading-snug mb-1.5 line-clamp-2 min-h-[2.5em]">
+                      {p.name}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <div className="mt-auto flex items-end justify-between gap-1">
+                      <p className="text-blue-700 font-bold text-[15px] leading-none">
+                        {formatMoney(price)}
+                        <span className="text-slate-400 font-normal text-xs"> /{p.unit?.symbol}</span>
+                      </p>
+                    </div>
+                    <span
+                      className={`mt-2 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        lowStock ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full ${lowStock ? "bg-amber-500" : "bg-emerald-500"}`} />
                       {baseQty} {p.unit?.symbol} en stock
-                    </p>
+                    </span>
                   </button>
                   {p.packUnit && (
                     <button
                       onClick={() => addToCart(p, "pack")}
                       disabled={packQty <= 0}
-                      className="mt-2 w-full flex items-center justify-center gap-1 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-medium py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       <PackagePlus size={12} />+ 1 {p.packUnit.symbol} ({formatMoney(p.packSalePrice ?? p.salePrice * p.piecesPerPack)})
                     </button>
@@ -349,15 +369,30 @@ export function PosClient({
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredServices.map((s) => {
                 const price = priceForCustomerService(s, selectedCustomer?.type ?? null);
+                const inCartQty = cart.find((l) => l.key === `s:${s.id}`)?.qty || 0;
                 return (
                   <button
                     key={s.id}
                     onClick={() => addServiceToCart(s)}
-                    className="bg-white border border-slate-200 rounded-xl p-3 text-left hover:border-blue-400 hover:shadow-sm transition-all"
+                    className="group relative flex flex-col bg-white border border-slate-200 rounded-2xl p-3 text-left hover:border-blue-300 hover:shadow-md transition-all"
                   >
-                    <p className="font-medium text-slate-800 text-sm leading-tight mb-1">{s.name}</p>
-                    <p className="text-blue-600 font-semibold text-sm">{formatMoney(price)}</p>
-                    {s.durationMin && <p className="text-xs text-slate-400 mt-1">{s.durationMin} min</p>}
+                    {inCartQty > 0 && (
+                      <span className="absolute -top-2 -right-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5 shadow-sm">
+                        {inCartQty}
+                      </span>
+                    )}
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-2 group-hover:bg-amber-100 transition-colors">
+                      <Sparkles size={17} />
+                    </div>
+                    <p className="font-semibold text-slate-800 text-sm leading-snug mb-1.5 line-clamp-2 min-h-[2.5em]">
+                      {s.name}
+                    </p>
+                    <p className="text-blue-700 font-bold text-[15px] leading-none">{formatMoney(price)}</p>
+                    {s.durationMin && (
+                      <span className="mt-2 inline-flex w-fit items-center rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-[11px] font-medium">
+                        {s.durationMin} min
+                      </span>
+                    )}
                   </button>
                 );
               })}
