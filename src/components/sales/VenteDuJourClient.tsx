@@ -45,12 +45,18 @@ export function VenteDuJourClient({
               : "Historique des achats de chaque client"}
           </p>
         </div>
-        <button
-          onClick={() => setFormOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-700"
-        >
-          <Plus size={16} /> Nouvelle vente
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setFormOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 text-white px-3 py-2 text-sm font-medium hover:bg-blue-700"
+          >
+            <Plus size={16} /> Nouvelle vente
+          </button>
+          {/* Réserve la place du menu compte (positionné en absolu en haut à
+              droite par le layout), pour que ce bouton passe à la ligne
+              plutôt que d'être caché dessous. */}
+          <div className="hidden lg:block w-52 shrink-0" aria-hidden="true" />
+        </div>
       </div>
 
       <div className="flex gap-1 mb-5 border-b border-slate-200">
