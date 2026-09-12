@@ -48,7 +48,6 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
       { href: "/ventes/historique", label: "Historique des ventes", icon: History, roles: null },
-      { href: "/annulations", label: "Annulation de facture", icon: Ban, roles: ["ADMIN"] },
       { href: "/clients", label: "Clients", icon: Users, roles: null },
     ],
   },
@@ -59,6 +58,7 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
       { href: "/proformas", label: "Proformas", icon: FileText, roles: null },
+      { href: "/annulations", label: "Annulation de facture", icon: Ban, roles: ["ADMIN"] },
       { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
       {
         href: "/gestion-caisses-depots",

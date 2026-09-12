@@ -33,7 +33,6 @@ export default async function DashboardPage() {
       links: [
         { href: "/ventes", label: "Vente du jour" },
         { href: "/ventes/historique", label: "Historique des ventes" },
-        ...(isAdmin ? [{ href: "/annulations", label: "Annulation de facture" }] : []),
         { href: "/clients", label: "Clients" },
       ],
     },
@@ -44,6 +43,7 @@ export default async function DashboardPage() {
       links: [
         { href: "/caisse-ventes", label: "Caisse" },
         { href: "/proformas", label: "Proformas" },
+        ...(isAdmin ? [{ href: "/annulations", label: "Annulation de facture" }] : []),
         { href: "/caisse", label: "État de mes caisses" },
         ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         { href: "/depenses", label: "Dépenses" },
