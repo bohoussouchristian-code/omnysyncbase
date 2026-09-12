@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireCompanyUser, hashPassword } from "@/lib/auth";
+import { requireCompanyUser, hashPassword, validatePassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
 
@@ -16,8 +16,9 @@ export async function createUser(_prev: unknown, formData: FormData) {
   const password = String(formData.get("password") || "");
   const role = String(formData.get("role") || "CAISSIER") as Role;
 
-  if (!name || !email || password.length < 8)
-    return { error: "Nom, email et mot de passe (min 8 caractères) requis." };
+  if (!name || !email) return { error: "Nom et email requis." };
+  const passwordError = validatePassword(password);
+  if (passwordError) return { error: passwordError };
 
   try {
     const passwordHash = await hashPassword(password);
@@ -52,7 +53,8 @@ export async function resetUserPassword(_prev: unknown, formData: FormData) {
 
   const id = String(formData.get("id") || "");
   const password = String(formData.get("password") || "");
-  if (password.length < 8) return { error: "Mot de passe : 8 caractères minimum." };
+  const passwordError = validatePassword(password);
+  if (passwordError) return { error: passwordError };
 
   const target = await prisma.user.findFirst({ where: { id, companyId } });
   if (!target) return { error: "Utilisateur introuvable." };

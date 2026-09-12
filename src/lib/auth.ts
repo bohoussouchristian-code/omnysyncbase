@@ -19,6 +19,17 @@ export type SessionPayload = {
   isPlatformOwner: boolean;
 };
 
+// Règle de mot de passe appliquée partout où un mot de passe est créé ou
+// changé (nouvel utilisateur, réinitialisation, changement par soi-même,
+// création d'entreprise depuis la console) : au moins 8 caractères et au
+// moins un symbole, pour ne pas se limiter à des mots de passe purement
+// alphanumériques.
+export function validatePassword(password: string): string | null {
+  if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Le mot de passe doit contenir au moins un symbole (ex: ! @ # $ %).";
+  return null;
+}
+
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }

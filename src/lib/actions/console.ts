@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { getCurrentUser, hashPassword, validatePassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 function slugify(name: string) {
@@ -29,8 +29,10 @@ export async function createCompany(_prev: unknown, formData: FormData) {
   const adminEmail = String(formData.get("adminEmail") || "").trim().toLowerCase();
   const adminPassword = String(formData.get("adminPassword") || "");
 
-  if (!companyName || !adminName || !adminEmail || adminPassword.length < 8)
-    return { error: "Tous les champs sont requis (mot de passe : 8 caractères min)." };
+  if (!companyName || !adminName || !adminEmail)
+    return { error: "Tous les champs sont requis." };
+  const passwordError = validatePassword(adminPassword);
+  if (passwordError) return { error: passwordError };
 
   const baseSlug = slugify(companyName) || "entreprise";
   let finalSlug = baseSlug;

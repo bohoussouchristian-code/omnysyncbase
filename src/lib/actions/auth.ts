@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession, verifyPassword, hashPassword, getCurrentUser } from "@/lib/auth";
+import { createSession, destroySession, verifyPassword, hashPassword, validatePassword, getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 
@@ -77,9 +77,8 @@ export async function changeOwnPassword(_prevState: unknown, formData: FormData)
   if (!currentPassword || !newPassword) {
     return { error: "Veuillez remplir tous les champs." };
   }
-  if (newPassword.length < 8) {
-    return { error: "Le nouveau mot de passe doit contenir au moins 8 caractères." };
-  }
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) return { error: passwordError };
 
   const valid = await verifyPassword(currentPassword, user.passwordHash);
   if (!valid) {

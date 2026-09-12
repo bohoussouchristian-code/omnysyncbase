@@ -208,6 +208,7 @@ function UserForm({ onDone }: { onDone: () => void }) {
       <div>
         <Label>Mot de passe</Label>
         <Input type="password" name="password" required minLength={8} />
+        <p className="mt-1 text-xs text-slate-500">Min. 8 caractères, avec au moins un symbole (ex: ! @ # $ %).</p>
       </div>
       <div>
         <Label>Rôle</Label>
@@ -242,6 +243,7 @@ function ResetPasswordForm({ user, onDone }: { user: User; onDone: () => void })
       <div>
         <Label>Nouveau mot de passe</Label>
         <Input type="password" name="password" required minLength={8} autoFocus />
+        <p className="mt-1 text-xs text-slate-500">Min. 8 caractères, avec au moins un symbole (ex: ! @ # $ %).</p>
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
