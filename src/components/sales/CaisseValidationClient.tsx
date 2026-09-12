@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { validateSale, cancelSale } from "@/lib/actions/sales";
-import { openCashSession, closeCashSession } from "@/lib/actions/cash";
+import { openCashSession } from "@/lib/actions/cash";
+import { CashClosingForm } from "@/components/cash/CashClosingForm";
 import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
@@ -485,51 +486,15 @@ function OpenSessionForm({ warehouses, onDone }: { warehouses: Warehouse[]; onDo
 }
 
 function CloseSessionForm({ session, onDone }: { session: OpenSession; onDone: () => void }) {
-  const [state, formAction] = useActionState(closeCashSession, undefined as
-    | { error?: string; success?: boolean; expectedAmount?: number }
-    | undefined);
   const router = useRouter();
-
-  useEffect(() => {
-    if (state?.success) router.refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.success]);
-
-  if (state?.success) {
-    return (
-      <div className="space-y-4">
-        <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-          Session fermée. Montant attendu : {formatMoney(state.expectedAmount || 0)}
-        </div>
-        <div className="flex justify-end">
-          <button onClick={onDone} className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800">
-            Fermer
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <form action={formAction} className="space-y-4">
-      <FormError error={state?.error} />
-      <input type="hidden" name="id" value={session.id} />
-      <p className="text-sm text-slate-500">Fond initial : {formatMoney(session.openingAmount)}</p>
-      <div>
-        <Label>Montant compté en caisse</Label>
-        <Input type="number" name="closingAmount" min={0} step="1" required />
-      </div>
-      <div>
-        <Label>Remarques (optionnel)</Label>
-        <Input name="notes" />
-      </div>
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Annuler
-        </button>
-        <SubmitButton>Fermer la caisse</SubmitButton>
-      </div>
-    </form>
+    <CashClosingForm
+      session={session}
+      onClosed={() => {
+        router.refresh();
+        onDone();
+      }}
+    />
   );
 }
 

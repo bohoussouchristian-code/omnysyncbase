@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { openCashSession, closeCashSession } from "@/lib/actions/cash";
+import { useRouter } from "next/navigation";
+import { openCashSession } from "@/lib/actions/cash";
 import { Card, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
+import { CashClosingForm } from "@/components/cash/CashClosingForm";
 
 type Warehouse = { id: string; name: string };
 type Session = {
@@ -30,6 +32,8 @@ export function CashClient({
   cumul: number | null;
   dailyRecap: { date: Date; total: number }[];
 }) {
+  const router = useRouter();
+
   return (
     <div>
       <PageHeader title="Sessions de caisse" subtitle="Ouvrez et fermez vos sessions de caisse quotidiennes" />
@@ -37,7 +41,15 @@ export function CashClient({
       <div className="grid lg:grid-cols-3 gap-4 mb-6">
         <Card className="p-5 lg:col-span-1">
           {mySession ? (
-            <CloseForm session={mySession} cumul={cumul} />
+            <div className="space-y-4">
+              {cumul != null && (
+                <div className="flex items-center justify-between text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  <span className="text-emerald-700">Cumul actuel</span>
+                  <span className="font-semibold text-emerald-700">{formatMoney(cumul)}</span>
+                </div>
+              )}
+              <CashClosingForm session={mySession} onClosed={() => router.refresh()} />
+            </div>
           ) : (
             <OpenForm warehouses={warehouses} />
           )}
@@ -125,44 +137,3 @@ function OpenForm({ warehouses }: { warehouses: Warehouse[] }) {
   );
 }
 
-function CloseForm({
-  session,
-  cumul,
-}: {
-  session: { id: string; warehouse: { name: string }; openingAmount: number; openedAt: Date };
-  cumul: number | null;
-}) {
-  const [state, formAction] = useActionState(closeCashSession, undefined as
-    | { error?: string; success?: boolean; expectedAmount?: number }
-    | undefined);
-
-  return (
-    <form action={formAction} className="space-y-4">
-      <h2 className="font-semibold text-slate-900">Session ouverte — {session.warehouse.name}</h2>
-      <p className="text-xs text-slate-400">Depuis {formatDateTime(session.openedAt)}</p>
-      {cumul != null && (
-        <div className="flex items-center justify-between text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-          <span className="text-emerald-700">Cumul actuel</span>
-          <span className="font-semibold text-emerald-700">{formatMoney(cumul)}</span>
-        </div>
-      )}
-      <FormError error={state?.error} />
-      {state?.success && (
-        <div className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-          Session fermée. Montant attendu : {formatMoney(state.expectedAmount || 0)}
-        </div>
-      )}
-      <input type="hidden" name="id" value={session.id} />
-      <p className="text-sm text-slate-500">Fond initial : {formatMoney(session.openingAmount)}</p>
-      <div>
-        <Label>Montant compté en caisse</Label>
-        <Input type="number" name="closingAmount" min={0} step="1" required />
-      </div>
-      <div>
-        <Label>Remarques (optionnel)</Label>
-        <Input name="notes" />
-      </div>
-      <SubmitButton className="w-full">Fermer la caisse</SubmitButton>
-    </form>
-  );
-}

@@ -30,22 +30,15 @@ export async function openCashSession(_prev: unknown, formData: FormData) {
   return { success: true };
 }
 
-export async function closeCashSession(_prev: unknown, formData: FormData) {
-  const check = await requireCompanyUser();
-  if ("error" in check) return { error: check.error };
-  const { companyId } = check;
-
-  const id = String(formData.get("id") || "");
-  const closingAmount = Number(formData.get("closingAmount") || 0);
-  const notes = String(formData.get("notes") || "").trim() || null;
-
-  const session = await prisma.cashSession.findFirst({ where: { id, companyId } });
-  if (!session) return { error: "Session introuvable." };
-  if (session.closedAt) return { error: "Session déjà fermée." };
-
-  // Le montant attendu se base sur les ventes encaissées (validées) pendant la
-  // session, pas sur leur date de saisie : la caisse ne valide que le paiement,
-  // qui peut arriver après que la vente ait été saisie par quelqu'un d'autre.
+// Le montant attendu se base sur les ventes encaissées (validées) pendant la
+// session, pas sur leur date de saisie : la caisse ne valide que le paiement,
+// qui peut arriver après que la vente ait été saisie par quelqu'un d'autre.
+async function computeExpectedAmount(session: {
+  warehouseId: string;
+  userId: string;
+  openingAmount: number;
+  openedAt: Date;
+}) {
   const sales = await prisma.sale.aggregate({
     where: {
       warehouseId: session.warehouseId,
@@ -60,9 +53,39 @@ export async function closeCashSession(_prev: unknown, formData: FormData) {
     where: { warehouseId: session.warehouseId, date: { gte: session.openedAt } },
     _sum: { amount: true },
   });
+  return session.openingAmount + (sales._sum.paidAmount || 0) - (expenses._sum.amount || 0);
+}
 
-  const expectedAmount =
-    session.openingAmount + (sales._sum.paidAmount || 0) - (expenses._sum.amount || 0);
+// Étape de vérification avant clôture : recalcule le montant attendu (à jour,
+// sans se fier à un cumul potentiellement affiché depuis un moment) pour que
+// l'agent compare avec le compte physique avant de confirmer la fermeture.
+export async function previewCashClosing(sessionId: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const session = await prisma.cashSession.findFirst({ where: { id: sessionId, companyId } });
+  if (!session) return { error: "Session introuvable." };
+  if (session.closedAt) return { error: "Session déjà fermée." };
+
+  const expectedAmount = await computeExpectedAmount(session);
+  return { expectedAmount };
+}
+
+export async function closeCashSession(_prev: unknown, formData: FormData) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const id = String(formData.get("id") || "");
+  const closingAmount = Number(formData.get("closingAmount") || 0);
+  const notes = String(formData.get("notes") || "").trim() || null;
+
+  const session = await prisma.cashSession.findFirst({ where: { id, companyId } });
+  if (!session) return { error: "Session introuvable." };
+  if (session.closedAt) return { error: "Session déjà fermée." };
+
+  const expectedAmount = await computeExpectedAmount(session);
 
   await prisma.cashSession.update({
     where: { id },
@@ -70,5 +93,6 @@ export async function closeCashSession(_prev: unknown, formData: FormData) {
   });
 
   revalidatePath("/caisse");
+  revalidatePath("/caisse-ventes");
   return { success: true, expectedAmount };
 }
