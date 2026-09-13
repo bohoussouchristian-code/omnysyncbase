@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
+import Link from "next/link";
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -16,6 +17,12 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
           <span className="font-semibold text-white">Console propriétaire</span>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/console" className="text-sm text-slate-300 hover:text-white transition-colors">
+            Entreprises
+          </Link>
+          <Link href="/console/connexions" className="text-sm text-slate-300 hover:text-white transition-colors">
+            Connexions
+          </Link>
           <span className="text-sm text-slate-300 hidden sm:inline">{user.name}</span>
           <form action={logout}>
             <button

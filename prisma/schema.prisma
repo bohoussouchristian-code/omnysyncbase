@@ -103,6 +103,7 @@ model Company {
   services       Service[]
   proformas      Proforma[]
   proformaItems  ProformaItem[]
+  loginLogs      LoginLog[]
 }
 
 model User {
@@ -136,6 +137,24 @@ model User {
   cashSessions      CashSession[]
   payments          Payment[]
   proformas         Proforma[]
+  loginLogs         LoginLog[]
+}
+
+// Trace de chaque connexion réussie : consultable par un administrateur pour
+// savoir qui s'est connecté, quand et depuis quel appareil. Ne journalise que
+// les connexions réussies (les échecs sont déjà comptabilisés sur le compte
+// via failedLoginAttempts, pas d'intérêt à dupliquer un historique complet).
+model LoginLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
 }
 
 model Warehouse {

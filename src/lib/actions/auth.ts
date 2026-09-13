@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, verifyPassword, hashPassword, validatePassword, getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import type { Role } from "@prisma/client";
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -53,6 +54,14 @@ export async function login(_prevState: unknown, formData: FormData) {
   if (user.failedLoginAttempts > 0 || user.lockedUntil) {
     await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
   }
+
+  // Journal des connexions, consultable ensuite par un administrateur.
+  const headerList = await headers();
+  const ipAddress = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  const userAgent = headerList.get("user-agent");
+  await prisma.loginLog.create({
+    data: { userId: user.id, companyId: user.companyId, ipAddress, userAgent },
+  });
 
   await createSession({
     userId: user.id,
