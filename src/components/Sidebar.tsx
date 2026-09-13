@@ -131,8 +131,21 @@ export function Sidebar({
     .filter((item) => pathname === item.href || pathname.startsWith(item.href + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
+  // Dès le clic, la couleur de sélection bascule instantanément sur l'élément
+  // choisi, sans attendre que la page suivante ait fini de charger (le vrai
+  // pathname met parfois un instant à suivre). Nettoyé dès que le pathname
+  // bouge (navigation aboutie ou changement d'avis) — ajustement pendant le
+  // rendu plutôt qu'un effet, même idiome que trackedActiveGroup plus bas.
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [trackedPathname, setTrackedPathname] = useState(pathname);
+  if (pathname !== trackedPathname) {
+    setTrackedPathname(pathname);
+    setPendingHref(null);
+  }
+  const effectiveActiveHref = pendingHref ?? activeHref;
+
   const activeGroupLabel = visibleEntries.find(
-    (entry) => entry.kind === "group" && entry.items.some((i) => i.href === activeHref)
+    (entry) => entry.kind === "group" && entry.items.some((i) => i.href === effectiveActiveHref)
   )?.label;
 
   const [openGroup, setOpenGroup] = useState<string | null>(activeGroupLabel ?? null);
@@ -165,14 +178,17 @@ export function Sidebar({
         {visibleEntries.map((entry) => {
           if (entry.kind === "link") {
             const Icon = entry.icon;
-            const active = entry.href === activeHref;
+            const active = entry.href === effectiveActiveHref;
             return (
               <Link
                 key={entry.href}
                 href={entry.href}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setPendingHref(entry.href);
+                  setOpen(false);
+                }}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active ? "bg-blue-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  active ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
                 }`}
               >
                 <Icon size={18} />
@@ -183,7 +199,7 @@ export function Sidebar({
 
           const GroupIcon = entry.icon;
           const isOpen = openGroup === entry.label;
-          const groupHasActive = entry.items.some((i) => i.href === activeHref);
+          const groupHasActive = entry.items.some((i) => i.href === effectiveActiveHref);
           return (
             <div key={entry.label} className="pt-1">
               <button
@@ -205,15 +221,18 @@ export function Sidebar({
                 <div className="mt-0.5 ml-3 pl-3 border-l border-slate-800 space-y-0.5">
                   {entry.items.map((item) => {
                     const Icon = item.icon;
-                    const active = item.href === activeHref;
+                    const active = item.href === effectiveActiveHref;
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
-                        onClick={() => setOpen(false)}
+                        onClick={() => {
+                          setPendingHref(item.href);
+                          setOpen(false);
+                        }}
                         className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                           active
-                            ? "bg-blue-600 text-white"
+                            ? "bg-blue-500 text-white"
                             : "text-slate-300 hover:bg-slate-800 hover:text-white"
                         }`}
                       >
