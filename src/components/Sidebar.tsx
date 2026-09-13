@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
 import { SettingsMenu } from "@/components/SettingsMenu";
+import { Logo } from "@/components/Logo";
 import type { Role } from "@prisma/client";
 import {
   LayoutDashboard,
@@ -146,9 +147,7 @@ export function Sidebar({
   const content = (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 h-16 border-b border-slate-800">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-wide">
-          OSB
-        </div>
+        <Logo size={32} className="shrink-0" />
         {companyName ? (
           <div className="min-w-0">
             <div className="flex items-center gap-1 text-white">

@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
+import { Logo } from "@/components/Logo";
 import Link from "next/link";
 
 export default async function ConsoleLayout({ children }: { children: React.ReactNode }) {
@@ -11,9 +12,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
     <div className="min-h-screen bg-slate-50">
       <header className="h-16 bg-slate-900 flex items-center justify-between px-4 lg:px-8">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white text-[10px] font-bold tracking-wide">
-            OSB
-          </div>
+          <Logo size={32} />
           <span className="font-semibold text-white">Console propriétaire</span>
         </div>
         <div className="flex items-center gap-4">

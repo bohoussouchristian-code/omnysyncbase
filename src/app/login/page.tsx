@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { login } from "@/lib/actions/auth";
+import { Logo } from "@/components/Logo";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -14,8 +15,8 @@ export default function LoginPage() {
     <div className="flex flex-1 items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white text-xs font-bold tracking-wide">
-            OSB
+          <div className="mx-auto mb-3">
+            <Logo size={48} />
           </div>
           <h1 className="text-2xl font-semibold text-slate-900">OSB</h1>
           <p className="text-sm text-slate-500 mt-1">
