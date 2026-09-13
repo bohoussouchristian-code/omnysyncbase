@@ -13,7 +13,7 @@ export function Logo({ size = 32, className }: { size?: number; className?: stri
       role="img"
       aria-label="OSB"
     >
-      <rect width="40" height="40" rx="10" style={{ fill: "var(--color-blue-600, #7a2438)" }} />
+      <rect width="40" height="40" rx="10" style={{ fill: "var(--color-blue-600, #1c3d68)" }} />
       <text
         x="20"
         y="25.5"

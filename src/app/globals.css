@@ -12,21 +12,21 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Couleur de marque : bourgogne classique (moins magenta que la teinte
-   précédente), remplace le bleu par défaut de Tailwind partout où les
-   classes `blue-*` sont utilisées (boutons, liens, sidebar, badges...). */
+/* Couleur de marque : bleu marine, aligné sur le logo OSB (fond bleu nuit,
+   accents or/argent), remplace le bleu par défaut de Tailwind partout où
+   les classes `blue-*` sont utilisées (boutons, liens, sidebar, badges...). */
 @theme {
-  --color-blue-50: #fbf0f1;
-  --color-blue-100: #f6dde0;
-  --color-blue-200: #eebcc3;
-  --color-blue-300: #de919d;
-  --color-blue-400: #c76173;
-  --color-blue-500: #a43e54;
-  --color-blue-600: #7a2438;
-  --color-blue-700: #601c2c;
-  --color-blue-800: #4a1622;
-  --color-blue-900: #3a111b;
-  --color-blue-950: #22090f;
+  --color-blue-50: #eef2f8;
+  --color-blue-100: #d6e0ef;
+  --color-blue-200: #aec3df;
+  --color-blue-300: #7fa0cb;
+  --color-blue-400: #4f79ab;
+  --color-blue-500: #2f5788;
+  --color-blue-600: #1c3d68;
+  --color-blue-700: #142e50;
+  --color-blue-800: #0f223c;
+  --color-blue-900: #0b192c;
+  --color-blue-950: #06101c;
 }
 
 @media (prefers-color-scheme: dark) {
