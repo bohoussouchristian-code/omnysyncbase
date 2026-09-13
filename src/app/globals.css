@@ -12,21 +12,21 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Couleur de marque : bordeaux tirant sur le violet, remplace le bleu par défaut
-   de Tailwind partout où les classes `blue-*` sont utilisées (boutons, liens,
-   sidebar, badges...). */
+/* Couleur de marque : bourgogne classique (moins magenta que la teinte
+   précédente), remplace le bleu par défaut de Tailwind partout où les
+   classes `blue-*` sont utilisées (boutons, liens, sidebar, badges...). */
 @theme {
-  --color-blue-50: #fbf0f5;
-  --color-blue-100: #f6dcea;
-  --color-blue-200: #eebbd5;
-  --color-blue-300: #de8fb6;
-  --color-blue-400: #c75f92;
-  --color-blue-500: #a43c71;
-  --color-blue-600: #7a2456;
-  --color-blue-700: #601c44;
-  --color-blue-800: #4a1636;
-  --color-blue-900: #3a1129;
-  --color-blue-950: #22091a;
+  --color-blue-50: #fbf0f1;
+  --color-blue-100: #f6dde0;
+  --color-blue-200: #eebcc3;
+  --color-blue-300: #de919d;
+  --color-blue-400: #c76173;
+  --color-blue-500: #a43e54;
+  --color-blue-600: #7a2438;
+  --color-blue-700: #601c2c;
+  --color-blue-800: #4a1622;
+  --color-blue-900: #3a111b;
+  --color-blue-950: #22090f;
 }
 
 @media (prefers-color-scheme: dark) {
