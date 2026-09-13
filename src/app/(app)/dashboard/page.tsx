@@ -56,6 +56,7 @@ export default async function DashboardPage() {
       links: [
         { href: "/achats", label: "Bons de commande" },
         { href: "/livraisons", label: "Bons de livraison" },
+        { href: "/approvisionnement", label: "Approvisionnement" },
         { href: "/fournisseurs", label: "Fournisseurs" },
       ],
     },

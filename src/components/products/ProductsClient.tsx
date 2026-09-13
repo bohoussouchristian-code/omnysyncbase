@@ -361,32 +361,20 @@ function ProductForm({
         )}
       </div>
 
-      <div className="border-t border-slate-100 pt-4">
-        {product && product.stocks.length > 0 && (
-          <p className="text-xs text-slate-500 mb-3">
+      {product && product.stocks.length > 0 && (
+        <div className="border-t border-slate-100 pt-4">
+          <p className="text-xs text-slate-500">
             Stock actuel :{" "}
             {product.stocks
               .map((s) => `${warehouses.find((w) => w.id === s.warehouseId)?.name || "?"} (${s.quantity})`)
               .join(", ")}
+            {" — "}
+            <span className="text-slate-400">
+              l&apos;entrée en stock se fait via Bon de commande → Bon de livraison → Approvisionnement.
+            </span>
           </p>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Dépôt / Boutique</Label>
-            <Select name="warehouseId" required={!product} defaultValue={warehouses[0]?.id || ""}>
-              {warehouses.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label>{product ? "Ajouter au stock (optionnel)" : "Stock initial"}</Label>
-            <Input type="number" name={product ? "addQty" : "initialQty"} min={0} step="1" defaultValue={0} />
-          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">

@@ -150,7 +150,35 @@ export async function validatePurchase(purchaseId: string) {
   return { success: true };
 }
 
+// Acte seulement l'arrivée physique de la commande (bon de livraison) — ne
+// touche pas le stock. C'est le passage par Approvisionnement, une étape
+// distincte et volontairement séparée, qui crédite réellement le stock.
 export async function receivePurchase(purchaseId: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user, companyId } = check;
+
+  const purchase = await prisma.purchase.findFirst({ where: { id: purchaseId, companyId } });
+  if (!purchase) return { error: "Commande introuvable." };
+  if (!purchase.validatedAt) return { error: "Validez d'abord la commande avant de la réceptionner." };
+  if (purchase.status === "RECUE") return { error: "Déjà réceptionnée." };
+  if (purchase.status === "ANNULEE") return { error: "Commande annulée." };
+
+  await prisma.purchase.update({
+    where: { id: purchaseId, companyId },
+    data: { status: "RECUE", receivedAt: new Date(), receivedById: user.id },
+  });
+
+  revalidatePath("/achats");
+  revalidatePath("/livraisons");
+  revalidatePath("/approvisionnement");
+  return { success: true };
+}
+
+// Étape distincte du bon de livraison : c'est seulement ici, quand la
+// marchandise déjà réceptionnée est effectivement rangée/comptée, que le
+// stock est crédité — jamais avant.
+export async function stockPurchase(purchaseId: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
@@ -160,9 +188,9 @@ export async function receivePurchase(purchaseId: string) {
     include: { items: true },
   });
   if (!purchase) return { error: "Commande introuvable." };
-  if (!purchase.validatedAt) return { error: "Validez d'abord la commande avant de la réceptionner." };
-  if (purchase.status === "RECUE") return { error: "Déjà réceptionnée." };
-  if (purchase.status === "ANNULEE") return { error: "Commande annulée." };
+  if (purchase.status !== "RECUE")
+    return { error: "Cette commande doit d'abord être réceptionnée (bon de livraison)." };
+  if (purchase.stockedAt) return { error: "Déjà approvisionnée." };
 
   await prisma.$transaction(async (tx) => {
     for (const item of purchase.items) {
@@ -190,11 +218,12 @@ export async function receivePurchase(purchaseId: string) {
     }
     await tx.purchase.update({
       where: { id: purchaseId, companyId },
-      data: { status: "RECUE", receivedAt: new Date(), receivedById: user.id },
+      data: { stockedAt: new Date(), stockedById: user.id },
     });
   });
 
-  revalidatePath("/achats");
+  revalidatePath("/approvisionnement");
+  revalidatePath("/livraisons");
   revalidatePath("/stock");
   return { success: true };
 }

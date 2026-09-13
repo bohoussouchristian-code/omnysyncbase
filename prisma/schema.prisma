@@ -132,6 +132,7 @@ model User {
   purchases         Purchase[]
   receivedPurchases Purchase[]      @relation("PurchaseReceivedBy")
   validatedPurchases Purchase[]     @relation("PurchaseValidatedBy")
+  stockedPurchases  Purchase[]      @relation("PurchaseStockedBy")
   stockMovements    StockMovement[]
   expenses          Expense[]
   cashSessions      CashSession[]
@@ -336,6 +337,13 @@ model Purchase {
   receivedAt   DateTime?
   receivedById String?
   receivedBy   User?     @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
+
+  // Réceptionner (bon de livraison) ne fait qu'acter l'arrivée physique de la
+  // commande — ça n'est qu'au passage par le sous-module Approvisionnement,
+  // distinct, que le stock est réellement crédité.
+  stockedAt   DateTime?
+  stockedById String?
+  stockedBy   User?     @relation("PurchaseStockedBy", fields: [stockedById], references: [id])
 
   // Tant qu'une commande n'est pas validée, c'est un brouillon librement
   // modifiable et sans effet sur la dette fournisseur. La validation fige

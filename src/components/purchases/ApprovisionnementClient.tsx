@@ -2,11 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { receivePurchase } from "@/lib/actions/purchases";
+import { stockPurchase } from "@/lib/actions/purchases";
 import { Modal, PageHeader, Card, Badge } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { PackageCheck, Eye, Search } from "lucide-react";
+import { Boxes, Eye, Search } from "lucide-react";
 
 type Purchase = {
   id: string;
@@ -15,13 +15,16 @@ type Purchase = {
   status: string;
   totalAmount: number;
   receivedAt: Date | null;
+  stockedAt: Date | null;
   supplier: { name: string };
   warehouse: { name: string };
-  receivedBy: { name: string } | null;
+  stockedBy: { name: string } | null;
   items: { id: string; quantity: number; unitPrice: number; product: { name: string } }[];
 };
 
-export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
+// Étape distincte du bon de livraison : la marchandise a été réceptionnée,
+// mais n'entre en stock qu'ici, une fois effectivement rangée/comptée.
+export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }) {
   const [viewing, setViewing] = useState<Purchase | null>(null);
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
@@ -29,9 +32,7 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
 
   const q = query.trim().toLowerCase();
 
-  // Un seul ticket, en attente ou déjà reçu : pas deux tableaux séparés,
-  // le statut de chaque ligne suffit à distinguer (comme pour la Caisse).
-  const deliveries = useMemo(
+  const rows = useMemo(
     () =>
       purchases
         .filter((p) => !q || p.number.toLowerCase().includes(q) || p.supplier.name.toLowerCase().includes(q))
@@ -39,9 +40,9 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
     [purchases, q]
   );
 
-  function handleReceive(id: string) {
+  function handleStock(id: string) {
     startTransition(async () => {
-      await receivePurchase(id);
+      await stockPurchase(id);
       router.refresh();
       setViewing(null);
     });
@@ -49,7 +50,7 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
 
   return (
     <div>
-      <PageHeader title="Bons de livraison" />
+      <PageHeader title="Approvisionnement" />
 
       <div className="relative max-w-xs mb-4">
         <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
@@ -63,8 +64,7 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
 
       <Card className="p-5">
         <p className="text-xs text-slate-400 mb-3">
-          Renseignez ici l&apos;arrivée d&apos;une commande — l&apos;entrée en stock se fait ensuite depuis
-          Approvisionnement.
+          Une commande déjà réceptionnée (bon de livraison) n&apos;entre en stock qu&apos;une fois approvisionnée ici.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -79,8 +79,8 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
               </tr>
             </thead>
             <tbody>
-              {deliveries.map((p) => {
-                const isPending = p.status === "EN_ATTENTE";
+              {rows.map((p) => {
+                const isPending = !p.stockedAt;
                 return (
                   <tr key={p.id} className="border-b border-slate-50 last:border-0">
                     <td className="py-2 font-medium text-slate-700">
@@ -92,11 +92,11 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
                     <td className="py-2 text-slate-600">{p.supplier.name}</td>
                     <td className="py-2">
                       <Badge tone={isPending ? "warning" : "success"}>
-                        {isPending ? "En attente de réception" : "Reçue"}
+                        {isPending ? "En attente d'approvisionnement" : "Approvisionnée"}
                       </Badge>
                     </td>
                     <td className="py-2 text-slate-500 whitespace-nowrap">
-                      {formatDateTime(isPending ? p.date : p.receivedAt ?? p.date)}
+                      {formatDateTime(isPending ? p.receivedAt ?? p.date : p.stockedAt ?? p.date)}
                     </td>
                     <td className="py-2 text-right font-medium">{formatMoney(p.totalAmount)}</td>
                     <td className="py-2">
@@ -106,11 +106,11 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
                         </button>
                         {isPending && (
                           <button
-                            onClick={() => handleReceive(p.id)}
+                            onClick={() => handleStock(p.id)}
                             disabled={pending}
                             className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
                           >
-                            <PackageCheck size={14} /> Réceptionner
+                            <Boxes size={14} /> Approvisionner
                           </button>
                         )}
                       </div>
@@ -118,10 +118,10 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
                   </tr>
                 );
               })}
-              {deliveries.length === 0 && (
+              {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-slate-400">
-                    {q ? "Aucun résultat." : "Aucune livraison enregistrée."}
+                    {q ? "Aucun résultat." : "Aucune commande reçue pour le moment."}
                   </td>
                 </tr>
               )}
@@ -155,19 +155,18 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
               <span>Total</span>
               <span>{formatMoney(viewing.totalAmount)}</span>
             </div>
-            {viewing.status === "EN_ATTENTE" && (
+            {!viewing.stockedAt ? (
               <button
-                onClick={() => handleReceive(viewing.id)}
+                onClick={() => handleStock(viewing.id)}
                 disabled={pending}
                 className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-medium hover:bg-emerald-700"
               >
-                Réceptionner la marchandise
+                Approvisionner — créditer le stock
               </button>
-            )}
-            {viewing.status === "RECUE" && (
+            ) : (
               <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                Reçue le {viewing.receivedAt ? formatDateTime(viewing.receivedAt) : "—"}
-                {viewing.receivedBy ? ` par ${viewing.receivedBy.name}` : ""} — {viewing.warehouse.name}
+                Approvisionnée le {formatDateTime(viewing.stockedAt)}
+                {viewing.stockedBy ? ` par ${viewing.stockedBy.name}` : ""} — {viewing.warehouse.name}
               </p>
             )}
           </div>

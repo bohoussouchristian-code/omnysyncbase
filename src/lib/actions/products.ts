@@ -45,10 +45,14 @@ async function generateUniqueBarcode(companyId: string): Promise<string> {
   throw new Error("Impossible de générer un code-barres unique.");
 }
 
+// La configuration des produits ne fait que créer la fiche catalogue — aucun
+// stock ne peut y être saisi directement. Un produit démarre toujours à 0 :
+// toute entrée en stock passe par le circuit Bon de commande -> Bon de
+// livraison -> Approvisionnement.
 export async function createProduct(_prev: unknown, formData: FormData) {
   const check = await requireManager();
   if ("error" in check) return { error: check.error };
-  const { user, companyId } = check;
+  const { companyId } = check;
 
   const name = String(formData.get("name") || "").trim();
   const categoryId = String(formData.get("categoryId") || "") || null;
@@ -60,8 +64,6 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   const proPrice = proPriceRaw && String(proPriceRaw) !== "" ? Number(proPriceRaw) : null;
   const wholesalePrice = wholesalePriceRaw && String(wholesalePriceRaw) !== "" ? Number(wholesalePriceRaw) : null;
   const reorderLevel = Number(formData.get("reorderLevel") || 0);
-  const initialQty = Number(formData.get("initialQty") || 0);
-  const warehouseId = String(formData.get("warehouseId") || "");
   const packUnitId = String(formData.get("packUnitId") || "") || null;
   const piecesPerPack = Number(formData.get("piecesPerPack") || 0);
   const packPurchasePriceRaw = formData.get("packPurchasePrice");
@@ -71,19 +73,14 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
 
   if (!name) return { error: "Le nom du produit est requis." };
-  if (!warehouseId) return { error: "Sélectionnez un dépôt." };
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
 
-  const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, companyId } });
-  if (!warehouse) return { error: "Dépôt introuvable." };
-
   try {
-    const barcode = await generateUniqueBarcode(companyId);
-    const product = await prisma.product.create({
+    await prisma.product.create({
       data: {
         name,
-        barcode,
+        barcode: await generateUniqueBarcode(companyId),
         categoryId,
         unitId,
         purchasePrice,
@@ -99,25 +96,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
       },
     });
 
-    if (initialQty > 0) {
-      await prisma.stock.create({
-        data: { productId: product.id, warehouseId, quantity: initialQty, companyId },
-      });
-      await prisma.stockMovement.create({
-        data: {
-          productId: product.id,
-          warehouseId,
-          type: "ENTREE",
-          quantity: initialQty,
-          reason: "Stock initial",
-          userId: user.id,
-          companyId,
-        },
-      });
-    }
-
     revalidatePath("/produits");
-    revalidatePath("/stock");
     return { success: true };
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes("Unique"))
@@ -129,7 +108,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
 export async function updateProduct(_prev: unknown, formData: FormData) {
   const check = await requireManager();
   if ("error" in check) return { error: check.error };
-  const { user, companyId } = check;
+  const { companyId } = check;
 
   const id = String(formData.get("id") || "");
   const name = String(formData.get("name") || "").trim();
@@ -149,21 +128,13 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
   const packPurchasePrice =
     packPurchasePriceRaw && String(packPurchasePriceRaw) !== "" ? Number(packPurchasePriceRaw) : null;
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
-  const stockWarehouseId = String(formData.get("warehouseId") || "");
-  const addQty = Number(formData.get("addQty") || 0);
 
   if (!id || !name) return { error: "Données invalides." };
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
-  if (addQty > 0 && !stockWarehouseId) return { error: "Sélectionnez un dépôt pour l'ajout de stock." };
 
   const existing = await prisma.product.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Produit introuvable." };
-
-  if (addQty > 0) {
-    const warehouse = await prisma.warehouse.findFirst({ where: { id: stockWarehouseId, companyId } });
-    if (!warehouse) return { error: "Dépôt introuvable." };
-  }
 
   try {
     await prisma.product.update({
@@ -183,33 +154,6 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
         packSalePrice: packUnitId ? packSalePrice : null,
       },
     });
-
-    // L'entrée de stock est désormais intégrée à la fiche produit plutôt qu'une
-    // action séparée sur la page Stock Général.
-    if (addQty > 0) {
-      const stock = await prisma.stock.findUnique({
-        where: { productId_warehouseId: { productId: id, warehouseId: stockWarehouseId } },
-      });
-      if (stock) {
-        await prisma.stock.update({ where: { id: stock.id }, data: { quantity: { increment: addQty } } });
-      } else {
-        await prisma.stock.create({
-          data: { productId: id, warehouseId: stockWarehouseId, quantity: addQty, companyId },
-        });
-      }
-      await prisma.stockMovement.create({
-        data: {
-          productId: id,
-          warehouseId: stockWarehouseId,
-          type: "ENTREE",
-          quantity: addQty,
-          reason: "Ajout depuis Configuration des produits",
-          userId: user.id,
-          companyId,
-        },
-      });
-      revalidatePath("/stock");
-    }
 
     revalidatePath("/produits");
     return { success: true };

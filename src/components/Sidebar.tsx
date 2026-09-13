@@ -30,6 +30,7 @@ import {
   FileText,
   Ban,
   ChevronDown,
+  PackageCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -77,6 +78,7 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
       { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
+      { href: "/approvisionnement", label: "Approvisionnement", icon: PackageCheck, roles: null },
       { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
     ],
   },
