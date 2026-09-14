@@ -24,7 +24,11 @@ export default async function AchatsPage() {
     prisma.product.findMany({
       where: { active: true, companyId },
       orderBy: { name: "asc" },
-      include: { unit: true, packUnit: true },
+      include: {
+        unit: true,
+        packUnit: true,
+        supplierPrices: { select: { supplierId: true, purchasePrice: true } },
+      },
     }),
     prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.warehouse.findFirst({ where: { companyId, isGeneral: true, active: true } }),

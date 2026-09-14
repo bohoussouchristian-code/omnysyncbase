@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createProduct, updateProduct } from "@/lib/actions/products";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
-import { Plus, Search, Pencil, Tag } from "lucide-react";
+import { Plus, Search, Pencil, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 type Product = {
@@ -27,22 +27,26 @@ type Product = {
   packSalePrice: number | null;
   proPrice: number | null;
   wholesalePrice: number | null;
+  supplierPrices: { supplierId: string; purchasePrice: number }[];
 };
 
 type Option = { id: string; name: string; symbol?: string };
 type Warehouse = { id: string; name: string };
+type Supplier = { id: string; name: string };
 
 export function ProductsClient({
   products,
   categories,
   units,
   warehouses,
+  suppliers,
   canManage,
 }: {
   products: Product[];
   categories: Option[];
   units: Option[];
   warehouses: Warehouse[];
+  suppliers: Supplier[];
   canManage: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -174,6 +178,7 @@ export function ProductsClient({
           categories={categories}
           units={units}
           warehouses={warehouses}
+          suppliers={suppliers}
           onDone={() => setShowCreate(false)}
         />
       </Modal>
@@ -184,6 +189,7 @@ export function ProductsClient({
             categories={categories}
             units={units}
             warehouses={warehouses}
+            suppliers={suppliers}
             product={editing}
             onDone={() => setEditing(null)}
           />
@@ -197,12 +203,14 @@ function ProductForm({
   categories,
   units,
   warehouses,
+  suppliers,
   product,
   onDone,
 }: {
   categories: Option[];
   units: Option[];
   warehouses: Warehouse[];
+  suppliers: Supplier[];
   product?: Product;
   onDone: () => void;
 }) {
@@ -213,11 +221,33 @@ function ProductForm({
     return res;
   }, undefined as { error?: string } | undefined);
   const [packEnabled, setPackEnabled] = useState(!!product?.packUnitId);
+  const [supplierPrices, setSupplierPrices] = useState<{ supplierId: string; purchasePrice: number }[]>(
+    product?.supplierPrices ?? []
+  );
+  const [newSupplierId, setNewSupplierId] = useState("");
+  const [newSupplierPrice, setNewSupplierPrice] = useState(0);
+  const availableSuppliers = suppliers.filter((s) => !supplierPrices.some((sp) => sp.supplierId === s.id));
+
+  function addSupplierPrice() {
+    if (!newSupplierId) return;
+    setSupplierPrices((prev) => [...prev, { supplierId: newSupplierId, purchasePrice: newSupplierPrice }]);
+    setNewSupplierId("");
+    setNewSupplierPrice(0);
+  }
+
+  function updateSupplierPrice(supplierId: string, purchasePrice: number) {
+    setSupplierPrices((prev) => prev.map((sp) => (sp.supplierId === supplierId ? { ...sp, purchasePrice } : sp)));
+  }
+
+  function removeSupplierPrice(supplierId: string) {
+    setSupplierPrices((prev) => prev.filter((sp) => sp.supplierId !== supplierId));
+  }
 
   return (
     <form action={formAction} className="space-y-4">
       <FormError error={state?.error} />
       {product && <input type="hidden" name="id" value={product.id} />}
+      <input type="hidden" name="supplierPrices" value={JSON.stringify(supplierPrices)} />
 
       <div>
         <Label>Nom du produit</Label>
@@ -293,6 +323,69 @@ function ProductForm({
       <div>
         <Label>Seuil d&apos;alerte stock bas</Label>
         <Input type="number" name="reorderLevel" min={0} step="1" defaultValue={product?.reorderLevel ?? 0} />
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <Label>Prix d&apos;achat par fournisseur (optionnel)</Label>
+        <p className="text-xs text-slate-500 mb-2">
+          Prioritaire sur le prix d&apos;achat par défaut lors d&apos;un bon de commande auprès de ce fournisseur.
+        </p>
+        {supplierPrices.length > 0 && (
+          <div className="space-y-1.5 mb-2">
+            {supplierPrices.map((sp) => {
+              const supplier = suppliers.find((s) => s.id === sp.supplierId);
+              return (
+                <div key={sp.supplierId} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm text-slate-700 truncate">{supplier?.name || "?"}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={sp.purchasePrice}
+                    onChange={(e) => updateSupplierPrice(sp.supplierId, Number(e.target.value))}
+                    className="w-28"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeSupplierPrice(sp.supplierId)}
+                    className="text-red-400 hover:text-red-600"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {availableSuppliers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Select value={newSupplierId} onChange={(e) => setNewSupplierId(e.target.value)} className="flex-1">
+              <option value="">— Choisir un fournisseur —</option>
+              {availableSuppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+            <Input
+              type="number"
+              min={0}
+              step="1"
+              value={newSupplierPrice}
+              onChange={(e) => setNewSupplierPrice(Number(e.target.value))}
+              placeholder="Prix"
+              className="w-28"
+            />
+            <button
+              type="button"
+              onClick={addSupplierPrice}
+              disabled={!newSupplierId}
+              className="rounded-lg bg-slate-800 text-white text-sm px-3 py-2 hover:bg-slate-900 disabled:opacity-50"
+            >
+              Ajouter
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-slate-100 pt-4">

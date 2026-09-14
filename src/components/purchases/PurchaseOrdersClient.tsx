@@ -17,7 +17,15 @@ type Product = {
   packUnit: { symbol: string } | null;
   piecesPerPack: number;
   packPurchasePrice: number | null;
+  supplierPrices: { supplierId: string; purchasePrice: number }[];
 };
+
+// Le prix d'achat d'un produit varie souvent selon le fournisseur : si ce
+// fournisseur précis a un tarif enregistré pour ce produit, il prévaut sur
+// le prix par défaut de la fiche produit.
+function priceForSupplier(p: Product, supplierId: string): number {
+  return p.supplierPrices.find((sp) => sp.supplierId === supplierId)?.purchasePrice ?? p.purchasePrice;
+}
 type Supplier = { id: string; name: string };
 type Purchase = {
   id: string;
@@ -361,7 +369,7 @@ function PurchaseForm({
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [mode, setMode] = useState<"piece" | "pack">("piece");
   const [qty, setQty] = useState(1);
-  const [price, setPrice] = useState(products[0]?.purchasePrice || 0);
+  const [price, setPrice] = useState(products[0] ? priceForSupplier(products[0], supplierId) : 0);
   // Tant que l'admin n'a pas saisi lui-même un montant, celui-ci suit
   // automatiquement le total de la commande (le cas le plus courant est un
   // paiement intégral) ; une fois modifié à la main, il reste figé pour
@@ -378,14 +386,24 @@ function PurchaseForm({
     setProductId(id);
     const p = products.find((pp) => pp.id === id);
     setMode("piece");
-    setPrice(p?.purchasePrice || 0);
+    setPrice(p ? priceForSupplier(p, supplierId) : 0);
   }
 
   function selectMode(m: "piece" | "pack") {
     setMode(m);
     const p = selectedProduct;
     if (!p) return;
-    setPrice(m === "pack" ? p.packPurchasePrice ?? p.purchasePrice * p.piecesPerPack : p.purchasePrice);
+    const unitPrice = priceForSupplier(p, supplierId);
+    setPrice(m === "pack" ? p.packPurchasePrice ?? unitPrice * p.piecesPerPack : unitPrice);
+  }
+
+  // Changer de fournisseur alors qu'un produit est déjà sélectionné doit
+  // rafraîchir le prix affiché sur son tarif spécifique à ce fournisseur.
+  function selectSupplier(id: string) {
+    setSupplierId(id);
+    if (!selectedProduct) return;
+    const unitPrice = priceForSupplier(selectedProduct, id);
+    setPrice(mode === "pack" ? selectedProduct.packPurchasePrice ?? unitPrice * selectedProduct.piecesPerPack : unitPrice);
   }
 
   function addItem() {
@@ -445,7 +463,7 @@ function PurchaseForm({
 
       <div>
         <Label>Fournisseur</Label>
-        <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+        <Select value={supplierId} onChange={(e) => selectSupplier(e.target.value)}>
           {suppliers.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}

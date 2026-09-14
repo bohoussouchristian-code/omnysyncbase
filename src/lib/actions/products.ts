@@ -45,6 +45,29 @@ async function generateUniqueBarcode(companyId: string): Promise<string> {
   throw new Error("Impossible de générer un code-barres unique.");
 }
 
+// Le prix d'achat variant souvent selon le fournisseur, la fiche produit
+// permet d'en enregistrer un par fournisseur (en plus du prix par défaut) —
+// transmis comme un tableau JSON depuis le formulaire, validé ici pour ne
+// garder que des fournisseurs réels de l'entreprise et des prix positifs.
+async function parseSupplierPrices(formData: FormData, companyId: string) {
+  const raw = String(formData.get("supplierPrices") || "[]");
+  let rows: { supplierId: string; purchasePrice: number }[];
+  try {
+    rows = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const supplierIds = [...new Set(rows.map((r) => r.supplierId).filter(Boolean))];
+  const suppliers = await prisma.supplier.findMany({ where: { id: { in: supplierIds }, companyId } });
+  const validIds = new Set(suppliers.map((s) => s.id));
+
+  return rows
+    .filter((r) => validIds.has(r.supplierId) && Number(r.purchasePrice) >= 0)
+    .map((r) => ({ supplierId: r.supplierId, purchasePrice: Number(r.purchasePrice) }));
+}
+
 // La configuration des produits ne fait que créer la fiche catalogue — aucun
 // stock ne peut y être saisi directement. Un produit démarre toujours à 0 :
 // toute entrée en stock passe par le circuit Bon de commande -> Bon de
@@ -76,6 +99,8 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
 
+  const supplierPrices = await parseSupplierPrices(formData, companyId);
+
   try {
     await prisma.product.create({
       data: {
@@ -93,6 +118,9 @@ export async function createProduct(_prev: unknown, formData: FormData) {
         packPurchasePrice: packUnitId ? packPurchasePrice : null,
         packSalePrice: packUnitId ? packSalePrice : null,
         companyId,
+        supplierPrices: {
+          create: supplierPrices.map((sp) => ({ supplierId: sp.supplierId, purchasePrice: sp.purchasePrice, companyId })),
+        },
       },
     });
 
@@ -136,23 +164,41 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
   const existing = await prisma.product.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Produit introuvable." };
 
+  const supplierPrices = await parseSupplierPrices(formData, companyId);
+
   try {
-    await prisma.product.update({
-      where: { id, companyId },
-      data: {
-        name,
-        categoryId,
-        unitId,
-        purchasePrice,
-        salePrice,
-        proPrice,
-        wholesalePrice,
-        reorderLevel,
-        packUnitId,
-        piecesPerPack: packUnitId ? piecesPerPack : 1,
-        packPurchasePrice: packUnitId ? packPurchasePrice : null,
-        packSalePrice: packUnitId ? packSalePrice : null,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: { id, companyId },
+        data: {
+          name,
+          categoryId,
+          unitId,
+          purchasePrice,
+          salePrice,
+          proPrice,
+          wholesalePrice,
+          reorderLevel,
+          packUnitId,
+          piecesPerPack: packUnitId ? piecesPerPack : 1,
+          packPurchasePrice: packUnitId ? packPurchasePrice : null,
+          packSalePrice: packUnitId ? packSalePrice : null,
+        },
+      });
+
+      // Remplace intégralement la liste des tarifs fournisseur par celle
+      // soumise — plus simple et sûr qu'un diff ligne à ligne pour une petite liste.
+      await tx.productSupplierPrice.deleteMany({ where: { productId: id } });
+      if (supplierPrices.length > 0) {
+        await tx.productSupplierPrice.createMany({
+          data: supplierPrices.map((sp) => ({
+            productId: id,
+            supplierId: sp.supplierId,
+            purchasePrice: sp.purchasePrice,
+            companyId,
+          })),
+        });
+      }
     });
 
     revalidatePath("/produits");

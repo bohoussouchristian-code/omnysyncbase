@@ -104,6 +104,7 @@ model Company {
   proformas      Proforma[]
   proformaItems  ProformaItem[]
   loginLogs      LoginLog[]
+  productSupplierPrices ProductSupplierPrice[]
 }
 
 model User {
@@ -244,8 +245,26 @@ model Product {
   saleItems      SaleItem[]
   purchaseItems  PurchaseItem[]
   proformaItems  ProformaItem[]
+  supplierPrices ProductSupplierPrice[]
 
   @@unique([companyId, barcode])
+}
+
+// Le prix d'achat d'un produit varie souvent selon le fournisseur : ce tarif
+// spécifique est prioritaire sur Product.purchasePrice (le prix par défaut)
+// dès qu'un bon de commande est passé auprès de ce fournisseur précis.
+model ProductSupplierPrice {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierId    String
+  supplier      Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  purchasePrice Float
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([productId, supplierId])
 }
 
 // Prestation de service (coupe de cheveux, lavage auto...) : pas de stock,
@@ -313,8 +332,9 @@ model Supplier {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 
-  purchases Purchase[]
-  payments  Payment[]
+  purchases      Purchase[]
+  payments       Payment[]
+  productPrices  ProductSupplierPrice[]
 }
 
 model Purchase {
