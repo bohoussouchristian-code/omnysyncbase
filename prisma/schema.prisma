@@ -577,3 +577,15 @@ model CashSession {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 }
+
+// Échecs de connexion par adresse IP, tous comptes confondus : le verrouillage
+// par compte (User.failedLoginAttempts) ne freine pas un attaquant qui essaie
+// beaucoup d'emails différents depuis une même adresse. Pas de lien vers un
+// User (l'email tenté peut ne correspondre à aucun compte).
+model LoginFailure {
+  id        String   @id @default(cuid())
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress, createdAt])
+}

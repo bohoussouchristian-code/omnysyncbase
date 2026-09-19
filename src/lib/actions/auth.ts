@@ -13,6 +13,19 @@ const LOCKOUT_MINUTES = 15;
 // email inconnu permettrait de deviner quels comptes existent (timing attack).
 const DUMMY_HASH = "$2a$10$CwTycUXWue0Thq9StjUM0uJ8Q6r/i6HW9Aq6pTn/oXjxHKWKwRlxK";
 
+// Le verrouillage par compte ne freine pas un attaquant qui essaie beaucoup
+// d'emails différents depuis une même adresse IP : ce second seuil, par IP et
+// tous comptes confondus, coupe court à ce scénario. Volontairement large
+// (un bureau avec plusieurs caissiers partage la même IP) — l'objectif est de
+// bloquer un script automatisé, pas de gêner des erreurs de frappe occasionnelles.
+const MAX_IP_ATTEMPTS = 20;
+const IP_WINDOW_MINUTES = 15;
+
+async function getClientIp() {
+  const headerList = await headers();
+  return headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
 export async function login(_prevState: unknown, formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
@@ -21,9 +34,19 @@ export async function login(_prevState: unknown, formData: FormData) {
     return { error: "Veuillez remplir tous les champs." };
   }
 
+  const ipAddress = await getClientIp();
+  const windowStart = new Date(Date.now() - IP_WINDOW_MINUTES * 60000);
+  const recentIpFailures = await prisma.loginFailure.count({
+    where: { ipAddress, createdAt: { gte: windowStart } },
+  });
+  if (recentIpFailures >= MAX_IP_ATTEMPTS) {
+    return { error: "Trop de tentatives de connexion depuis cette adresse. Réessayez plus tard." };
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.active) {
     await verifyPassword(password, DUMMY_HASH);
+    await prisma.loginFailure.create({ data: { ipAddress } });
     return { error: "Identifiants incorrects." };
   }
 
@@ -36,6 +59,7 @@ export async function login(_prevState: unknown, formData: FormData) {
 
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
+    await prisma.loginFailure.create({ data: { ipAddress } });
     const attempts = user.failedLoginAttempts + 1;
     const lockingNow = attempts >= MAX_LOGIN_ATTEMPTS;
     await prisma.user.update({
@@ -57,7 +81,6 @@ export async function login(_prevState: unknown, formData: FormData) {
 
   // Journal des connexions, consultable ensuite par un administrateur.
   const headerList = await headers();
-  const ipAddress = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
   const userAgent = headerList.get("user-agent");
   await prisma.loginLog.create({
     data: { userId: user.id, companyId: user.companyId, ipAddress, userAgent },

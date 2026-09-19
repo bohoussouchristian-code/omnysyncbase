@@ -3,6 +3,14 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { SESSION_IDLE_MINUTES } from "@/lib/constants";
 
 const COOKIE_NAME = "session";
+// Même garde-fou que src/lib/auth.ts (dupliqué ici : le proxy tourne en
+// edge runtime et ne peut pas importer ce module marqué "server-only") — un
+// secret par défaut connu de tous permettrait de forger n'importe quelle session.
+if (!process.env.SESSION_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "SESSION_SECRET manquant : définissez cette variable d'environnement avant de déployer en production."
+  );
+}
 const secretKey = new TextEncoder().encode(
   process.env.SESSION_SECRET || "dev-secret-change-in-production-please-32chars-min"
 );
