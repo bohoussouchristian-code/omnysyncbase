@@ -12,21 +12,21 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="relative flex flex-1 flex-col bg-slate-950 overflow-hidden">
-      <div className="relative h-52 sm:h-64 w-full shrink-0 overflow-hidden">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-slate-950">
+      <div className="relative h-36 sm:h-52 w-full shrink-0 overflow-hidden">
         <Image
           src="/login-bg.png"
           alt=""
           fill
           priority
-          className="object-cover object-[8%_16%] sm:object-[22%_20%]"
+          className="object-cover object-[8%_18%] sm:object-[22%_22%]"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-slate-950/50 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-slate-950/45 to-slate-950" />
       </div>
 
-      <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-8">
+      <div className="relative z-10 min-h-0 flex-1 overflow-y-auto flex items-center justify-center px-4 py-6">
         <div className="w-full max-w-sm">
-          <div className="mb-6 text-center">
+          <div className="mb-5 text-center">
             <p className="text-[11px] font-semibold tracking-[0.3em] text-amber-400/90 uppercase">
               Espace privé
             </p>
@@ -38,7 +38,7 @@ export default function LoginPage() {
 
           <form
             action={action}
-            className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl shadow-black/40 p-7 space-y-5"
+            className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl shadow-black/40 p-6 space-y-4"
           >
             {state?.error && (
               <div className="text-sm text-red-200 bg-red-500/15 border border-red-400/30 rounded-lg px-3 py-2">
