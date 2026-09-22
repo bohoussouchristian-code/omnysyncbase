@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-slate-950">
-      <div className="relative h-36 sm:h-52 w-full shrink-0 overflow-hidden">
+      <div className="relative h-24 sm:h-36 w-full shrink-0 overflow-hidden">
         <Image
           src="/login-bg.png"
           alt=""
@@ -24,21 +24,21 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-slate-950/45 to-slate-950" />
       </div>
 
-      <div className="relative z-10 min-h-0 flex-1 overflow-y-auto flex items-center justify-center px-4 py-6">
+      <div className="relative z-10 min-h-0 flex-1 overflow-hidden flex items-center justify-center px-4 py-2">
         <div className="w-full max-w-sm">
-          <div className="mb-5 text-center">
-            <p className="text-[11px] font-semibold tracking-[0.3em] text-amber-400/90 uppercase">
+          <div className="mb-3 text-center">
+            <p className="text-[10px] font-semibold tracking-[0.3em] text-amber-400/90 uppercase">
               Espace privé
             </p>
-            <h1 className="mt-1.5 text-2xl font-semibold text-white">Bienvenue</h1>
-            <p className="text-sm text-slate-300 mt-1">
+            <h1 className="mt-1 text-xl font-semibold text-white">Bienvenue</h1>
+            <p className="text-xs text-slate-300 mt-0.5">
               Connectez-vous pour accéder à votre espace
             </p>
           </div>
 
           <form
             action={action}
-            className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl shadow-black/40 p-6 space-y-4"
+            className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl shadow-black/40 p-5 space-y-3"
           >
             {state?.error && (
               <div className="text-sm text-red-200 bg-red-500/15 border border-red-400/30 rounded-lg px-3 py-2">
@@ -47,7 +47,7 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label className="block text-xs font-medium tracking-wide text-slate-300 uppercase mb-1.5">
+              <label className="block text-xs font-medium tracking-wide text-slate-300 uppercase mb-1">
                 Email
               </label>
               <div className="relative">
@@ -57,13 +57,13 @@ export default function LoginPage() {
                   name="email"
                   required
                   autoComplete="username"
-                  className="w-full rounded-lg bg-white/5 border border-white/15 pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400/50 transition-colors"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400/50 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium tracking-wide text-slate-300 uppercase mb-1.5">
+              <label className="block text-xs font-medium tracking-wide text-slate-300 uppercase mb-1">
                 Mot de passe
               </label>
               <div className="relative">
@@ -73,7 +73,7 @@ export default function LoginPage() {
                   name="password"
                   required
                   autoComplete="current-password"
-                  className="w-full rounded-lg bg-white/5 border border-white/15 pl-9 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400/50 transition-colors"
+                  className="w-full rounded-lg bg-white/5 border border-white/15 pl-9 pr-10 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400/50 transition-colors"
                 />
                 <button
                   type="button"
@@ -90,7 +90,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 py-2.5 text-sm font-semibold hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60 transition-all shadow-lg shadow-amber-500/20"
+              className="w-full rounded-lg bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-900 py-2 text-sm font-semibold hover:from-amber-300 hover:to-yellow-400 disabled:opacity-60 transition-all shadow-lg shadow-amber-500/20"
             >
               {pending ? "Connexion..." : "Se connecter"}
             </button>
