@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createCompany, toggleCompanyActive, enterCompany } from "@/lib/actions/console";
 import { Card, Modal, Input, Label, Select, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
-import { Plus, Power, Building2, LogIn } from "lucide-react";
+import { Plus, Power, Building2, LogIn, Copy, Check } from "lucide-react";
 
 type BusinessType = "GENERIQUE" | "QUINCAILLERIE" | "BOISSON" | "LIBRAIRIE";
 
@@ -118,11 +118,16 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
 }
 
 function CompanyForm({ onDone }: { onDone: () => void }) {
+  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await createCompany(prev, formData);
-    if (res && "success" in res && res.success) onDone();
+    if (res && "success" in res && res.success) setCreated({ email: res.adminEmail, password: res.adminPassword });
     return res;
   }, undefined as { error?: string } | undefined);
+
+  if (created) {
+    return <CreatedCredentials email={created.email} password={created.password} onDone={onDone} />;
+  }
 
   return (
     <form action={formAction} className="space-y-4">
@@ -157,10 +162,10 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
             <Label>E-mail</Label>
             <Input type="email" name="adminEmail" required placeholder="admin@entreprise.com" />
           </div>
-          <div>
-            <Label>Mot de passe</Label>
-            <Input type="text" name="adminPassword" required minLength={8} placeholder="Min. 8 caractères + 1 symbole" />
-          </div>
+          <p className="text-xs text-slate-400">
+            Un mot de passe sera généré automatiquement et affiché à la création — vous le transmettez ensuite à
+            cet administrateur.
+          </p>
         </div>
       </div>
 
@@ -171,5 +176,54 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
         <SubmitButton>Créer l&apos;entreprise</SubmitButton>
       </div>
     </form>
+  );
+}
+
+function CreatedCredentials({ email, password, onDone }: { email: string; password: string; onDone: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    navigator.clipboard.writeText(password).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+        Entreprise créée. Ce mot de passe ne sera plus jamais affiché — envoyez-le à l&apos;administrateur.
+      </div>
+
+      <div>
+        <Label>E-mail de connexion</Label>
+        <Input disabled value={email} className="bg-slate-50" />
+      </div>
+
+      <div>
+        <Label>Mot de passe généré</Label>
+        <div className="flex items-center gap-2">
+          <Input disabled value={password} className="bg-slate-50 font-mono tracking-wider" />
+          <button
+            type="button"
+            onClick={copy}
+            className="shrink-0 flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
+            {copied ? "Copié" : "Copier"}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+        >
+          Terminé
+        </button>
+      </div>
+    </div>
   );
 }

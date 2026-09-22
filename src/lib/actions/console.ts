@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, getSession, createSession, hashPassword, validatePassword } from "@/lib/auth";
+import { getCurrentUser, getSession, createSession, hashPassword, generatePassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { BusinessType } from "@prisma/client";
@@ -35,13 +35,11 @@ export async function createCompany(_prev: unknown, formData: FormData) {
     : "GENERIQUE";
   const adminName = String(formData.get("adminName") || "").trim();
   const adminEmail = String(formData.get("adminEmail") || "").trim().toLowerCase();
-  const adminPassword = String(formData.get("adminPassword") || "");
 
   if (!companyName || !adminName || !adminEmail)
     return { error: "Tous les champs sont requis." };
-  const passwordError = validatePassword(adminPassword);
-  if (passwordError) return { error: passwordError };
 
+  const adminPassword = generatePassword();
   const baseSlug = slugify(companyName) || "entreprise";
   let finalSlug = baseSlug;
   let suffix = 1;
@@ -62,7 +60,7 @@ export async function createCompany(_prev: unknown, formData: FormData) {
       },
     });
     revalidatePath("/console");
-    return { success: true };
+    return { success: true, adminEmail, adminPassword };
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes("Unique"))
       return { error: "Cet e-mail est déjà utilisé par un autre compte." };

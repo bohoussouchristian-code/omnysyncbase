@@ -43,6 +43,27 @@ export function validatePassword(password: string): string | null {
   return null;
 }
 
+// Mot de passe généré automatiquement pour le premier admin d'une nouvelle
+// entreprise (voir createCompany dans src/lib/actions/console.ts) : 6
+// caractères, avec au moins une majuscule, une minuscule, un chiffre et un
+// symbole, affiché une seule fois au propriétaire à la création.
+const PASSWORD_LOWER = "abcdefghjkmnpqrstuvwxyz";
+const PASSWORD_UPPER = "ABCDEFGHJKMNPQRSTUVWXYZ";
+const PASSWORD_DIGITS = "23456789";
+const PASSWORD_SYMBOLS = "!@#$%*?";
+
+export function generatePassword(): string {
+  const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
+  const required = [pick(PASSWORD_LOWER), pick(PASSWORD_UPPER), pick(PASSWORD_DIGITS), pick(PASSWORD_SYMBOLS)];
+  const all = PASSWORD_LOWER + PASSWORD_UPPER + PASSWORD_DIGITS + PASSWORD_SYMBOLS;
+  while (required.length < 6) required.push(pick(all));
+  for (let i = required.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [required[i], required[j]] = [required[j], required[i]];
+  }
+  return required.join("");
+}
+
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
