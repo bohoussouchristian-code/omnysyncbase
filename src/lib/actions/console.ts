@@ -68,12 +68,40 @@ export async function createCompany(_prev: unknown, formData: FormData) {
     });
 
     revalidatePath("/console");
-    return { success: true, adminEmail, adminPassword, emailSent: emailResult.ok };
+    // Le mot de passe n'est jamais renvoyé au navigateur, même ici : seul
+    // l'email généré le contient, pour qu'il ne transite et ne s'affiche nulle
+    // part côté propriétaire de la plateforme.
+    return { success: true, companyId: company.id, adminEmail, emailSent: emailResult.ok };
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes("Unique"))
       return { error: "Cet e-mail est déjà utilisé par un autre compte." };
     return { error: "Erreur lors de la création de l'entreprise." };
   }
+}
+
+// Si l'envoi initial échoue (service d'email indisponible...), on ne peut pas
+// simplement réafficher le mot de passe généré — il n'a jamais quitté le
+// serveur. On en régénère un nouveau et on retente l'envoi, sans jamais
+// exposer sa valeur au navigateur.
+export async function resendAdminCredentials(companyId: string) {
+  const check = await requirePlatformOwner();
+  if ("error" in check) return { error: check.error };
+
+  const admin = await prisma.user.findFirst({ where: { companyId, role: "ADMIN" }, orderBy: { createdAt: "asc" } });
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  if (!admin || !company) return { error: "Compte administrateur introuvable." };
+
+  const newPassword = generatePassword();
+  await prisma.user.update({ where: { id: admin.id }, data: { passwordHash: await hashPassword(newPassword) } });
+
+  const emailResult = await sendAdminCredentialsEmail({
+    to: admin.email,
+    adminName: admin.name,
+    companyName: company.name,
+    password: newPassword,
+  });
+
+  return { success: true, adminEmail: admin.email, emailSent: emailResult.ok };
 }
 
 export async function toggleCompanyActive(id: string) {

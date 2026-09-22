@@ -45,8 +45,9 @@ export function validatePassword(password: string): string | null {
 
 // Mot de passe généré automatiquement pour le premier admin d'une nouvelle
 // entreprise (voir createCompany dans src/lib/actions/console.ts) : 6
-// caractères, avec au moins une majuscule, une minuscule, un chiffre et un
-// symbole, affiché une seule fois au propriétaire à la création.
+// caractères, avec exactement une majuscule, une minuscule, un chiffre et un
+// symbole (jamais plus d'un symbole), envoyé uniquement par email — jamais
+// affiché ni renvoyé au navigateur (voir email.ts).
 const PASSWORD_LOWER = "abcdefghjkmnpqrstuvwxyz";
 const PASSWORD_UPPER = "ABCDEFGHJKMNPQRSTUVWXYZ";
 const PASSWORD_DIGITS = "23456789";
@@ -55,8 +56,10 @@ const PASSWORD_SYMBOLS = "!@#$%*?";
 export function generatePassword(): string {
   const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
   const required = [pick(PASSWORD_LOWER), pick(PASSWORD_UPPER), pick(PASSWORD_DIGITS), pick(PASSWORD_SYMBOLS)];
-  const all = PASSWORD_LOWER + PASSWORD_UPPER + PASSWORD_DIGITS + PASSWORD_SYMBOLS;
-  while (required.length < 6) required.push(pick(all));
+  // Les caractères restants viennent uniquement des lettres/chiffres, pour
+  // garantir exactement un seul symbole au total dans le mot de passe.
+  const fillerPool = PASSWORD_LOWER + PASSWORD_UPPER + PASSWORD_DIGITS;
+  while (required.length < 6) required.push(pick(fillerPool));
   for (let i = required.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [required[i], required[j]] = [required[j], required[i]];

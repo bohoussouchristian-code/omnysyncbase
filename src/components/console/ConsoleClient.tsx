@@ -2,10 +2,10 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createCompany, toggleCompanyActive, enterCompany } from "@/lib/actions/console";
+import { createCompany, toggleCompanyActive, enterCompany, resendAdminCredentials } from "@/lib/actions/console";
 import { Card, Modal, Input, Label, Select, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
-import { Plus, Power, Building2, LogIn, Copy, Check } from "lucide-react";
+import { Plus, Power, Building2, LogIn } from "lucide-react";
 
 type BusinessType = "GENERIQUE" | "QUINCAILLERIE" | "BOISSON" | "LIBRAIRIE";
 
@@ -118,19 +118,19 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
 }
 
 function CompanyForm({ onDone }: { onDone: () => void }) {
-  const [created, setCreated] = useState<{ email: string; password: string; emailSent: boolean } | null>(null);
+  const [created, setCreated] = useState<{ companyId: string; email: string; emailSent: boolean } | null>(null);
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await createCompany(prev, formData);
     if (res && "success" in res && res.success)
-      setCreated({ email: res.adminEmail, password: res.adminPassword, emailSent: res.emailSent });
+      setCreated({ companyId: res.companyId, email: res.adminEmail, emailSent: res.emailSent });
     return res;
   }, undefined as { error?: string } | undefined);
 
   if (created) {
     return (
       <CreatedCredentials
+        companyId={created.companyId}
         email={created.email}
-        password={created.password}
         emailSent={created.emailSent}
         onDone={onDone}
       />
@@ -171,8 +171,8 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
             <Input type="email" name="adminEmail" required placeholder="admin@entreprise.com" />
           </div>
           <p className="text-xs text-slate-400">
-            Un mot de passe sera généré automatiquement et affiché à la création — vous le transmettez ensuite à
-            cet administrateur.
+            Un mot de passe sera généré automatiquement et envoyé directement par email à cette adresse — il ne
+            s&apos;affiche nulle part, pour plus de sécurité.
           </p>
         </div>
       </div>
@@ -188,59 +188,50 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
 }
 
 function CreatedCredentials({
+  companyId,
   email,
-  password,
   emailSent,
   onDone,
 }: {
+  companyId: string;
   email: string;
-  password: string;
   emailSent: boolean;
   onDone: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [sent, setSent] = useState(emailSent);
+  const [retrying, startRetry] = useTransition();
 
-  function copy() {
-    navigator.clipboard.writeText(password).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  function retry() {
+    startRetry(async () => {
+      const res = await resendAdminCredentials(companyId);
+      if (res && "success" in res && res.success) setSent(res.emailSent);
     });
   }
 
   return (
     <div className="space-y-4">
-      {emailSent ? (
+      {sent ? (
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
           Entreprise créée. Les identifiants ont été envoyés par email à {email}.
         </div>
       ) : (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
-          Entreprise créée, mais l&apos;envoi de l&apos;email a échoué. Transmettez ce mot de passe manuellement — il
-          ne sera plus jamais affiché.
+          Entreprise créée, mais l&apos;envoi de l&apos;email à {email} a échoué. Le mot de passe ne s&apos;affiche
+          nulle part — réessayez l&apos;envoi.
         </div>
       )}
 
-      <div>
-        <Label>E-mail de connexion</Label>
-        <Input disabled value={email} className="bg-slate-50" />
-      </div>
-
-      <div>
-        <Label>Mot de passe généré</Label>
-        <div className="flex items-center gap-2">
-          <Input disabled value={password} className="bg-slate-50 font-mono tracking-wider" />
+      <div className="flex justify-end gap-2 pt-2">
+        {!sent && (
           <button
             type="button"
-            onClick={copy}
-            className="shrink-0 flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            onClick={retry}
+            disabled={retrying}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60"
           >
-            {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />}
-            {copied ? "Copié" : "Copier"}
+            {retrying ? "Envoi..." : "Réessayer l'envoi"}
           </button>
-        </div>
-      </div>
-
-      <div className="flex justify-end pt-2">
+        )}
         <button
           type="button"
           onClick={onDone}
