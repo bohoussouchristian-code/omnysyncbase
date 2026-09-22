@@ -30,8 +30,8 @@ export default function LoginPage() {
             <p className="text-[10px] font-semibold tracking-[0.3em] text-amber-400/90 uppercase">
               Espace privé
             </p>
-            <h1 className="mt-1 text-xl font-semibold text-white">Bienvenue</h1>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <h1 className="mt-1 text-[1.8rem] font-semibold text-white">Bienvenue</h1>
+            <p className="text-[1.2rem] text-slate-300 mt-0.5">
               Connectez-vous pour accéder à votre espace
             </p>
           </div>
