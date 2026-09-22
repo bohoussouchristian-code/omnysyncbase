@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getSession, createSession, hashPassword, generatePassword } from "@/lib/auth";
+import { sendAdminCredentialsEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { BusinessType } from "@prisma/client";
@@ -59,8 +60,15 @@ export async function createCompany(_prev: unknown, formData: FormData) {
         companyId: company.id,
       },
     });
+    const emailResult = await sendAdminCredentialsEmail({
+      to: adminEmail,
+      adminName,
+      companyName,
+      password: adminPassword,
+    });
+
     revalidatePath("/console");
-    return { success: true, adminEmail, adminPassword };
+    return { success: true, adminEmail, adminPassword, emailSent: emailResult.ok };
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes("Unique"))
       return { error: "Cet e-mail est déjà utilisé par un autre compte." };

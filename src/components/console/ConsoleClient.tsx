@@ -118,15 +118,23 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
 }
 
 function CompanyForm({ onDone }: { onDone: () => void }) {
-  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; password: string; emailSent: boolean } | null>(null);
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await createCompany(prev, formData);
-    if (res && "success" in res && res.success) setCreated({ email: res.adminEmail, password: res.adminPassword });
+    if (res && "success" in res && res.success)
+      setCreated({ email: res.adminEmail, password: res.adminPassword, emailSent: res.emailSent });
     return res;
   }, undefined as { error?: string } | undefined);
 
   if (created) {
-    return <CreatedCredentials email={created.email} password={created.password} onDone={onDone} />;
+    return (
+      <CreatedCredentials
+        email={created.email}
+        password={created.password}
+        emailSent={created.emailSent}
+        onDone={onDone}
+      />
+    );
   }
 
   return (
@@ -179,7 +187,17 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function CreatedCredentials({ email, password, onDone }: { email: string; password: string; onDone: () => void }) {
+function CreatedCredentials({
+  email,
+  password,
+  emailSent,
+  onDone,
+}: {
+  email: string;
+  password: string;
+  emailSent: boolean;
+  onDone: () => void;
+}) {
   const [copied, setCopied] = useState(false);
 
   function copy() {
@@ -191,9 +209,16 @@ function CreatedCredentials({ email, password, onDone }: { email: string; passwo
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
-        Entreprise créée. Ce mot de passe ne sera plus jamais affiché — envoyez-le à l&apos;administrateur.
-      </div>
+      {emailSent ? (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+          Entreprise créée. Les identifiants ont été envoyés par email à {email}.
+        </div>
+      ) : (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+          Entreprise créée, mais l&apos;envoi de l&apos;email a échoué. Transmettez ce mot de passe manuellement — il
+          ne sera plus jamais affiché.
+        </div>
+      )}
 
       <div>
         <Label>E-mail de connexion</Label>
