@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Image from "next/image";
 import { login } from "@/lib/actions/auth";
-import { Logo } from "@/components/Logo";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -12,18 +12,18 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="mx-auto mb-3">
-            <Logo size={48} />
-          </div>
-          <h1 className="text-2xl font-semibold text-slate-900">OSB</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Le tout-en-un pour gérer votre entreprise
-          </p>
-        </div>
+    <div className="relative flex flex-1 items-center justify-center px-4 overflow-hidden">
+      <Image
+        src="/login-bg.png"
+        alt=""
+        fill
+        priority
+        className="object-cover"
+        style={{ objectPosition: "22% 18%" }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-950/30 via-slate-950/55 to-slate-950/75" />
 
+      <div className="relative z-10 w-full max-w-sm mt-40">
         <form action={action} className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-4">
           {state?.error && (
             <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
