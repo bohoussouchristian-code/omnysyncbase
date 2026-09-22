@@ -12,26 +12,27 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden bg-slate-950">
-      <div className="relative h-24 sm:h-36 w-full shrink-0 overflow-hidden">
-        <Image
-          src="/login-bg.png"
-          alt=""
-          fill
-          priority
-          className="object-cover object-[8%_18%] sm:object-[22%_22%]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950" />
-      </div>
+    <div className="relative h-dvh w-full overflow-hidden bg-slate-950">
+      <Image
+        src="/login-bg.png"
+        alt=""
+        fill
+        priority
+        className="object-cover object-[22%_5%]"
+      />
+      {/* Léger voile uniforme pour la lisibilité générale, puis un fondu
+          concentré en bas où repose la carte — le haut de l'image (logo)
+          reste net et pleinement visible. */}
+      <div className="absolute inset-0 bg-slate-950/15" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80" />
 
-      <div className="relative z-10 min-h-0 flex-1 overflow-hidden flex items-center justify-center px-4 py-2">
+      <div className="relative z-10 flex h-full w-full items-end justify-center overflow-hidden px-4 pb-6 pt-4">
         <div className="w-full max-w-sm">
           <div className="mb-3 text-center">
-            <p className="text-[10px] font-semibold tracking-[0.3em] text-amber-400/90 uppercase">
-              Espace privé
-            </p>
-            <h1 className="mt-1 text-[2rem] font-semibold text-white">Bienvenue</h1>
-            <p className="text-[1.3rem] text-slate-300 mt-0.5">
+            <h1 className="text-[2rem] font-semibold text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.5)]">
+              Bienvenue
+            </h1>
+            <p className="text-[1.3rem] text-slate-200 mt-0.5 [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
               Connectez-vous pour accéder à votre espace
             </p>
           </div>
