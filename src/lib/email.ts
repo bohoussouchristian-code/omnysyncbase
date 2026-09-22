@@ -52,6 +52,81 @@ export async function sendMail({
   }
 }
 
+function formatNow() {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
+}
+
+// Gabarit commun aux emails d'identifiants (création de compte, réinitialisation
+// de mot de passe...) : bandeau OSB, quelques lignes de contexte à puces, le
+// bloc identifiants mis en évidence, le bouton de connexion et le rappel de
+// sécurité. `rows` porte les lignes de contexte spécifiques à chaque cas.
+function credentialsEmailHtml({
+  heading,
+  greetingName,
+  intro,
+  rows,
+  to,
+  password,
+}: {
+  heading: string;
+  greetingName: string;
+  intro: string;
+  rows: { icon: string; label: string; value: string }[];
+  to: string;
+  password: string;
+}) {
+  const loginUrl = "https://app.omnysyncbase.com/login";
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #f8fafc;">
+      <div style="background: #0b192c; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+        <p style="color: #fbbf24; font-size: 11px; font-weight: bold; letter-spacing: 3px; margin: 0 0 6px;">OSB — OMNYSYNCBASE</p>
+        <h1 style="color: #ffffff; font-size: 20px; margin: 0;">${heading}</h1>
+      </div>
+
+      <div style="background: #ffffff; padding: 24px; color: #1e293b;">
+        <p>Bonjour ${greetingName},</p>
+        <p>${intro}</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+          ${rows
+            .map(
+              (r) => `
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">${r.icon} ${r.label}</td>
+            <td style="padding: 6px 0; text-align: right;">${r.value}</td>
+          </tr>`
+            )
+            .join("")}
+        </table>
+
+        <div style="background: #f1f5f9; border-radius: 10px; padding: 16px; margin: 16px 0;">
+          <p style="margin: 0 0 10px; font-size: 13px; color: #64748b; font-weight: bold;">IDENTIFIANTS DE CONNEXION</p>
+          <p style="margin: 0 0 6px;">📧 <strong>${to}</strong></p>
+          <p style="margin: 0; font-family: monospace; letter-spacing: 1px;">🔑 <strong>${password}</strong></p>
+        </div>
+
+        <p style="text-align: center; margin: 24px 0;">
+          <a href="${loginUrl}" style="display: inline-block; background: #1c3d68; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Se connecter
+          </a>
+        </p>
+
+        <p style="color: #64748b; font-size: 13px; margin-top: 24px;">
+          🔒 Pour votre sécurité, changez ce mot de passe dès votre première connexion (menu compte → changer le mot de passe).
+        </p>
+
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">À bientôt sur OSB !</p>
+      </div>
+    </div>
+  `;
+}
+
 export async function sendAdminCredentialsEmail({
   to,
   adminName,
@@ -63,37 +138,55 @@ export async function sendAdminCredentialsEmail({
   companyName: string;
   password: string;
 }) {
-  const loginUrl = "https://app.omnysyncbase.com/login";
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1e293b;">
-      <h2 style="color: #0b192c;">Bienvenue sur OSB</h2>
-      <p>Bonjour ${adminName},</p>
-      <p>Un compte administrateur vient d'être créé pour vous sur <strong>${companyName}</strong>.</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr>
-          <td style="padding: 8px 0; color: #64748b;">Email</td>
-          <td style="padding: 8px 0; font-weight: bold;">${to}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 0; color: #64748b;">Mot de passe</td>
-          <td style="padding: 8px 0; font-weight: bold; font-family: monospace; letter-spacing: 1px;">${password}</td>
-        </tr>
-      </table>
-      <p>
-        <a href="${loginUrl}" style="display: inline-block; background: #1c3d68; color: #ffffff; padding: 10px 20px; border-radius: 8px; text-decoration: none;">
-          Se connecter
-        </a>
-      </p>
-      <p style="color: #64748b; font-size: 13px; margin-top: 24px;">
-        Pour votre sécurité, changez ce mot de passe dès votre première connexion (menu compte → changer le mot de passe).
-      </p>
-    </div>
-  `;
+  const html = credentialsEmailHtml({
+    heading: "Nouveau compte administrateur créé",
+    greetingName: adminName,
+    intro: `Un compte administrateur a été créé pour vous sur <strong>${companyName}</strong>.`,
+    rows: [
+      { icon: "📅", label: "Date", value: formatNow() },
+      { icon: "🏢", label: "Entreprise", value: companyName },
+      { icon: "👤", label: "Rôle", value: "Administrateur" },
+    ],
+    to,
+    password,
+  });
 
   return sendMail({
     to,
     toName: adminName,
     subject: `Vos identifiants OSB — ${companyName}`,
+    html,
+  });
+}
+
+export async function sendPasswordResetEmail({
+  to,
+  userName,
+  resetByName,
+  password,
+}: {
+  to: string;
+  userName: string;
+  resetByName: string;
+  password: string;
+}) {
+  const html = credentialsEmailHtml({
+    heading: "Compte réinitialisé",
+    greetingName: userName,
+    intro: `Votre compte a été réinitialisé avec succès par <strong>${resetByName}</strong>.`,
+    rows: [
+      { icon: "📅", label: "Date", value: formatNow() },
+      { icon: "👤", label: "Compte réinitialisé", value: userName },
+      { icon: "🛠️", label: "Réinitialisé par", value: resetByName },
+    ],
+    to,
+    password,
+  });
+
+  return sendMail({
+    to,
+    toName: userName,
+    subject: "Votre compte OSB a été réinitialisé",
     html,
   });
 }

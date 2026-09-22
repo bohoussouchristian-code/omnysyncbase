@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import {
   createUser,
@@ -230,28 +230,89 @@ function UserForm({ onDone }: { onDone: () => void }) {
 }
 
 function ResetPasswordForm({ user, onDone }: { user: User; onDone: () => void }) {
-  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
-    const res = await resetUserPassword(prev, formData);
-    if (res && "success" in res && res.success) onDone();
-    return res;
-  }, undefined as { error?: string } | undefined);
+  const [status, setStatus] = useState<"idle" | "sent" | "failed">("idle");
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function confirm() {
+    startTransition(async () => {
+      const res = await resetUserPassword(user.id);
+      if (res && "error" in res) {
+        setError(res.error ?? "Erreur inconnue.");
+        return;
+      }
+      setStatus(res.emailSent ? "sent" : "failed");
+    });
+  }
+
+  if (status === "sent") {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+          Nouveau mot de passe envoyé par email à {user.email}.
+        </div>
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+          >
+            Terminé
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+          Le mot de passe a été réinitialisé, mais l&apos;envoi de l&apos;email à {user.email} a échoué. Le nouveau
+          mot de passe ne s&apos;affiche nulle part — réessayez l&apos;envoi.
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={pending}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {pending ? "Envoi..." : "Réessayer l'envoi"}
+          </button>
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+          >
+            Terminé
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <form action={formAction} className="space-y-4">
-      <FormError error={state?.error} />
-      <input type="hidden" name="id" value={user.id} />
-      <div>
-        <Label>Nouveau mot de passe</Label>
-        <Input type="password" name="password" required minLength={8} autoFocus />
-        <p className="mt-1 text-xs text-slate-500">Min. 8 caractères, avec au moins un symbole (ex: ! @ # $ %).</p>
-      </div>
+    <div className="space-y-4">
+      <FormError error={error ?? undefined} />
+      <p className="text-sm text-slate-600">
+        Un nouveau mot de passe sera généré et envoyé directement par email à <strong>{user.email}</strong> — il ne
+        s&apos;affichera nulle part, pour plus de sécurité.
+      </p>
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
           Annuler
         </button>
-        <SubmitButton>Réinitialiser</SubmitButton>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={pending}
+          className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+        >
+          {pending ? "Envoi..." : "Réinitialiser"}
+        </button>
       </div>
-    </form>
+    </div>
   );
 }
 

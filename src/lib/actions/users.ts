@@ -1,7 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireCompanyUser, hashPassword, validatePassword } from "@/lib/auth";
+import { requireCompanyUser, hashPassword, validatePassword, generatePassword } from "@/lib/auth";
+import { sendPasswordResetEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
 
@@ -45,24 +46,32 @@ export async function toggleUserActive(id: string) {
   return { success: true };
 }
 
-export async function resetUserPassword(_prev: unknown, formData: FormData) {
+// Le mot de passe est généré côté serveur et envoyé uniquement par email à
+// l'utilisateur concerné — jamais saisi ni affiché à l'administrateur qui
+// déclenche la réinitialisation (même principe que la création d'entreprise,
+// voir src/lib/actions/console.ts).
+export async function resetUserPassword(id: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user: current, companyId } = check;
   if (current.role !== "ADMIN") return { error: "Seul un administrateur peut réinitialiser un mot de passe." };
 
-  const id = String(formData.get("id") || "");
-  const password = String(formData.get("password") || "");
-  const passwordError = validatePassword(password);
-  if (passwordError) return { error: passwordError };
-
   const target = await prisma.user.findFirst({ where: { id, companyId } });
   if (!target) return { error: "Utilisateur introuvable." };
 
+  const password = generatePassword();
   const passwordHash = await hashPassword(password);
   await prisma.user.update({ where: { id, companyId }, data: { passwordHash } });
+
+  const emailResult = await sendPasswordResetEmail({
+    to: target.email,
+    userName: target.name,
+    resetByName: current.name,
+    password,
+  });
+
   revalidatePath("/utilisateurs");
-  return { success: true };
+  return { success: true, emailSent: emailResult.ok };
 }
 
 export async function updateUserRole(_prev: unknown, formData: FormData) {
