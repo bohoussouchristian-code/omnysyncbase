@@ -31,6 +31,8 @@ import {
   Ban,
   ChevronDown,
   PackageCheck,
+  UserCog,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -91,6 +93,15 @@ const NAV: readonly NavEntry[] = [
       { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
       { href: "/depots-annexes", label: "Dépôts annexes", icon: Store, roles: null },
       { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
+    ],
+  },
+  {
+    kind: "group",
+    label: "Ressources humaines",
+    icon: UserCog,
+    items: [
+      { href: "/employes", label: "Employés", icon: Users, roles: ["ADMIN"] },
+      { href: "/paie", label: "Bulletins de salaire", icon: Receipt, roles: ["ADMIN"] },
     ],
   },
   {

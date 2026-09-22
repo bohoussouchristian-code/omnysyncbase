@@ -105,6 +105,8 @@ model Company {
   proformaItems  ProformaItem[]
   loginLogs      LoginLog[]
   productSupplierPrices ProductSupplierPrice[]
+  employees      Employee[]
+  payslips       Payslip[]
 }
 
 model User {
@@ -140,6 +142,7 @@ model User {
   payments          Payment[]
   proformas         Proforma[]
   loginLogs         LoginLog[]
+  payslips          Payslip[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -588,4 +591,56 @@ model LoginFailure {
   createdAt DateTime @default(now())
 
   @@index([ipAddress, createdAt])
+}
+
+// Fiche employé pour le suivi de la paie — distincte des Users (comptes de
+// connexion à l'app) : un employé payé (livreur, gardien...) n'a pas
+// forcément besoin d'un accès au logiciel.
+model Employee {
+  id            String    @id @default(cuid())
+  name          String
+  matricule     String?
+  position      String?
+  category      String?
+  hireDate      DateTime?
+  maritalStatus String?
+  dependents    Int       @default(0)
+  paymentMethod String?
+  baseSalary    Float     @default(0)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  payslips Payslip[]
+}
+
+// Bulletin de salaire pour une période donnée : reprend la structure
+// gains/retenues/net à payer d'un bulletin de solde classique, adaptée au
+// secteur privé (CNPS à la place de la cotisation retraite fonction publique).
+model Payslip {
+  id                 String    @id @default(cuid())
+  employeeId         String
+  employee           Employee  @relation(fields: [employeeId], references: [id])
+  period             String
+  baseSalary         Float
+  allowances         Float     @default(0)
+  familyAllowance    Float     @default(0)
+  grossTotal         Float
+  socialContribution Float     @default(0)
+  incomeTax          Float     @default(0)
+  otherDeductions    Float     @default(0)
+  totalDeductions    Float
+  netPay             Float
+  notes              String?
+  paidAt             DateTime?
+  createdAt          DateTime  @default(now())
+  userId             String?
+  user               User?     @relation(fields: [userId], references: [id])
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([employeeId, period])
 }

@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Boxes,
   Scale,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -71,6 +72,19 @@ export default async function DashboardPage() {
         { href: "/transferts", label: "Transferts de stock" },
       ],
     },
+    ...(isAdmin
+      ? [
+          {
+            title: "Ressources humaines",
+            acronym: "RH",
+            icon: UserCog,
+            links: [
+              { href: "/employes", label: "Employés" },
+              { href: "/paie", label: "Bulletins de salaire" },
+            ],
+          },
+        ]
+      : []),
     {
       title: "Bilan & état financier",
       acronym: "BEF",
