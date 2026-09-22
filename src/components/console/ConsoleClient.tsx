@@ -3,15 +3,25 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createCompany, toggleCompanyActive, enterCompany } from "@/lib/actions/console";
-import { Card, Modal, Input, Label, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
+import { Card, Modal, Input, Label, Select, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
 import { Plus, Power, Building2, LogIn } from "lucide-react";
+
+type BusinessType = "GENERIQUE" | "QUINCAILLERIE" | "BOISSON" | "LIBRAIRIE";
+
+const BUSINESS_TYPE_LABELS: Record<BusinessType, string> = {
+  GENERIQUE: "Générique",
+  QUINCAILLERIE: "Quincaillerie",
+  BOISSON: "Dépôt de boissons",
+  LIBRAIRIE: "Librairie",
+};
 
 type Company = {
   id: string;
   name: string;
   slug: string;
   active: boolean;
+  businessType: BusinessType;
   createdAt: Date;
   _count: { users: number; products: number; sales: number };
 };
@@ -60,6 +70,7 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
                 <div>
                   <h3 className="font-semibold text-slate-900">{c.name}</h3>
                   <p className="text-xs text-slate-400">/{c.slug}</p>
+                  <p className="text-xs text-blue-600 font-medium mt-0.5">{BUSINESS_TYPE_LABELS[c.businessType]}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge tone={c.active ? "success" : "default"}>{c.active ? "Active" : "Inactive"}</Badge>
@@ -120,6 +131,19 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
       <div>
         <Label>Nom de l&apos;entreprise</Label>
         <Input name="companyName" required placeholder="Ex: Quincaillerie du Port" />
+      </div>
+
+      <div>
+        <Label>Type de métier</Label>
+        <Select name="businessType" defaultValue="GENERIQUE">
+          <option value="GENERIQUE">Générique</option>
+          <option value="QUINCAILLERIE">Quincaillerie</option>
+          <option value="BOISSON">Dépôt de boissons</option>
+          <option value="LIBRAIRIE">Librairie</option>
+        </Select>
+        <p className="text-xs text-slate-400 mt-1">
+          Adapte automatiquement les champs du formulaire produit (marque, consigne, éditeur...).
+        </p>
       </div>
 
       <div className="border-t border-slate-100 pt-4">

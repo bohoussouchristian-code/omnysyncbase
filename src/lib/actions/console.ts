@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getSession, createSession, hashPassword, validatePassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { BusinessType } from "@prisma/client";
+
+const BUSINESS_TYPES: readonly BusinessType[] = ["GENERIQUE", "QUINCAILLERIE", "BOISSON", "LIBRAIRIE"];
 
 function slugify(name: string) {
   return name
@@ -26,6 +29,10 @@ export async function createCompany(_prev: unknown, formData: FormData) {
   if ("error" in check) return { error: check.error };
 
   const companyName = String(formData.get("companyName") || "").trim();
+  const businessTypeRaw = String(formData.get("businessType") || "GENERIQUE");
+  const businessType = BUSINESS_TYPES.includes(businessTypeRaw as BusinessType)
+    ? (businessTypeRaw as BusinessType)
+    : "GENERIQUE";
   const adminName = String(formData.get("adminName") || "").trim();
   const adminEmail = String(formData.get("adminEmail") || "").trim().toLowerCase();
   const adminPassword = String(formData.get("adminPassword") || "");
@@ -44,7 +51,7 @@ export async function createCompany(_prev: unknown, formData: FormData) {
   }
 
   try {
-    const company = await prisma.company.create({ data: { name: companyName, slug: finalSlug } });
+    const company = await prisma.company.create({ data: { name: companyName, slug: finalSlug, businessType } });
     await prisma.user.create({
       data: {
         name: adminName,

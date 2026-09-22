@@ -66,15 +66,26 @@ enum CustomerType {
   REVENDEUR
 }
 
+// Détermine quels champs optionnels du formulaire produit s'affichent pour
+// une entreprise (voir Product.brand/material/warrantyMonths/deposit/publisher).
+// GENERIQUE = aucun champ spécifique, uniquement les champs communs.
+enum BusinessType {
+  GENERIQUE
+  QUINCAILLERIE
+  BOISSON
+  LIBRAIRIE
+}
+
 // Une entreprise cliente de la plateforme. Toutes les données métier
 // (produits, ventes, stock...) appartiennent à une Company et ne sont
 // jamais visibles depuis une autre.
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id           String       @id @default(cuid())
+  name         String
+  slug         String       @unique
+  active       Boolean      @default(true)
+  businessType BusinessType @default(GENERIQUE)
+  createdAt    DateTime     @default(now())
 
   // Informations affichées sur les documents officiels (reçus, factures...).
   director  String?
@@ -231,6 +242,16 @@ model Product {
   imageUrl      String?
   active        Boolean  @default(true)
   createdAt     DateTime @default(now())
+
+  // Champs optionnels utiles selon le métier de l'entreprise (quincaillerie,
+  // dépôt de boissons, librairie...) — jamais obligatoires, chaque entreprise
+  // ne remplit que ce qui la concerne. Pas de schéma séparé par métier.
+  brand           String? // Marque (quincaillerie/boissons) ou Auteur (librairie)
+  reference       String? // Référence/SKU fournisseur
+  material        String? // Matériau (quincaillerie)
+  warrantyMonths  Int?    // Garantie en mois (quincaillerie)
+  deposit         Float?  // Consigne remboursable sur bouteille/casier (boissons)
+  publisher       String? // Éditeur (librairie)
 
   // Vente/achat par lot (carton, casier...) en plus de l'unité de base.
   // Le stock reste toujours compté dans l'unité de base (`unit`).

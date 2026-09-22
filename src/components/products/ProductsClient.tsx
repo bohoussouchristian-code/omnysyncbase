@@ -7,6 +7,8 @@ import { formatMoney } from "@/lib/utils";
 import { Plus, Search, Pencil, Tag, Trash2 } from "lucide-react";
 import Link from "next/link";
 
+type BusinessType = "GENERIQUE" | "QUINCAILLERIE" | "BOISSON" | "LIBRAIRIE";
+
 type Product = {
   id: string;
   name: string;
@@ -28,6 +30,12 @@ type Product = {
   proPrice: number | null;
   wholesalePrice: number | null;
   supplierPrices: { supplierId: string; purchasePrice: number }[];
+  brand: string | null;
+  reference: string | null;
+  material: string | null;
+  warrantyMonths: number | null;
+  deposit: number | null;
+  publisher: string | null;
 };
 
 type Option = { id: string; name: string; symbol?: string };
@@ -41,6 +49,7 @@ export function ProductsClient({
   warehouses,
   suppliers,
   canManage,
+  businessType,
 }: {
   products: Product[];
   categories: Option[];
@@ -48,6 +57,7 @@ export function ProductsClient({
   warehouses: Warehouse[];
   suppliers: Supplier[];
   canManage: boolean;
+  businessType: BusinessType;
 }) {
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -179,6 +189,7 @@ export function ProductsClient({
           units={units}
           warehouses={warehouses}
           suppliers={suppliers}
+          businessType={businessType}
           onDone={() => setShowCreate(false)}
         />
       </Modal>
@@ -190,6 +201,7 @@ export function ProductsClient({
             units={units}
             warehouses={warehouses}
             suppliers={suppliers}
+            businessType={businessType}
             product={editing}
             onDone={() => setEditing(null)}
           />
@@ -204,6 +216,7 @@ function ProductForm({
   units,
   warehouses,
   suppliers,
+  businessType,
   product,
   onDone,
 }: {
@@ -211,6 +224,7 @@ function ProductForm({
   units: Option[];
   warehouses: Warehouse[];
   suppliers: Supplier[];
+  businessType: BusinessType;
   product?: Product;
   onDone: () => void;
 }) {
@@ -324,6 +338,46 @@ function ProductForm({
         <Label>Seuil d&apos;alerte stock bas</Label>
         <Input type="number" name="reorderLevel" min={0} step="1" defaultValue={product?.reorderLevel ?? 0} />
       </div>
+
+      {businessType !== "GENERIQUE" && (
+        <div className="border-t border-slate-100 pt-4 space-y-3">
+          <p className="text-sm font-medium text-slate-700">Informations complémentaires</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>{businessType === "LIBRAIRIE" ? "Auteur" : "Marque"}</Label>
+              <Input name="brand" defaultValue={product?.brand ?? ""} />
+            </div>
+            <div>
+              <Label>Référence</Label>
+              <Input name="reference" defaultValue={product?.reference ?? ""} />
+            </div>
+          </div>
+          {businessType === "QUINCAILLERIE" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Matériau</Label>
+                <Input name="material" defaultValue={product?.material ?? ""} placeholder="Ex: Acier, PVC, Bois" />
+              </div>
+              <div>
+                <Label>Garantie (mois)</Label>
+                <Input type="number" name="warrantyMonths" min={0} step="1" defaultValue={product?.warrantyMonths ?? ""} />
+              </div>
+            </div>
+          )}
+          {businessType === "BOISSON" && (
+            <div>
+              <Label>Consigne (montant remboursable)</Label>
+              <Input type="number" name="deposit" min={0} step="1" defaultValue={product?.deposit ?? ""} />
+            </div>
+          )}
+          {businessType === "LIBRAIRIE" && (
+            <div>
+              <Label>Éditeur</Label>
+              <Input name="publisher" defaultValue={product?.publisher ?? ""} />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="border-t border-slate-100 pt-4">
         <Label>Prix d&apos;achat par fournisseur (optionnel)</Label>

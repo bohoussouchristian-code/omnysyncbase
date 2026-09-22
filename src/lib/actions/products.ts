@@ -68,6 +68,25 @@ async function parseSupplierPrices(formData: FormData, companyId: string) {
     .map((r) => ({ supplierId: r.supplierId, purchasePrice: Number(r.purchasePrice) }));
 }
 
+// Champs optionnels selon le métier de l'entreprise (voir Company.businessType
+// et le formulaire produit) — toujours facultatifs, jamais bloquants.
+function parseBusinessFields(formData: FormData) {
+  const str = (key: string) => {
+    const v = String(formData.get(key) || "").trim();
+    return v || null;
+  };
+  const warrantyRaw = formData.get("warrantyMonths");
+  const depositRaw = formData.get("deposit");
+  return {
+    brand: str("brand"),
+    reference: str("reference"),
+    material: str("material"),
+    publisher: str("publisher"),
+    warrantyMonths: warrantyRaw && String(warrantyRaw) !== "" ? Number(warrantyRaw) : null,
+    deposit: depositRaw && String(depositRaw) !== "" ? Number(depositRaw) : null,
+  };
+}
+
 // La configuration des produits ne fait que créer la fiche catalogue — aucun
 // stock ne peut y être saisi directement. Un produit démarre toujours à 0 :
 // toute entrée en stock passe par le circuit Bon de commande -> Bon de
@@ -94,6 +113,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   const packPurchasePrice =
     packPurchasePriceRaw && String(packPurchasePriceRaw) !== "" ? Number(packPurchasePriceRaw) : null;
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
+  const { brand, reference, material, warrantyMonths, deposit, publisher } = parseBusinessFields(formData);
 
   if (!name) return { error: "Le nom du produit est requis." };
   if (packUnitId && piecesPerPack <= 1)
@@ -117,6 +137,12 @@ export async function createProduct(_prev: unknown, formData: FormData) {
         piecesPerPack: packUnitId ? piecesPerPack : 1,
         packPurchasePrice: packUnitId ? packPurchasePrice : null,
         packSalePrice: packUnitId ? packSalePrice : null,
+        brand,
+        reference,
+        material,
+        warrantyMonths,
+        deposit,
+        publisher,
         companyId,
         supplierPrices: {
           create: supplierPrices.map((sp) => ({ supplierId: sp.supplierId, purchasePrice: sp.purchasePrice, companyId })),
@@ -156,6 +182,7 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
   const packPurchasePrice =
     packPurchasePriceRaw && String(packPurchasePriceRaw) !== "" ? Number(packPurchasePriceRaw) : null;
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
+  const { brand, reference, material, warrantyMonths, deposit, publisher } = parseBusinessFields(formData);
 
   if (!id || !name) return { error: "Données invalides." };
   if (packUnitId && piecesPerPack <= 1)
@@ -183,6 +210,12 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
           piecesPerPack: packUnitId ? piecesPerPack : 1,
           packPurchasePrice: packUnitId ? packPurchasePrice : null,
           packSalePrice: packUnitId ? packSalePrice : null,
+          brand,
+          reference,
+          material,
+          warrantyMonths,
+          deposit,
+          publisher,
         },
       });
 
