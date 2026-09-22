@@ -26,6 +26,10 @@ export type SessionPayload = {
   role: Role;
   companyId: string | null;
   isPlatformOwner: boolean;
+  // Renseigné uniquement quand le propriétaire de la plateforme a choisi
+  // d'entrer dans une entreprise depuis /console (voir enterCompany/exitCompany
+  // dans src/lib/actions/console.ts). Absent pour tous les autres comptes.
+  actingCompanyId?: string | null;
 };
 
 // Règle de mot de passe appliquée partout où un mot de passe est créé ou
@@ -86,6 +90,15 @@ export async function getCurrentUser() {
   if (!session) return null;
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
   if (!user || !user.active) return null;
+
+  // Le propriétaire de la plateforme qui a "activement" choisi une entreprise
+  // (voir enterCompany) est traité partout ailleurs dans l'app comme un admin
+  // de cette entreprise — même compte réel (id, audit trail inchangés), mais
+  // companyId/role recalculés pour que tout le code existant (requireCompanyUser,
+  // les pages, etc.) fonctionne sans modification.
+  if (user.isPlatformOwner && session.actingCompanyId) {
+    return { ...user, companyId: session.actingCompanyId, role: "ADMIN" as Role };
+  }
   return user;
 }
 

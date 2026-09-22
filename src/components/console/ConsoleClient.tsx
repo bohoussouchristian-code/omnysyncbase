@@ -1,11 +1,11 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createCompany, toggleCompanyActive } from "@/lib/actions/console";
+import { createCompany, toggleCompanyActive, enterCompany } from "@/lib/actions/console";
 import { Card, Modal, Input, Label, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
-import { Plus, Power, Building2 } from "lucide-react";
+import { Plus, Power, Building2, LogIn } from "lucide-react";
 
 type Company = {
   id: string;
@@ -18,11 +18,18 @@ type Company = {
 
 export function ConsoleClient({ companies }: { companies: Company[] }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [entering, startEntering] = useTransition();
   const router = useRouter();
 
   function handleToggle(id: string) {
     if (!confirm("Changer le statut de cette entreprise ?")) return;
     toggleCompanyActive(id).then(() => router.refresh());
+  }
+
+  function handleEnter(id: string) {
+    startEntering(async () => {
+      await enterCompany(id);
+    });
   }
 
   return (
@@ -80,6 +87,13 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
                 </div>
               </div>
               <p className="text-xs text-slate-400 mt-3">Créée le {formatDate(c.createdAt)}</p>
+              <button
+                onClick={() => handleEnter(c.id)}
+                disabled={entering}
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 px-3 py-2 text-sm font-medium hover:bg-blue-100 disabled:opacity-60 transition-colors"
+              >
+                <LogIn size={15} /> Entrer dans l&apos;entreprise
+              </button>
             </Card>
           ))}
         </div>

@@ -1,8 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hashPassword, validatePassword } from "@/lib/auth";
+import { getCurrentUser, getSession, createSession, hashPassword, validatePassword } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 function slugify(name: string) {
   return name
@@ -72,4 +73,31 @@ export async function toggleCompanyActive(id: string) {
   await prisma.company.update({ where: { id }, data: { active: !company.active } });
   revalidatePath("/console");
   return { success: true };
+}
+
+// Permet au propriétaire de la plateforme d'agir directement dans une
+// entreprise (support, vérification) avec les droits d'un administrateur,
+// sans jamais créer de compte séparé ni connaître de mot de passe. Le compte
+// réel ne change pas (même id, même journal de connexions) : seule la session
+// porte désormais l'entreprise "active". Voir getCurrentUser dans src/lib/auth.ts.
+export async function enterCompany(companyId: string) {
+  const check = await requirePlatformOwner();
+  if ("error" in check) return { error: check.error };
+
+  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  if (!company) return { error: "Entreprise introuvable." };
+
+  const session = await getSession();
+  if (!session) return { error: "Session expirée." };
+
+  await createSession({ ...session, actingCompanyId: companyId });
+  redirect("/dashboard");
+}
+
+export async function exitCompany() {
+  const session = await getSession();
+  if (!session || !session.isPlatformOwner) return { error: "Accès refusé." };
+
+  await createSession({ ...session, actingCompanyId: null });
+  redirect("/console");
 }

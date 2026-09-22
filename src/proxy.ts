@@ -30,6 +30,7 @@ export async function proxy(request: NextRequest) {
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let isPlatformOwner = false;
+  let isActingInCompany = false;
   let authenticated = false;
   let claims: JWTPayload | null = null;
   if (token) {
@@ -37,6 +38,7 @@ export async function proxy(request: NextRequest) {
       const { payload } = await jwtVerify(token, secretKey);
       authenticated = true;
       isPlatformOwner = payload.isPlatformOwner === true;
+      isActingInCompany = typeof payload.actingCompanyId === "string";
       claims = payload;
     } catch {
       authenticated = false;
@@ -48,12 +50,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Le propriétaire de la plateforme n'a pas d'entreprise : il ne voit que /console.
-  // Les utilisateurs d'une entreprise n'ont jamais accès à /console.
+  // Le propriétaire de la plateforme n'a pas d'entreprise : il ne voit que
+  // /console, sauf s'il a explicitement choisi d'entrer dans une entreprise
+  // (enterCompany) — il navigue alors normalement comme un admin de celle-ci,
+  // et peut toujours revenir à /console à tout moment.
   if (pathname.startsWith("/console") && !isPlatformOwner) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
-  if (!pathname.startsWith("/console") && isPlatformOwner) {
+  if (!pathname.startsWith("/console") && isPlatformOwner && !isActingInCompany) {
     return NextResponse.redirect(new URL("/console", request.url));
   }
 
