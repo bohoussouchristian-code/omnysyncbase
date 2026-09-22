@@ -104,6 +104,27 @@ export async function resendAdminCredentials(companyId: string) {
   return { success: true, adminEmail: admin.email, emailSent: emailResult.ok };
 }
 
+export async function updateCompany(_prev: unknown, formData: FormData) {
+  const check = await requirePlatformOwner();
+  if ("error" in check) return { error: check.error };
+
+  const id = String(formData.get("id") || "");
+  const name = String(formData.get("name") || "").trim();
+  const businessTypeRaw = String(formData.get("businessType") || "GENERIQUE");
+  const businessType = BUSINESS_TYPES.includes(businessTypeRaw as BusinessType)
+    ? (businessTypeRaw as BusinessType)
+    : "GENERIQUE";
+
+  if (!id || !name) return { error: "Le nom de l'entreprise est requis." };
+
+  const company = await prisma.company.findUnique({ where: { id } });
+  if (!company) return { error: "Entreprise introuvable." };
+
+  await prisma.company.update({ where: { id }, data: { name, businessType } });
+  revalidatePath("/console");
+  return { success: true };
+}
+
 export async function toggleCompanyActive(id: string) {
   const check = await requirePlatformOwner();
   if ("error" in check) return { error: check.error };

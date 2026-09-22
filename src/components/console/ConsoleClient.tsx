@@ -2,10 +2,10 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createCompany, toggleCompanyActive, enterCompany, resendAdminCredentials } from "@/lib/actions/console";
+import { createCompany, updateCompany, toggleCompanyActive, enterCompany, resendAdminCredentials } from "@/lib/actions/console";
 import { Card, Modal, Input, Label, Select, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatDate } from "@/lib/utils";
-import { Plus, Power, Building2, LogIn } from "lucide-react";
+import { Plus, Power, Building2, LogIn, Pencil } from "lucide-react";
 
 type BusinessType = "GENERIQUE" | "QUINCAILLERIE" | "BOISSON" | "LIBRAIRIE";
 
@@ -28,6 +28,7 @@ type Company = {
 
 export function ConsoleClient({ companies }: { companies: Company[] }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<Company | null>(null);
   const [entering, startEntering] = useTransition();
   const router = useRouter();
 
@@ -75,6 +76,13 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
                 <div className="flex items-center gap-2">
                   <Badge tone={c.active ? "success" : "default"}>{c.active ? "Active" : "Inactive"}</Badge>
                   <button
+                    onClick={() => setEditing(c)}
+                    className="text-slate-400 hover:text-blue-600"
+                    title="Modifier"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
                     onClick={() => handleToggle(c.id)}
                     className="text-slate-400 hover:text-red-600"
                     title={c.active ? "Désactiver" : "Activer"}
@@ -112,6 +120,18 @@ export function ConsoleClient({ companies }: { companies: Company[] }) {
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvelle entreprise">
         <CompanyForm onDone={() => { setShowCreate(false); router.refresh(); }} />
+      </Modal>
+
+      <Modal open={!!editing} onClose={() => setEditing(null)} title="Modifier l'entreprise">
+        {editing && (
+          <EditCompanyForm
+            company={editing}
+            onDone={() => {
+              setEditing(null);
+              router.refresh();
+            }}
+          />
+        )}
       </Modal>
     </div>
   );
@@ -182,6 +202,51 @@ function CompanyForm({ onDone }: { onDone: () => void }) {
           Annuler
         </button>
         <SubmitButton>Créer l&apos;entreprise</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+function EditCompanyForm({ company, onDone }: { company: Company; onDone: () => void }) {
+  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
+    const res = await updateCompany(prev, formData);
+    if (res && "success" in res && res.success) onDone();
+    return res;
+  }, undefined as { error?: string } | undefined);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <input type="hidden" name="id" value={company.id} />
+
+      <div>
+        <Label>Nom de l&apos;entreprise</Label>
+        <Input name="name" required defaultValue={company.name} />
+      </div>
+
+      <div>
+        <Label>Type de métier</Label>
+        <Select name="businessType" defaultValue={company.businessType}>
+          <option value="GENERIQUE">Générique</option>
+          <option value="QUINCAILLERIE">Quincaillerie</option>
+          <option value="BOISSON">Dépôt de boissons</option>
+          <option value="LIBRAIRIE">Librairie</option>
+        </Select>
+        <p className="text-xs text-slate-400 mt-1">
+          Adapte automatiquement les champs du formulaire produit (marque, consigne, éditeur...).
+        </p>
+      </div>
+
+      <p className="text-xs text-slate-400">
+        Adresse, téléphone, logo et autres informations affichées sur les documents se modifient depuis l&apos;espace
+        de l&apos;entreprise elle-même (Administration → Informations de l&apos;entreprise).
+      </p>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Enregistrer</SubmitButton>
       </div>
     </form>
   );
