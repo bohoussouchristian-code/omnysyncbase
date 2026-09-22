@@ -21,7 +21,7 @@ export default function LoginPage() {
           priority
           className="object-cover object-[8%_18%] sm:object-[22%_22%]"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/10 via-slate-950/45 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950" />
       </div>
 
       <div className="relative z-10 min-h-0 flex-1 overflow-hidden flex items-center justify-center px-4 py-2">
