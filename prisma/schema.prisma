@@ -95,6 +95,14 @@ model Company {
   email     String?
   address   String?
 
+  // Identifiants FNE (Facture Normalisée Électronique, DGI Côte d'Ivoire) —
+  // propres à chaque entreprise de la plateforme. Renseignés ici par
+  // l'entreprise elle-même une fois obtenus auprès de la DGI ; la
+  // transmission effective des factures reste à brancher (voir src/lib/fne.ts).
+  fneNcc     String?
+  fneApiKey  String?  @db.Text
+  fneEnabled Boolean  @default(false)
+
   users          User[]
   warehouses     Warehouse[]
   categories     Category[]

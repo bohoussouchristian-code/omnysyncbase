@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateCompanyInfo } from "@/lib/actions/company";
-import { Card, PageHeader, Input, Label, FormError, SubmitButton } from "@/components/ui";
+import { Card, PageHeader, Input, Label, FormError, SubmitButton, Badge } from "@/components/ui";
 import { GraduationCap, Upload } from "lucide-react";
 
 type Company = {
@@ -15,12 +15,16 @@ type Company = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  fneNcc: string | null;
+  fneEnabled: boolean;
+  hasFneApiKey: boolean;
 };
 
 const TABS = [
   { key: "general", label: "Informations générales" },
   { key: "contact", label: "Contact" },
   { key: "geo", label: "Coordonnées géographiques" },
+  { key: "fne", label: "Facturation électronique (FNE)" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -33,6 +37,7 @@ export function EntrepriseClient({ company }: { company: Company }) {
   const [tab, setTab] = useState<TabKey>("general");
   const [logoPreview, setLogoPreview] = useState(company.logoUrl || "");
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [fneEnabled, setFneEnabled] = useState(company.fneEnabled);
 
   useEffect(() => {
     if (state?.success) router.refresh();
@@ -142,6 +147,45 @@ export function EntrepriseClient({ company }: { company: Company }) {
               <Label>Adresse</Label>
               <Input name="address" defaultValue={company.address || ""} placeholder="Ex : Abidjan, Cocody" />
             </div>
+          </div>
+
+          <div className={tab === "fne" ? "space-y-4" : "hidden"}>
+            <div className="flex items-center gap-2">
+              <Badge tone={fneEnabled ? "success" : "default"}>{fneEnabled ? "Activée" : "Non activée"}</Badge>
+              <p className="text-xs text-slate-400">
+                La FNE reste propre à votre entreprise — vos identifiants ne sont utilisés que pour vos propres ventes.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <Label>NCC (Numéro de Compte Contribuable)</Label>
+                <Input name="fneNcc" defaultValue={company.fneNcc || ""} placeholder="Ex : 1234567A" />
+              </div>
+              <div>
+                <Label>Clé API FNE</Label>
+                <Input
+                  name="fneApiKey"
+                  type="password"
+                  placeholder={company.hasFneApiKey ? "••••••••••• (enregistrée)" : "Fournie par la DGI"}
+                />
+                {company.hasFneApiKey && (
+                  <p className="text-xs text-slate-400 mt-1">Laissez vide pour conserver la clé actuelle.</p>
+                )}
+              </div>
+            </div>
+            <label className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                name="fneEnabled"
+                checked={fneEnabled}
+                onChange={(e) => setFneEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Activer la FNE pour cette entreprise
+            </label>
+            <p className="text-xs text-slate-400">
+              Renseignez d&apos;abord votre NCC et votre clé API obtenus auprès de la DGI avant d&apos;activer la FNE.
+            </p>
           </div>
 
           <div className="flex justify-end pt-2">

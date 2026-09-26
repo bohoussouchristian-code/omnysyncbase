@@ -33,9 +33,20 @@ export async function updateCompanyInfo(_prev: unknown, formData: FormData) {
     return { error: "Le logo est trop volumineux. Choisissez une image plus légère." };
   }
 
+  const fneNcc = String(formData.get("fneNcc") || "").trim() || null;
+  // La clé API n'est jamais renvoyée au navigateur (voir /entreprise) : un
+  // champ laissé vide signifie "ne pas changer", jamais "supprimer la clé".
+  const fneApiKeyInput = String(formData.get("fneApiKey") || "").trim();
+  const fneEnabled = formData.get("fneEnabled") === "on";
+  const current = await prisma.company.findUnique({ where: { id: companyId }, select: { fneApiKey: true } });
+  const fneApiKey = fneApiKeyInput || current?.fneApiKey || null;
+  if (fneEnabled && (!fneNcc || !fneApiKey)) {
+    return { error: "Renseignez le NCC et la clé API FNE avant d'activer la FNE." };
+  }
+
   await prisma.company.update({
     where: { id: companyId },
-    data: { name, director, headerText, phone, email, address, logoUrl },
+    data: { name, director, headerText, phone, email, address, logoUrl, fneNcc, fneApiKey, fneEnabled },
   });
 
   revalidatePath("/entreprise");
