@@ -76,6 +76,21 @@ enum BusinessType {
   LIBRAIRIE
 }
 
+// Valeurs exactement telles que documentées par la DGI (TVA normal 18%,
+// TVAB réduit 9%, TVAC/TVAD exonérées 0%).
+enum FneTaxCode {
+  TVA
+  TVAB
+  TVAC
+  TVAD
+}
+
+enum FneStatus {
+  NON_APPLICABLE
+  CERTIFIED
+  FAILED
+}
+
 // Une entreprise cliente de la plateforme. Toutes les données métier
 // (produits, ventes, stock...) appartiennent à une Company et ne sont
 // jamais visibles depuis une autre.
@@ -106,6 +121,10 @@ model Company {
   // une fois que la DGI transmet l'URL de production suite à la validation
   // des spécimens de factures (voir procédure d'interfaçage officielle).
   fneBaseUrl String?
+  // Taux de TVA appliqué à toutes les ventes de cette entreprise pour la FNE
+  // (obligatoire par article pour la DGI) — une seule valeur pour toute
+  // l'entreprise, pas encore par produit (choix explicite de l'utilisateur).
+  fneTaxCode FneTaxCode?
 
   users          User[]
   warehouses     Warehouse[]
@@ -558,6 +577,14 @@ model Sale {
   cancelledAt    DateTime?
   cancelledById  String?
   cancelledBy    User?     @relation("SaleCancelledBy", fields: [cancelledById], references: [id])
+
+  // Certification FNE (DGI) — tentée automatiquement à la validation d'une
+  // vente si l'entreprise a activé la FNE ; jamais bloquante pour la vente
+  // elle-même (voir validateSale dans src/lib/actions/sales.ts).
+  fneStatus    FneStatus @default(NON_APPLICABLE)
+  fneReference String?
+  fneToken     String?   @db.Text
+  fneError     String?   @db.Text
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])

@@ -1,7 +1,8 @@
-import { Receipt as ReceiptIcon, MapPin } from "lucide-react";
+import { Receipt as ReceiptIcon, MapPin, ShieldCheck } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { formatMoney, formatDateTime, formatDate, amountInWordsFcfa } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod, FneStatus } from "@prisma/client";
 
 type ReceiptItem = {
   id: string;
@@ -54,6 +55,9 @@ export type ReceiptData = {
   dueDate: string | null;
   pointsEarned: number;
   issuedAt: Date;
+  fneStatus: FneStatus;
+  fneReference: string | null;
+  fneToken: string | null;
 };
 
 // Reconstitue le reçu d'une vente déjà encaissée (pour le réimprimer plus
@@ -74,6 +78,9 @@ export function buildReceiptData(
     warehouse: { name: string; address: string | null };
     items: ReceiptItem[];
     payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
+    fneStatus: FneStatus;
+    fneReference: string | null;
+    fneToken: string | null;
   },
   companyName: string
 ): ReceiptData {
@@ -94,6 +101,9 @@ export function buildReceiptData(
     dueDate: sale.dueDate ? sale.dueDate.toISOString() : null,
     pointsEarned: sale.pointsEarned,
     issuedAt: sale.validatedAt || sale.date,
+    fneStatus: sale.fneStatus,
+    fneReference: sale.fneReference,
+    fneToken: sale.fneToken,
   };
 }
 
@@ -223,6 +233,23 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
         </div>
         <p className="text-xs text-slate-400 italic pt-1">Arrêté la présente facture à la somme de : {amountInWordsFcfa(data.paid)}.</p>
       </div>
+
+      {data.fneStatus === "CERTIFIED" && data.fneReference && (
+        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-dashed border-slate-300">
+          {data.fneToken && (
+            <div className="shrink-0 rounded border border-slate-200 p-1">
+              <QRCodeSVG value={data.fneToken} size={64} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="flex items-center gap-1 text-xs font-semibold text-emerald-700">
+              <ShieldCheck size={12} /> Facture Normalisée Électronique
+            </p>
+            <p className="text-xs text-slate-500 font-mono break-all">{data.fneReference}</p>
+            <p className="text-[10px] text-slate-400">Certifiée par la DGI — scannez pour vérifier.</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between items-center mt-4 pt-3">
         <p className="text-xs text-slate-400">Merci de votre achat !</p>

@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateCompanyInfo } from "@/lib/actions/company";
-import { Card, PageHeader, Input, Label, FormError, SubmitButton, Badge } from "@/components/ui";
+import { Card, PageHeader, Input, Label, Select, FormError, SubmitButton, Badge } from "@/components/ui";
 import { GraduationCap, Upload } from "lucide-react";
 
 type Company = {
@@ -19,7 +19,15 @@ type Company = {
   fneEnabled: boolean;
   hasFneApiKey: boolean;
   fneBaseUrl: string | null;
+  fneTaxCode: "TVA" | "TVAB" | "TVAC" | "TVAD" | null;
 };
+
+const FNE_TAX_CODE_LABELS = {
+  TVA: "TVA — taux normal (18%)",
+  TVAB: "TVAB — taux réduit (9%)",
+  TVAC: "TVAC — exonéré conventionnel (0%)",
+  TVAD: "TVAD — exonéré légal (0%)",
+} as const;
 
 const TABS = [
   { key: "general", label: "Informations générales" },
@@ -173,6 +181,21 @@ export function EntrepriseClient({ company }: { company: Company }) {
                   <p className="text-xs text-slate-400 mt-1">Laissez vide pour conserver la clé actuelle.</p>
                 )}
               </div>
+            </div>
+            <div>
+              <Label>Taux de TVA appliqué à vos ventes</Label>
+              <Select name="fneTaxCode" defaultValue={company.fneTaxCode || ""}>
+                <option value="">— Sélectionner —</option>
+                {Object.entries(FNE_TAX_CODE_LABELS).map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-slate-400 mt-1">
+                Appliqué à tous les articles de toutes vos ventes certifiées par la FNE (pas encore configurable par
+                produit).
+              </p>
             </div>
             <div>
               <Label>URL de production (optionnel)</Label>

@@ -5,7 +5,95 @@ import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 import { LOYALTY_FCFA_PER_POINT_EARNED, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
+import { isFneConfigured, submitSaleToFne, type FnePaymentMethod } from "@/lib/fne";
 import type { PaymentMethod, CustomerType } from "@prisma/client";
+
+const PAYMENT_METHOD_TO_FNE: Record<PaymentMethod, FnePaymentMethod> = {
+  ESPECES: "cash",
+  MOBILE_MONEY: "mobile-money",
+  VIREMENT: "transfer",
+  CREDIT: "deferred",
+  // La FNE n'a pas d'équivalent "paiement mixte" — repli documenté sur
+  // "espèces", à corriger si la DGI publie un jour un code dédié.
+  MIXTE: "cash",
+};
+
+export type SaleFneOutcome = {
+  fneStatus: "NON_APPLICABLE" | "CERTIFIED" | "FAILED";
+  fneReference: string | null;
+  fneToken: string | null;
+  fneError: string | null;
+};
+
+// Tentative de certification FNE après une vente encaissée — best-effort :
+// n'importe quel échec (réseau, configuration, réponse DGI) est capturé et
+// stocké sur la vente (fneStatus/fneError), jamais remonté comme erreur à
+// l'appelant, pour ne jamais bloquer l'encaissement lui-même à cause d'un
+// problème côté DGI. Le résultat est renvoyé pour un affichage immédiat.
+async function certifySaleToFneBestEffort(saleId: string, companyId: string): Promise<SaleFneOutcome> {
+  const notApplicable: SaleFneOutcome = { fneStatus: "NON_APPLICABLE", fneReference: null, fneToken: null, fneError: null };
+  try {
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+    if (!company || !isFneConfigured(company) || !company.fneTaxCode) return notApplicable;
+
+    const sale = await prisma.sale.findUnique({
+      where: { id: saleId },
+      include: {
+        items: { include: { product: true, service: true } },
+        customer: true,
+        warehouse: true,
+      },
+    });
+    if (!sale) return notApplicable;
+
+    // Le prix catalogue OSB est TTC ; la DGI attend un prix unitaire HT par
+    // article — on retire le taux de TVA de l'entreprise pour l'obtenir.
+    const FNE_TAX_RATES: Record<string, number> = { TVA: 0.18, TVAB: 0.09, TVAC: 0, TVAD: 0 };
+    const rate = FNE_TAX_RATES[company.fneTaxCode] ?? 0;
+
+    // Un client anonyme ("client comptant") n'a ni téléphone ni email en
+    // base : à défaut, on retombe sur ceux de l'entreprise elle-même plutôt
+    // que d'inventer une valeur, ces deux champs étant exigés par la DGI.
+    const clientPhone = sale.customer?.phone || company.phone;
+    const clientEmail = company.email;
+    if (!clientPhone || !clientEmail) {
+      const fneError =
+        "Téléphone et email de l'entreprise requis (Entreprise > Contact) pour certifier une vente sans client identifié.";
+      await prisma.sale.update({ where: { id: saleId }, data: { fneStatus: "FAILED", fneError } });
+      return { fneStatus: "FAILED", fneReference: null, fneToken: null, fneError };
+    }
+
+    const result = await submitSaleToFne(company, {
+      invoiceType: "sale",
+      paymentMethod: PAYMENT_METHOD_TO_FNE[sale.paymentMethod],
+      template: "B2C",
+      isRne: false,
+      clientCompanyName: sale.customer?.name || "Client comptant",
+      clientPhone,
+      clientEmail,
+      pointOfSale: sale.warehouse.name,
+      establishment: company.name,
+      items: sale.items.map((it) => ({
+        description: it.product?.name || it.service?.name || "Article",
+        quantity: it.quantity,
+        amount: it.unitPrice / (1 + rate),
+        taxes: [company.fneTaxCode!],
+      })),
+    });
+
+    const data = result.ok
+      ? { fneStatus: "CERTIFIED" as const, fneReference: result.reference, fneToken: result.token, fneError: null }
+      : { fneStatus: "FAILED" as const, fneReference: null, fneToken: null, fneError: result.reason };
+    await prisma.sale.update({ where: { id: saleId }, data });
+    return data;
+  } catch (err) {
+    const fneError = err instanceof Error ? err.message : "Erreur FNE inconnue.";
+    await prisma.sale
+      .update({ where: { id: saleId }, data: { fneStatus: "FAILED", fneError } })
+      .catch(() => {});
+    return { fneStatus: "FAILED", fneReference: null, fneToken: null, fneError };
+  }
+}
 
 export type CartItem = { productId?: string; serviceId?: string; quantity: number; unitPrice: number };
 
@@ -270,12 +358,14 @@ export async function validateSale(input: {
     });
   });
 
+  const fneOutcome = await certifySaleToFneBestEffort(saleId, companyId);
+
   revalidatePath("/ventes");
   revalidatePath("/caisse-ventes");
   revalidatePath("/stock");
   revalidatePath("/clients");
   revalidatePath("/dashboard");
-  return { success: true, changeGiven };
+  return { success: true, changeGiven, ...fneOutcome };
 }
 
 // Toute annulation passe désormais par le module "Annulation de facture" :

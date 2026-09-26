@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { validateSale } from "@/lib/actions/sales";
+import { validateSale, type SaleFneOutcome } from "@/lib/actions/sales";
 import { openCashSession } from "@/lib/actions/cash";
 import { CashClosingForm } from "@/components/cash/CashClosingForm";
 import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton } from "@/components/ui";
@@ -47,6 +47,10 @@ type SaleRow = {
   validatedBy: { name: string } | null;
   items: SaleItem[];
   payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
+  fneStatus: "NON_APPLICABLE" | "CERTIFIED" | "FAILED";
+  fneReference: string | null;
+  fneToken: string | null;
+  fneError: string | null;
 };
 
 type Warehouse = { id: string; name: string };
@@ -258,6 +262,16 @@ export function CaisseValidationClient({
               <span>Total</span>
               <span>{formatMoney(viewing.totalAmount)}</span>
             </div>
+            {viewing.fneStatus === "CERTIFIED" && (
+              <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                FNE certifiée — réf. {viewing.fneReference}
+              </p>
+            )}
+            {viewing.fneStatus === "FAILED" && (
+              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Échec de la certification FNE — {viewing.fneError}
+              </p>
+            )}
             {viewing.status !== "EN_ATTENTE" && (
               <button
                 onClick={() => {
@@ -460,6 +474,7 @@ function ValidateForm({
         setError(res.error);
         return;
       }
+      const ok = res as { success: true; changeGiven: number } & SaleFneOutcome;
       onReceipt({
         number: sale.number,
         companyName,
@@ -470,11 +485,14 @@ function ValidateForm({
         total,
         paid,
         received,
-        changeGiven: res.changeGiven ?? changeDue,
+        changeGiven: ok.changeGiven ?? changeDue,
         paymentMethod,
         dueDate: paid < total && dueDate ? dueDate : null,
         pointsEarned: sale.pointsEarned,
         issuedAt: new Date(),
+        fneStatus: ok.fneStatus,
+        fneReference: ok.fneReference,
+        fneToken: ok.fneToken,
       });
       onDone();
       router.refresh();

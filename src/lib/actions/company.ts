@@ -3,6 +3,9 @@
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import type { FneTaxCode } from "@prisma/client";
+
+const FNE_TAX_CODES: FneTaxCode[] = ["TVA", "TVAB", "TVAC", "TVAD"];
 
 // Un logo reste une petite image encodée en base64 (data URI) stockée
 // directement en base : évite d'avoir à mettre en place un stockage de
@@ -39,15 +42,30 @@ export async function updateCompanyInfo(_prev: unknown, formData: FormData) {
   const fneApiKeyInput = String(formData.get("fneApiKey") || "").trim();
   const fneEnabled = formData.get("fneEnabled") === "on";
   const fneBaseUrl = String(formData.get("fneBaseUrl") || "").trim() || null;
+  const fneTaxCodeInput = String(formData.get("fneTaxCode") || "").trim();
+  const fneTaxCode = FNE_TAX_CODES.includes(fneTaxCodeInput as FneTaxCode) ? (fneTaxCodeInput as FneTaxCode) : null;
   const current = await prisma.company.findUnique({ where: { id: companyId }, select: { fneApiKey: true } });
   const fneApiKey = fneApiKeyInput || current?.fneApiKey || null;
-  if (fneEnabled && (!fneNcc || !fneApiKey)) {
-    return { error: "Renseignez le NCC et la clé API FNE avant d'activer la FNE." };
+  if (fneEnabled && (!fneNcc || !fneApiKey || !fneTaxCode)) {
+    return { error: "Renseignez le NCC, la clé API et le taux de TVA FNE avant d'activer la FNE." };
   }
 
   await prisma.company.update({
     where: { id: companyId },
-    data: { name, director, headerText, phone, email, address, logoUrl, fneNcc, fneApiKey, fneEnabled, fneBaseUrl },
+    data: {
+      name,
+      director,
+      headerText,
+      phone,
+      email,
+      address,
+      logoUrl,
+      fneNcc,
+      fneApiKey,
+      fneEnabled,
+      fneBaseUrl,
+      fneTaxCode,
+    },
   });
 
   revalidatePath("/entreprise");

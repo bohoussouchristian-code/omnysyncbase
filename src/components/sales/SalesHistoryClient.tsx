@@ -38,6 +38,10 @@ type Sale = {
     service: { name: string } | null;
   }[];
   payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
+  fneStatus: "NON_APPLICABLE" | "CERTIFIED" | "FAILED";
+  fneReference: string | null;
+  fneToken: string | null;
+  fneError: string | null;
 };
 
 export function SalesHistoryClient({
@@ -181,6 +185,16 @@ export function SalesHistoryClient({
               <span>Total</span>
               <span>{formatMoney(detail.totalAmount)}</span>
             </div>
+            {detail.fneStatus === "CERTIFIED" && (
+              <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                FNE certifiée — réf. {detail.fneReference}
+              </p>
+            )}
+            {detail.fneStatus === "FAILED" && (
+              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Échec de la certification FNE — {detail.fneError}
+              </p>
+            )}
             {detail.status !== "EN_ATTENTE" && (
               <button
                 onClick={() => {
