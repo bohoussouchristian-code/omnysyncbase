@@ -38,6 +38,7 @@ export async function updateCompanyInfo(_prev: unknown, formData: FormData) {
   // champ laissé vide signifie "ne pas changer", jamais "supprimer la clé".
   const fneApiKeyInput = String(formData.get("fneApiKey") || "").trim();
   const fneEnabled = formData.get("fneEnabled") === "on";
+  const fneBaseUrl = String(formData.get("fneBaseUrl") || "").trim() || null;
   const current = await prisma.company.findUnique({ where: { id: companyId }, select: { fneApiKey: true } });
   const fneApiKey = fneApiKeyInput || current?.fneApiKey || null;
   if (fneEnabled && (!fneNcc || !fneApiKey)) {
@@ -46,7 +47,7 @@ export async function updateCompanyInfo(_prev: unknown, formData: FormData) {
 
   await prisma.company.update({
     where: { id: companyId },
-    data: { name, director, headerText, phone, email, address, logoUrl, fneNcc, fneApiKey, fneEnabled },
+    data: { name, director, headerText, phone, email, address, logoUrl, fneNcc, fneApiKey, fneEnabled, fneBaseUrl },
   });
 
   revalidatePath("/entreprise");

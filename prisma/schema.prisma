@@ -102,6 +102,10 @@ model Company {
   fneNcc     String?
   fneApiKey  String?  @db.Text
   fneEnabled Boolean  @default(false)
+  // Vide = environnement de test DGI (http://54.247.95.108/ws) ; renseigné
+  // une fois que la DGI transmet l'URL de production suite à la validation
+  // des spécimens de factures (voir procédure d'interfaçage officielle).
+  fneBaseUrl String?
 
   users          User[]
   warehouses     Warehouse[]

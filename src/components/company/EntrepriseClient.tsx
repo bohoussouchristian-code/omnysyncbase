@@ -18,6 +18,7 @@ type Company = {
   fneNcc: string | null;
   fneEnabled: boolean;
   hasFneApiKey: boolean;
+  fneBaseUrl: string | null;
 };
 
 const TABS = [
@@ -172,6 +173,18 @@ export function EntrepriseClient({ company }: { company: Company }) {
                   <p className="text-xs text-slate-400 mt-1">Laissez vide pour conserver la clé actuelle.</p>
                 )}
               </div>
+            </div>
+            <div>
+              <Label>URL de production (optionnel)</Label>
+              <Input
+                name="fneBaseUrl"
+                defaultValue={company.fneBaseUrl || ""}
+                placeholder="http://54.247.95.108/ws (environnement de test utilisé par défaut)"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                À renseigner uniquement une fois que la DGI vous a transmis votre URL de production, après validation
+                de vos spécimens de factures. Laissez vide pour rester sur l&apos;environnement de test.
+              </p>
             </div>
             <label className="flex items-center gap-2.5 text-sm text-slate-700 cursor-pointer">
               <input
