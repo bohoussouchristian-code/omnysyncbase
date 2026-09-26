@@ -26,6 +26,24 @@ type Product = {
 function priceForSupplier(p: Product, supplierId: string): number {
   return p.supplierPrices.find((sp) => sp.supplierId === supplierId)?.purchasePrice ?? p.purchasePrice;
 }
+
+// Un produit avec un lot configuré se commande toujours par lot : le prix
+// affiché/saisi est donc celui du casier, jamais celui de la bouteille.
+function priceForMode(p: Product, supplierId: string): number {
+  const unitPrice = priceForSupplier(p, supplierId);
+  return p.packUnit ? p.packPurchasePrice ?? unitPrice * p.piecesPerPack : unitPrice;
+}
+
+// On ne commande et ne suit jamais la marchandise à la bouteille : quand un
+// lot (casier) est configuré, c'est la seule unité de saisie/affichage —
+// la quantité de base (en bouteilles) ne reste qu'un détail de stockage interne.
+function packAwareLabel(p: Product | undefined, baseQty: number): string {
+  if (p?.packUnit && p.piecesPerPack > 0) {
+    const packs = baseQty / p.piecesPerPack;
+    return `${packs} ${p.packUnit.symbol}${packs > 1 ? "s" : ""}`;
+  }
+  return `${baseQty} ${p?.unit?.symbol || ""}`;
+}
 type Supplier = { id: string; name: string };
 type Purchase = {
   id: string;
@@ -41,7 +59,18 @@ type Purchase = {
   warehouse: { name: string };
   receivedBy: { name: string } | null;
   validatedBy: { name: string } | null;
-  items: { id: string; productId: string; quantity: number; unitPrice: number; product: { name: string } }[];
+  items: {
+    id: string;
+    productId: string;
+    quantity: number;
+    unitPrice: number;
+    product: {
+      name: string;
+      unit: { symbol: string } | null;
+      packUnit: { symbol: string } | null;
+      piecesPerPack: number;
+    };
+  }[];
 };
 
 function statusBadge(p: Purchase) {
@@ -214,7 +243,12 @@ export function PurchaseOrdersClient({
                 {viewing.items.map((it) => (
                   <tr key={it.id} className="border-b border-slate-50">
                     <td className="py-1.5">{it.product.name}</td>
-                    <td className="py-1.5 text-right">{it.quantity}</td>
+                    <td className="py-1.5 text-right whitespace-nowrap">
+                      {packAwareLabel(
+                        products.find((p) => p.id === it.productId),
+                        it.quantity
+                      )}
+                    </td>
                     <td className="py-1.5 text-right">{formatMoney(it.unitPrice)}</td>
                   </tr>
                 ))}
@@ -362,14 +396,13 @@ function PurchaseForm({
   const [itemLabels, setItemLabels] = useState<Record<string, string>>(
     purchase
       ? Object.fromEntries(
-          purchase.items.map((i) => [i.productId, `${i.quantity} ${products.find((p) => p.id === i.productId)?.unit?.symbol || ""}`])
+          purchase.items.map((i) => [i.productId, packAwareLabel(products.find((p) => p.id === i.productId), i.quantity)])
         )
       : {}
   );
   const [productId, setProductId] = useState(products[0]?.id || "");
-  const [mode, setMode] = useState<"piece" | "pack">("piece");
   const [qty, setQty] = useState(1);
-  const [price, setPrice] = useState(products[0] ? priceForSupplier(products[0], supplierId) : 0);
+  const [price, setPrice] = useState(products[0] ? priceForMode(products[0], supplierId) : 0);
   // Tant que l'admin n'a pas saisi lui-même un montant, celui-ci suit
   // automatiquement le total de la commande (le cas le plus courant est un
   // paiement intégral) ; une fois modifié à la main, il reste figé pour
@@ -379,22 +412,16 @@ function PurchaseForm({
   const [pending, startTransition] = useTransition();
 
   const selectedProduct = products.find((p) => p.id === productId);
+  // On ne commande jamais à la bouteille quand un lot (casier) est configuré —
+  // le mode découle uniquement du produit choisi, il ne se sélectionne plus.
+  const mode: "piece" | "pack" = selectedProduct?.packUnit ? "pack" : "piece";
   const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const amountPaid = amountPaidOverride ?? total;
 
   function selectProduct(id: string) {
     setProductId(id);
     const p = products.find((pp) => pp.id === id);
-    setMode("piece");
-    setPrice(p ? priceForSupplier(p, supplierId) : 0);
-  }
-
-  function selectMode(m: "piece" | "pack") {
-    setMode(m);
-    const p = selectedProduct;
-    if (!p) return;
-    const unitPrice = priceForSupplier(p, supplierId);
-    setPrice(m === "pack" ? p.packPurchasePrice ?? unitPrice * p.piecesPerPack : unitPrice);
+    setPrice(p ? priceForMode(p, supplierId) : 0);
   }
 
   // Changer de fournisseur alors qu'un produit est déjà sélectionné doit
@@ -402,17 +429,18 @@ function PurchaseForm({
   function selectSupplier(id: string) {
     setSupplierId(id);
     if (!selectedProduct) return;
-    const unitPrice = priceForSupplier(selectedProduct, id);
-    setPrice(mode === "pack" ? selectedProduct.packPurchasePrice ?? unitPrice * selectedProduct.piecesPerPack : unitPrice);
+    setPrice(priceForMode(selectedProduct, id));
   }
 
   function addItem() {
     if (!productId || qty <= 0) return;
     const p = products.find((pp) => pp.id === productId);
-    const piecesPerPack = mode === "pack" && p ? p.piecesPerPack : 1;
+    if (!p) return;
+    const hasPack = !!p.packUnit;
+    const piecesPerPack = hasPack ? p.piecesPerPack : 1;
     const baseQty = qty * piecesPerPack;
     const baseUnitPrice = price / piecesPerPack;
-    const label = mode === "pack" && p?.packUnit ? p.packUnit.symbol : p?.unit?.symbol || "unité";
+    const label = hasPack ? p.packUnit!.symbol : p.unit?.symbol || "unité";
 
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === productId);
@@ -488,29 +516,19 @@ function PurchaseForm({
           </Select>
         </div>
         {selectedProduct?.packUnit && (
-          <div className="flex gap-2 mb-2">
-            <button
-              type="button"
-              onClick={() => selectMode("piece")}
-              className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                mode === "piece" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-600"
-              }`}
-            >
-              À l&apos;unité ({selectedProduct.unit?.symbol})
-            </button>
-            <button
-              type="button"
-              onClick={() => selectMode("pack")}
-              className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                mode === "pack" ? "bg-blue-600 text-white border-blue-600" : "border-slate-300 text-slate-600"
-              }`}
-            >
-              Par {selectedProduct.packUnit.symbol} ({selectedProduct.piecesPerPack} {selectedProduct.unit?.symbol})
-            </button>
-          </div>
+          <p className="text-xs text-slate-400 mb-2">
+            Commandé par {selectedProduct.packUnit.symbol} ({selectedProduct.piecesPerPack} {selectedProduct.unit?.symbol}{" "}
+            chacun) — jamais à la bouteille.
+          </p>
         )}
         <div className="grid grid-cols-3 gap-2 items-end">
-          <Input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} placeholder="Qté" />
+          <Input
+            type="number"
+            min={1}
+            value={qty}
+            onChange={(e) => setQty(Number(e.target.value))}
+            placeholder={mode === "pack" ? "Qté (casiers)" : "Qté"}
+          />
           <Input type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} placeholder="P.U." />
           <button onClick={addItem} type="button" className="rounded-lg bg-slate-800 text-white text-sm py-2 hover:bg-slate-900">
             Ajouter
@@ -525,7 +543,7 @@ function PurchaseForm({
             return (
               <div key={i.productId} className="flex items-center justify-between text-sm border-b border-slate-50 pb-1">
                 <span>
-                  {p?.name} × {itemLabels[i.productId] || `${i.quantity} ${p?.unit?.symbol || ""}`}
+                  {p?.name} × {itemLabels[i.productId] || packAwareLabel(p, i.quantity)}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{formatMoney(i.quantity * i.unitPrice)}</span>

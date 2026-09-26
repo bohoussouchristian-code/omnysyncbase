@@ -51,30 +51,41 @@ export default async function RapportsPage({
   }
   const periodLabel = isCustom ? `${fromParam}_${toParam}` : periode || "30j";
 
-  const [sales, expenses, products, customersDebt, suppliersDebt, stockMovements, warehousesForMovements] = await Promise.all([
-    prisma.sale.findMany({
-      where: { companyId, date: { gte: from, lte: to }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
-      include: { items: { include: { product: true, service: true } }, user: true },
-    }),
-    prisma.expense.aggregate({ where: { companyId, date: { gte: from, lte: to } }, _sum: { amount: true } }),
-    prisma.product.findMany({
-      where: { active: true, companyId },
-      include: { stocks: true, unit: true, packUnit: true },
-    }),
-    prisma.customer.aggregate({ where: { companyId }, _sum: { creditBalance: true } }),
-    prisma.supplier.aggregate({ where: { companyId }, _sum: { balance: true } }),
-    prisma.stockMovement.findMany({
-      where: { companyId, createdAt: { gte: from, lte: to } },
-      orderBy: { createdAt: "desc" },
-      take: 300,
-      include: {
-        product: { include: { unit: true, packUnit: true } },
-        warehouse: true,
-        user: true,
-      },
-    }),
-    prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
-  ]);
+  const [sales, expenses, products, customersDebt, suppliersDebt, stockMovements, casseItems, warehousesForMovements] =
+    await Promise.all([
+      prisma.sale.findMany({
+        where: { companyId, date: { gte: from, lte: to }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
+        include: { items: { include: { product: true, service: true } }, user: true },
+      }),
+      prisma.expense.aggregate({ where: { companyId, date: { gte: from, lte: to } }, _sum: { amount: true } }),
+      prisma.product.findMany({
+        where: { active: true, companyId },
+        include: { stocks: true, unit: true, packUnit: true },
+      }),
+      prisma.customer.aggregate({ where: { companyId }, _sum: { creditBalance: true } }),
+      prisma.supplier.aggregate({ where: { companyId }, _sum: { balance: true } }),
+      prisma.stockMovement.findMany({
+        where: { companyId, createdAt: { gte: from, lte: to } },
+        orderBy: { createdAt: "desc" },
+        take: 300,
+        include: {
+          product: { include: { unit: true, packUnit: true } },
+          warehouse: true,
+          user: true,
+        },
+      }),
+      // La casse n'est jamais un StockMovement (elle n'entre jamais en stock) —
+      // on la rattache ici à l'historique via la date d'approvisionnement, pour
+      // que la traçabilité entrées/sorties/casse reste dans une seule vue.
+      prisma.purchaseItem.findMany({
+        where: { companyId, brokenQuantity: { gt: 0 }, purchase: { stockedAt: { gte: from, lte: to } } },
+        include: {
+          product: { include: { unit: true, packUnit: true } },
+          purchase: { include: { warehouse: true, stockedBy: true } },
+        },
+      }),
+      prisma.warehouse.findMany({ where: { companyId }, select: { id: true, name: true } }),
+    ]);
 
   const warehouseNameById = new Map(warehousesForMovements.map((w) => [w.id, w.name]));
   // Pour un transfert, "Dépôt" seul ne dit pas d'où il vient (sortie) ni où il
@@ -183,15 +194,43 @@ export default async function RapportsPage({
     stockRows.map((p) => [p.name, p.qtyLabel, Math.round(p.unitCost), Math.round(p.value)])
   );
 
+  const movementRows = [
+    ...stockMovements.map((m) => ({
+      id: m.id,
+      createdAt: m.createdAt,
+      productName: m.product.name,
+      depotLabel: movementDepotLabel(m),
+      typeLabel: MOVEMENT_TYPE_LABELS[m.type] || m.type,
+      tone: MOVEMENT_TYPE_TONE[m.type] || "default",
+      qtyLabel: formatStockQty(m.quantity, m.product),
+      reference: m.reference,
+      userName: m.user?.name || "—",
+    })),
+    ...casseItems.map((it) => ({
+      id: `casse:${it.id}`,
+      createdAt: it.purchase.stockedAt!,
+      productName: it.product.name,
+      depotLabel: it.purchase.warehouse.name,
+      typeLabel: "Casse",
+      tone: "danger" as const,
+      qtyLabel: formatStockQty(it.brokenQuantity, it.product),
+      reference: it.purchase.number,
+      userName: it.purchase.stockedBy?.name || "—",
+    })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 300);
+
   const stockMovementsCsv = toCSV(
-    ["Date", "Produit", "Dépôt", "Type", "Quantité", "Utilisateur"],
-    stockMovements.map((m) => [
+    ["Date", "Produit", "Dépôt", "Type", "Référence", "Quantité", "Utilisateur"],
+    movementRows.map((m) => [
       formatDateTime(m.createdAt),
-      m.product.name,
-      movementDepotLabel(m),
-      MOVEMENT_TYPE_LABELS[m.type] || m.type,
-      formatStockQty(m.quantity, m.product),
-      m.user?.name || "—",
+      m.productName,
+      m.depotLabel,
+      m.typeLabel,
+      m.reference || "",
+      m.qtyLabel,
+      m.userName,
     ])
   );
 
@@ -337,11 +376,11 @@ export default async function RapportsPage({
         <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="font-semibold text-slate-900">Historique des mouvements de stock</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Entrées, sorties, transferts, ventes et achats sur la période</p>
+            <p className="text-xs text-slate-400 mt-0.5">Entrées, sorties, transferts, ventes, achats et casse sur la période</p>
           </div>
           <ExportCsvButton filename={`historique-stock-${periodLabel}.csv`} csv={stockMovementsCsv} />
         </div>
-        {stockMovements.length === 0 ? (
+        {movementRows.length === 0 ? (
           <p className="text-sm text-slate-400">Aucun mouvement de stock sur cette période.</p>
         ) : (
           <div className="overflow-x-auto max-h-96 overflow-y-auto">
@@ -352,25 +391,23 @@ export default async function RapportsPage({
                   <th className="pb-2 font-medium">Produit</th>
                   <th className="pb-2 font-medium">Dépôt</th>
                   <th className="pb-2 font-medium">Type</th>
+                  <th className="pb-2 font-medium">Référence</th>
                   <th className="pb-2 font-medium text-right">Quantité</th>
                   <th className="pb-2 font-medium">Utilisateur</th>
                 </tr>
               </thead>
               <tbody>
-                {stockMovements.map((m) => (
+                {movementRows.map((m) => (
                   <tr key={m.id} className="border-b border-slate-50 last:border-0">
                     <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(m.createdAt)}</td>
-                    <td className="py-2 text-slate-700">{m.product.name}</td>
-                    <td className="py-2 text-slate-600">{movementDepotLabel(m)}</td>
+                    <td className="py-2 text-slate-700">{m.productName}</td>
+                    <td className="py-2 text-slate-600">{m.depotLabel}</td>
                     <td className="py-2">
-                      <Badge tone={MOVEMENT_TYPE_TONE[m.type] || "default"}>
-                        {MOVEMENT_TYPE_LABELS[m.type] || m.type}
-                      </Badge>
+                      <Badge tone={m.tone}>{m.typeLabel}</Badge>
                     </td>
-                    <td className="py-2 text-right font-medium whitespace-nowrap">
-                      {formatStockQty(m.quantity, m.product)}
-                    </td>
-                    <td className="py-2 text-slate-500">{m.user?.name || "—"}</td>
+                    <td className="py-2 text-slate-400 font-mono text-xs">{m.reference || "—"}</td>
+                    <td className="py-2 text-right font-medium whitespace-nowrap">{m.qtyLabel}</td>
+                    <td className="py-2 text-slate-500">{m.userName}</td>
                   </tr>
                 ))}
               </tbody>

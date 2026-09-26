@@ -1,7 +1,28 @@
 import { ClipboardList } from "lucide-react";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 
-type Item = { id: string; quantity: number; unitPrice: number; product: { name: string } };
+type Item = {
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  product: {
+    name: string;
+    unit: { symbol: string } | null;
+    packUnit: { symbol: string } | null;
+    piecesPerPack: number;
+  };
+};
+
+// On ne suit jamais la marchandise à la bouteille sur un document destiné au
+// fournisseur/à l'entreprise : quand un lot (casier) est configuré, la
+// quantité imprimée est toujours exprimée dans cette unité.
+function packAwareLabel(p: Item["product"], baseQty: number): string {
+  if (p.packUnit && p.piecesPerPack > 0) {
+    const packs = baseQty / p.piecesPerPack;
+    return `${packs} ${p.packUnit.symbol}${packs > 1 ? "s" : ""}`;
+  }
+  return `${baseQty} ${p.unit?.symbol || ""}`;
+}
 
 export type PurchaseOrderDocumentData = {
   number: string;
@@ -61,7 +82,7 @@ export function PurchaseOrderDocument({ data }: { data: PurchaseOrderDocumentDat
           {data.items.map((it) => (
             <tr key={it.id} className="border-t border-slate-100">
               <td className="py-2">{it.product.name}</td>
-              <td className="py-2 text-right">{it.quantity}</td>
+              <td className="py-2 text-right whitespace-nowrap">{packAwareLabel(it.product, it.quantity)}</td>
               <td className="py-2 text-right">{formatMoney(it.unitPrice)}</td>
               <td className="py-2 text-right font-medium">{formatMoney(it.quantity * it.unitPrice)}</td>
             </tr>

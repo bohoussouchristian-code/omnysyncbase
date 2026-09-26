@@ -18,7 +18,7 @@ export default async function ApprovisionnementPage() {
     include: {
       supplier: true,
       warehouse: true,
-      items: { include: { product: true } },
+      items: { include: { product: { include: { unit: true, packUnit: true } } } },
       stockedBy: true,
     },
   });

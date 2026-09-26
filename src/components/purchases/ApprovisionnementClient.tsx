@@ -14,8 +14,25 @@ type PurchaseItemRow = {
   unitPrice: number;
   receivedQuantity: number | null;
   brokenQuantity: number;
-  product: { name: string };
+  product: {
+    name: string;
+    unit: { symbol: string } | null;
+    packUnit: { symbol: string } | null;
+    piecesPerPack: number;
+  };
 };
+
+// On ne reçoit et ne déclare jamais la casse à la bouteille : quand la
+// quantité commandée est un multiple entier du lot (casier) configuré, la
+// saisie/affichage se fait uniquement en casiers — la conversion vers la
+// quantité de base (bouteilles), nécessaire au stock, reste interne.
+function packInfo(it: PurchaseItemRow) {
+  const piecesPerPack = it.product.piecesPerPack;
+  if (it.product.packUnit && piecesPerPack > 0 && it.quantity % piecesPerPack === 0) {
+    return { usePacks: true as const, factor: piecesPerPack, max: it.quantity / piecesPerPack, unitLabel: it.product.packUnit.symbol };
+  }
+  return { usePacks: false as const, factor: 1, max: it.quantity, unitLabel: it.product.unit?.symbol || "" };
+}
 
 type Purchase = {
   id: string;
@@ -164,18 +181,24 @@ function StockedSummary({ purchase }: { purchase: Purchase }) {
         </thead>
         <tbody>
           {purchase.items.map((it) => {
-            const received = it.receivedQuantity ?? it.quantity;
-            const missing = it.quantity - received - it.brokenQuantity;
+            const { factor, max, unitLabel } = packInfo(it);
+            const received = (it.receivedQuantity ?? it.quantity) / factor;
+            const broken = it.brokenQuantity / factor;
+            const missing = max - received - broken;
             return (
               <tr key={it.id} className="border-b border-slate-50">
                 <td className="py-1.5">{it.product.name}</td>
-                <td className="py-1.5 text-right text-slate-500">{it.quantity}</td>
-                <td className="py-1.5 text-right font-medium">{received}</td>
-                <td className="py-1.5 text-right">
-                  {it.brokenQuantity > 0 ? <span className="text-red-600">{it.brokenQuantity}</span> : "—"}
+                <td className="py-1.5 text-right text-slate-500 whitespace-nowrap">
+                  {max} {unitLabel}
                 </td>
-                <td className="py-1.5 text-right">
-                  {missing > 0 ? <span className="text-amber-600">{missing}</span> : "—"}
+                <td className="py-1.5 text-right font-medium whitespace-nowrap">
+                  {received} {unitLabel}
+                </td>
+                <td className="py-1.5 text-right whitespace-nowrap">
+                  {broken > 0 ? <span className="text-red-600">{broken} {unitLabel}</span> : "—"}
+                </td>
+                <td className="py-1.5 text-right whitespace-nowrap">
+                  {missing > 0 ? <span className="text-amber-600">{missing} {unitLabel}</span> : "—"}
                 </td>
               </tr>
             );
@@ -195,22 +218,26 @@ function StockedSummary({ purchase }: { purchase: Purchase }) {
 }
 
 function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => void }) {
+  // Saisie exprimée dans l'unité d'affichage de chaque article (casiers quand
+  // le lot est configuré et que la commande en est un multiple entier, sinon
+  // l'unité de base) — voir packInfo. Convertie en unité de base uniquement
+  // au moment de l'envoi, seule unité que le serveur connaisse.
   const [values, setValues] = useState<Record<string, { received: number; broken: number }>>(() =>
-    Object.fromEntries(purchase.items.map((it) => [it.id, { received: it.quantity, broken: 0 }]))
+    Object.fromEntries(purchase.items.map((it) => [it.id, { received: packInfo(it).max, broken: 0 }]))
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function updateReceived(itemId: string, received: number, itemQty: number) {
+  function updateReceived(itemId: string, received: number, max: number) {
     setValues((prev) => {
-      const broken = Math.min(prev[itemId].broken, Math.max(0, itemQty - received));
+      const broken = Math.min(prev[itemId].broken, Math.max(0, max - received));
       return { ...prev, [itemId]: { received, broken } };
     });
   }
 
-  function updateBroken(itemId: string, broken: number, itemQty: number) {
+  function updateBroken(itemId: string, broken: number, max: number) {
     setValues((prev) => {
-      const received = Math.min(prev[itemId].received, Math.max(0, itemQty - broken));
+      const received = Math.min(prev[itemId].received, Math.max(0, max - broken));
       return { ...prev, [itemId]: { received, broken } };
     });
   }
@@ -220,11 +247,14 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
     startTransition(async () => {
       const res = await stockPurchase(
         purchase.id,
-        purchase.items.map((it) => ({
-          itemId: it.id,
-          receivedQuantity: values[it.id].received,
-          brokenQuantity: values[it.id].broken,
-        }))
+        purchase.items.map((it) => {
+          const { factor } = packInfo(it);
+          return {
+            itemId: it.id,
+            receivedQuantity: values[it.id].received * factor,
+            brokenQuantity: values[it.id].broken * factor,
+          };
+        })
       );
       if (res && "error" in res) {
         setError(res.error ?? "Erreur inconnue.");
@@ -248,40 +278,43 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
       <div className="space-y-4 mb-4">
         {purchase.items.map((it) => {
           const v = values[it.id];
-          const missing = it.quantity - v.received - v.broken;
+          const { max, unitLabel } = packInfo(it);
+          const missing = max - v.received - v.broken;
           return (
             <div key={it.id} className="border border-slate-200 rounded-lg p-3">
               <div className="flex justify-between items-center mb-2">
                 <span className="font-medium text-slate-800 text-sm">{it.product.name}</span>
-                <span className="text-xs text-slate-400">Commandé : {it.quantity}</span>
+                <span className="text-xs text-slate-400">
+                  Commandé : {max} {unitLabel}
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Reçu intact</Label>
+                  <Label>Reçu intact ({unitLabel})</Label>
                   <Input
                     type="number"
                     min={0}
-                    max={it.quantity}
+                    max={max}
                     step="1"
                     value={v.received}
-                    onChange={(e) => updateReceived(it.id, Math.max(0, Number(e.target.value)), it.quantity)}
+                    onChange={(e) => updateReceived(it.id, Math.max(0, Number(e.target.value)), max)}
                   />
                 </div>
                 <div>
-                  <Label>Casse</Label>
+                  <Label>Casse ({unitLabel})</Label>
                   <Input
                     type="number"
                     min={0}
-                    max={it.quantity}
+                    max={max}
                     step="1"
                     value={v.broken}
-                    onChange={(e) => updateBroken(it.id, Math.max(0, Number(e.target.value)), it.quantity)}
+                    onChange={(e) => updateBroken(it.id, Math.max(0, Number(e.target.value)), max)}
                   />
                 </div>
               </div>
               {missing > 0 && (
                 <p className="mt-2 text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle size={12} /> {missing} manquant(s) — ni reçu ni cassé
+                  <AlertTriangle size={12} /> {missing} {unitLabel} manquant(s) — ni reçu ni cassé
                 </p>
               )}
             </div>
