@@ -95,7 +95,16 @@ async function certifySaleToFneBestEffort(saleId: string, companyId: string): Pr
   }
 }
 
-export type CartItem = { productId?: string; serviceId?: string; quantity: number; unitPrice: number };
+// depositAmount : montant total de consigne emballage inclus pour cette
+// ligne (0 si le client rapporte ses emballages vides ou n'en paie pas) —
+// distinct du prix du liquide (unitPrice), voir SaleItem.depositIncluded.
+export type CartItem = {
+  productId?: string;
+  serviceId?: string;
+  quantity: number;
+  unitPrice: number;
+  depositAmount?: number;
+};
 
 // Le prix envoyé par le client n'est jamais retenu tel quel : il doit
 // correspondre au tarif catalogue du produit/prestation pour le type de
@@ -174,6 +183,20 @@ export async function createSale(input: {
       if (!validPrices.some((v) => Math.abs(v - item.unitPrice) <= PRICE_TOLERANCE)) {
         return { error: `Prix invalide pour ${product.name}.` };
       }
+      // La consigne emballage est optionnelle (le client peut rapporter ses
+      // emballages vides) mais, si elle est incluse, son montant doit
+      // correspondre au tarif du produit — jamais une valeur arbitraire.
+      const depositAmount = item.depositAmount || 0;
+      if (depositAmount > 0) {
+        if (!product.packUnitId || !product.deposit) {
+          return { error: `Consigne non applicable pour ${product.name}.` };
+        }
+        const packs = item.quantity / product.piecesPerPack;
+        const expectedDeposit = packs * product.deposit;
+        if (Math.abs(expectedDeposit - depositAmount) > PRICE_TOLERANCE) {
+          return { error: `Montant de consigne invalide pour ${product.name}.` };
+        }
+      }
     }
   }
 
@@ -192,7 +215,7 @@ export async function createSale(input: {
     }
   }
 
-  const itemsTotal = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
+  const itemsTotal = items.reduce((s, i) => s + i.quantity * i.unitPrice + (i.depositAmount || 0), 0);
 
   let pointsUsed = 0;
   let discount = 0;
@@ -228,7 +251,9 @@ export async function createSale(input: {
           serviceId: i.serviceId || null,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
-          subtotal: i.quantity * i.unitPrice,
+          subtotal: i.quantity * i.unitPrice + (i.depositAmount || 0),
+          depositIncluded: (i.depositAmount || 0) > 0,
+          depositAmount: i.depositAmount || 0,
           companyId,
         })),
       },

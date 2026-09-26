@@ -367,8 +367,13 @@ function ProductForm({
           )}
           {businessType === "BOISSON" && (
             <div>
-              <Label>Consigne (montant remboursable)</Label>
+              <Label>Consigne emballage (par casier)</Label>
               <Input type="number" name="deposit" min={0} step="1" defaultValue={product?.deposit ?? ""} />
+              <p className="text-xs text-slate-400 mt-1">
+                Montant du liquide (prix de vente ci-dessus) et de l&apos;emballage (ici) restent distincts — le
+                client pourra choisir de payer la consigne ou non à la vente selon qu&apos;il rapporte ses
+                emballages vides.
+              </p>
             </div>
           )}
           {businessType === "LIBRAIRIE" && (

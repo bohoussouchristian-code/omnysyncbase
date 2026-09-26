@@ -9,6 +9,8 @@ type ReceiptItem = {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  depositIncluded: boolean;
+  depositAmount: number;
   product: {
     name: string;
     unit: { symbol: string } | null;
@@ -194,7 +196,14 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
             const line = it.product ? packAwareLine(it) : { qtyLabel: String(it.quantity), unitPrice: it.unitPrice };
             return (
               <tr key={it.id} className="border-t border-slate-100">
-                <td className="py-2">{it.product?.name ?? it.service?.name ?? "—"}</td>
+                <td className="py-2">
+                  {it.product?.name ?? it.service?.name ?? "—"}
+                  {it.depositIncluded && it.depositAmount > 0 && (
+                    <span className="block text-[11px] text-slate-400">
+                      dont consigne emballage : {formatMoney(it.depositAmount)}
+                    </span>
+                  )}
+                </td>
                 <td className="py-2 text-right whitespace-nowrap">{line.qtyLabel}</td>
                 <td className="py-2 text-right">{formatMoney(line.unitPrice)}</td>
                 <td className="py-2 text-right font-medium">{formatMoney(it.subtotal)}</td>

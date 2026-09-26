@@ -29,6 +29,8 @@ type Sale = {
     quantity: number;
     unitPrice: number;
     subtotal: number;
+    depositIncluded: boolean;
+    depositAmount: number;
     product: {
       name: string;
       unit: { symbol: string } | null;
@@ -177,7 +179,14 @@ export function SalesHistoryClient({
                   const unitPrice = isPack ? it.unitPrice * it.product!.piecesPerPack : it.unitPrice;
                   return (
                     <tr key={it.id} className="border-b border-slate-50">
-                      <td className="py-1.5">{it.product?.name ?? it.service?.name ?? "—"}</td>
+                      <td className="py-1.5">
+                        {it.product?.name ?? it.service?.name ?? "—"}
+                        {it.depositIncluded && it.depositAmount > 0 && (
+                          <span className="block text-[11px] text-slate-400">
+                            dont consigne : {formatMoney(it.depositAmount)}
+                          </span>
+                        )}
+                      </td>
                       <td className="py-1.5 text-right whitespace-nowrap">{packAwareQtyLabel(it.quantity, it.product)}</td>
                       <td className="py-1.5 text-right">{formatMoney(unitPrice)}</td>
                       <td className="py-1.5 text-right font-medium">{formatMoney(it.subtotal)}</td>

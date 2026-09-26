@@ -21,6 +21,9 @@ type Product = {
   packUnit: { symbol: string } | null;
   piecesPerPack: number;
   packSalePrice: number | null;
+  // Consigne emballage (par casier) — distincte du prix du liquide, non
+  // obligatoire (le client peut rapporter ses emballages vides).
+  deposit: number | null;
   stocks: { warehouseId: string; quantity: number }[];
 };
 type Service = {
@@ -54,6 +57,11 @@ type Line = {
   unitLabel: string;
   piecesPerPack: number;
   maxQty: number;
+  // Consigne emballage : sélectionnée par défaut dès qu'elle existe pour ce
+  // produit, mais jamais obligatoire — le client peut la retirer s'il
+  // rapporte ses emballages vides.
+  depositPerUnit: number;
+  depositIncluded: boolean;
 };
 
 function priceForCustomer(p: Product, customerType: CustomerType | null) {
@@ -98,7 +106,10 @@ export function PosClient({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
-  const subtotal = cart.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const subtotal = cart.reduce(
+    (s, l) => s + l.qty * l.unitPrice + (l.depositIncluded ? l.qty * l.depositPerUnit : 0),
+    0
+  );
   const maxRedeemablePoints = selectedCustomer
     ? Math.min(Math.floor(selectedCustomer.loyaltyPoints), Math.floor(subtotal / LOYALTY_POINT_VALUE_FCFA))
     : 0;
@@ -140,6 +151,9 @@ export function PosClient({
       mode === "pack" ? p.packSalePrice ?? p.salePrice * p.piecesPerPack : priceForCustomer(p, selectedCustomer?.type ?? null);
     const unitLabel = mode === "pack" ? p.packUnit?.symbol || "lot" : p.unit?.symbol || "";
     const key = `p:${p.id}:${mode}`;
+    // La consigne ne s'applique qu'à la vente par casier (jamais à l'unité) —
+    // sélectionnée par défaut dès qu'un tarif de consigne existe.
+    const depositPerUnit = mode === "pack" ? p.deposit || 0 : 0;
 
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
@@ -149,9 +163,26 @@ export function PosClient({
       }
       return [
         ...prev,
-        { key, kind: "product", productId: p.id, name: p.name, mode, qty: 1, unitPrice, unitLabel, piecesPerPack, maxQty },
+        {
+          key,
+          kind: "product",
+          productId: p.id,
+          name: p.name,
+          mode,
+          qty: 1,
+          unitPrice,
+          unitLabel,
+          piecesPerPack,
+          maxQty,
+          depositPerUnit,
+          depositIncluded: depositPerUnit > 0,
+        },
       ];
     });
+  }
+
+  function toggleDeposit(key: string) {
+    setCart((prev) => prev.map((l) => (l.key === key ? { ...l, depositIncluded: !l.depositIncluded } : l)));
   }
 
   function addServiceToCart(s: Service) {
@@ -177,6 +208,8 @@ export function PosClient({
           unitLabel: "u",
           piecesPerPack: 1,
           maxQty: SERVICE_MAX_QTY,
+          depositPerUnit: 0,
+          depositIncluded: false,
         },
       ];
     });
@@ -253,7 +286,8 @@ export function PosClient({
       }
       const baseQty = l.mode === "pack" ? l.qty * l.piecesPerPack : l.qty;
       const baseUnitPrice = (l.qty * l.unitPrice) / baseQty;
-      return { productId: l.productId, quantity: baseQty, unitPrice: baseUnitPrice };
+      const depositAmount = l.depositIncluded ? l.qty * l.depositPerUnit : 0;
+      return { productId: l.productId, quantity: baseQty, unitPrice: baseUnitPrice, depositAmount };
     });
 
     startTransition(async () => {
@@ -434,26 +468,42 @@ export function PosClient({
           ) : (
             <div className="space-y-2 mb-4 max-h-72 overflow-y-auto">
               {cart.map((l) => (
-                <div key={l.key} className="flex items-center gap-2 text-sm border-b border-slate-50 pb-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-800 truncate flex items-center gap-1">
-                      {l.kind === "service" && <Sparkles size={11} className="text-blue-500 shrink-0" />}
-                      {l.name}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {formatMoney(l.unitPrice)} {l.kind === "product" ? `/ ${l.unitLabel}` : ""}
-                    </p>
+                <div key={l.key} className="border-b border-slate-50 pb-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-800 truncate flex items-center gap-1">
+                        {l.kind === "service" && <Sparkles size={11} className="text-blue-500 shrink-0" />}
+                        {l.name}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {formatMoney(l.unitPrice)} {l.kind === "product" ? `/ ${l.unitLabel}` : ""}
+                      </p>
+                    </div>
+                    <button onClick={() => changeQty(l.key, -1)} className="text-slate-400 hover:text-slate-700">
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-6 text-center font-medium">{l.qty}</span>
+                    <button onClick={() => changeQty(l.key, 1)} className="text-slate-400 hover:text-slate-700">
+                      <Plus size={14} />
+                    </button>
+                    <button onClick={() => removeLine(l.key)} className="text-red-400 hover:text-red-600 ml-1">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <button onClick={() => changeQty(l.key, -1)} className="text-slate-400 hover:text-slate-700">
-                    <Minus size={14} />
-                  </button>
-                  <span className="w-6 text-center font-medium">{l.qty}</span>
-                  <button onClick={() => changeQty(l.key, 1)} className="text-slate-400 hover:text-slate-700">
-                    <Plus size={14} />
-                  </button>
-                  <button onClick={() => removeLine(l.key)} className="text-red-400 hover:text-red-600 ml-1">
-                    <Trash2 size={14} />
-                  </button>
+                  {l.depositPerUnit > 0 && (
+                    <label className="mt-1.5 flex items-center justify-between gap-2 text-xs text-slate-500 pl-0.5 cursor-pointer">
+                      <span className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={l.depositIncluded}
+                          onChange={() => toggleDeposit(l.key)}
+                          className="h-3.5 w-3.5 rounded border-slate-300"
+                        />
+                        Consigne emballage ({formatMoney(l.depositPerUnit)} / {l.unitLabel})
+                      </span>
+                      {l.depositIncluded && <span className="font-medium">{formatMoney(l.qty * l.depositPerUnit)}</span>}
+                    </label>
+                  )}
                 </div>
               ))}
             </div>

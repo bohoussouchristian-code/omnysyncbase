@@ -620,6 +620,13 @@ model SaleItem {
   unitPrice Float
   subtotal  Float
 
+  // Consigne emballage (casier/bouteille) — distincte du prix du liquide,
+  // optionnelle à chaque vente selon que le client rapporte ou non ses
+  // emballages vides. Incluse dans `subtotal` quand `depositIncluded` est
+  // vrai, gardée à part ici uniquement pour l'affichage détaillé (facture).
+  depositIncluded Boolean @default(false)
+  depositAmount   Float   @default(0)
+
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 }
