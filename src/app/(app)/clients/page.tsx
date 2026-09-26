@@ -10,10 +10,6 @@ export default async function ClientsPage() {
   const customers = await prisma.customer.findMany({
     where: { companyId: user.companyId },
     orderBy: { name: "asc" },
-    include: {
-      sales: { orderBy: { date: "desc" }, take: 10 },
-      payments: { orderBy: { date: "desc" }, take: 10 },
-    },
   });
   const canManage = user.role === "ADMIN";
 

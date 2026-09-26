@@ -15,6 +15,22 @@ async function requireManager() {
   return check;
 }
 
+// Identifiant lisible et permanent du dossier client (CLI-000001, CLI-000002...),
+// attribué une seule fois à la création et jamais réutilisé — c'est la clé qui
+// permet de retrouver instantanément tout l'historique du client (ventes,
+// paiements, crédit). Compte les clients existants de l'entreprise +1, avec
+// une boucle de secours en cas de collision improbable (comme le slug d'entreprise).
+async function generateCustomerCode(companyId: string): Promise<string> {
+  let n = await prisma.customer.count({ where: { companyId } });
+  for (let attempt = 0; attempt < 10; attempt++) {
+    n += 1;
+    const code = `CLI-${String(n).padStart(6, "0")}`;
+    const exists = await prisma.customer.findFirst({ where: { companyId, code } });
+    if (!exists) return code;
+  }
+  throw new Error("Impossible de générer un identifiant client unique.");
+}
+
 export async function createCustomer(_prev: unknown, formData: FormData) {
   const check = await requireManager();
   if ("error" in check) return { error: check.error };
@@ -28,7 +44,8 @@ export async function createCustomer(_prev: unknown, formData: FormData) {
 
   if (!name) return { error: "Le nom est requis." };
 
-  await prisma.customer.create({ data: { name, phone, address, creditLimit, type, companyId } });
+  const code = await generateCustomerCode(companyId);
+  await prisma.customer.create({ data: { code, name, phone, address, creditLimit, type, companyId } });
   revalidatePath("/clients");
   return { success: true };
 }

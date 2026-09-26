@@ -431,6 +431,12 @@ model PurchaseItem {
 
 model Customer {
   id            String       @id @default(cuid())
+  // Identifiant lisible et permanent du dossier client (ex: CLI-000001),
+  // attribué une fois à la création et jamais réutilisé — voir generateCustomerCode
+  // dans src/lib/actions/partners.ts. Unique par entreprise seulement (deux
+  // entreprises différentes peuvent chacune avoir un CLI-000001) — voir la
+  // contrainte @@unique([companyId, code]) plus bas.
+  code          String?
   name          String
   phone         String?
   address       String?
@@ -447,6 +453,8 @@ model Customer {
   sales     Sale[]
   payments  Payment[]
   proformas Proforma[]
+
+  @@unique([companyId, code])
 }
 
 // Devis non contractuel remis à un client avant une vente (pour financement,

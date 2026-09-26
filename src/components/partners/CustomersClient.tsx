@@ -1,15 +1,17 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
 import { createCustomer, updateCustomer, recordCustomerPayment } from "@/lib/actions/partners";
 import { Modal, Input, Label, Select, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
-import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
-import { Plus, Search, Pencil, Wallet, History, Star } from "lucide-react";
+import { Plus, Search, Pencil, Wallet, FolderOpen, Star } from "lucide-react";
 import type { CustomerType } from "@prisma/client";
 
 type Customer = {
   id: string;
+  code: string | null;
   name: string;
   phone: string | null;
   address: string | null;
@@ -17,8 +19,6 @@ type Customer = {
   creditBalance: number;
   creditLimit: number;
   loyaltyPoints: number;
-  sales: { id: string; number: string; date: Date; totalAmount: number; status: string; dueDate: Date | null }[];
-  payments: { id: string; amount: number; date: Date }[];
 };
 
 export function CustomersClient({ customers, canManage }: { customers: Customer[]; canManage: boolean }) {
@@ -26,13 +26,15 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [paying, setPaying] = useState<Customer | null>(null);
-  const [viewing, setViewing] = useState<Customer | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return customers;
     return customers.filter(
-      (c) => c.name.toLowerCase().includes(q) || (c.phone && c.phone.includes(q))
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.code && c.code.toLowerCase().includes(q))
     );
   }, [customers, query]);
 
@@ -60,7 +62,7 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un client..."
+          placeholder="Rechercher par nom, téléphone ou code (CLI-...)"
           className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -70,6 +72,7 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
+                <th className="px-4 py-3 font-medium">Code</th>
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Téléphone</th>
@@ -82,6 +85,7 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-slate-400 font-mono text-xs">{c.code ?? "—"}</td>
                   <td className="px-4 py-3 font-medium text-slate-800">{c.name}</td>
                   <td className="px-4 py-3 text-slate-600">{CUSTOMER_TYPE_LABELS[c.type]}</td>
                   <td className="px-4 py-3 text-slate-600">{c.phone || "—"}</td>
@@ -102,9 +106,9 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 justify-end">
-                      <button onClick={() => setViewing(c)} className="text-slate-400 hover:text-blue-600" title="Historique">
-                        <History size={16} />
-                      </button>
+                      <Link href={`/clients/${c.id}`} className="text-slate-400 hover:text-blue-600" title="Voir le dossier">
+                        <FolderOpen size={16} />
+                      </Link>
                       {c.creditBalance > 0 && (
                         <button onClick={() => setPaying(c)} className="text-slate-400 hover:text-emerald-600" title="Encaisser paiement">
                           <Wallet size={16} />
@@ -121,7 +125,7 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     Aucun client trouvé.
                   </td>
                 </tr>
@@ -141,54 +145,6 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
 
       <Modal open={!!paying} onClose={() => setPaying(null)} title="Encaisser un paiement">
         {paying && <PaymentForm customer={paying} onDone={() => setPaying(null)} />}
-      </Modal>
-
-      <Modal open={!!viewing} onClose={() => setViewing(null)} title={`Historique — ${viewing?.name || ""}`}>
-        {viewing && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Ventes récentes</h4>
-              {viewing.sales.length === 0 ? (
-                <p className="text-sm text-slate-400">Aucune vente.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {viewing.sales.map((s) => {
-                    const overdue =
-                      s.dueDate && s.status !== "PAYEE" && s.status !== "ANNULEE" && new Date(s.dueDate) < new Date();
-                    return (
-                      <li key={s.id} className="flex justify-between items-center">
-                        <span className="text-slate-600">
-                          {s.number} — {formatDateTime(s.date)}
-                          {s.dueDate && (
-                            <span className={overdue ? "text-red-600 ml-1" : "text-slate-400 ml-1"}>
-                              (échéance {formatDate(s.dueDate)}{overdue ? " — en retard" : ""})
-                            </span>
-                          )}
-                        </span>
-                        <span className="font-medium">{formatMoney(s.totalAmount)}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Paiements de dette récents</h4>
-              {viewing.payments.length === 0 ? (
-                <p className="text-sm text-slate-400">Aucun paiement.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {viewing.payments.map((p) => (
-                    <li key={p.id} className="flex justify-between">
-                      <span className="text-slate-600">{formatDateTime(p.date)}</span>
-                      <span className="font-medium text-emerald-600">{formatMoney(p.amount)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
       </Modal>
     </div>
   );
