@@ -26,6 +26,7 @@ export function CashClosingForm({
   const [closingAmount, setClosingAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
+  const [unreimbursedAdvances, setUnreimbursedAdvances] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -45,6 +46,7 @@ export function CashClosingForm({
         return;
       }
       setExpectedAmount(res.expectedAmount ?? 0);
+      setUnreimbursedAdvances(res.unreimbursedAdvances ?? 0);
       setStep("confirm");
     });
   }
@@ -59,7 +61,7 @@ export function CashClosingForm({
 
   function confirmClose() {
     setError(null);
-    if (isShortfall) return;
+    if (isShortfall || unreimbursedAdvances > 0) return;
     if (requiresJustification && notes.trim() === "") {
       setError("Un excédent de caisse doit être justifié avant de confirmer la fermeture.");
       return;
@@ -157,6 +159,12 @@ export function CashClosingForm({
               montant manquant en place, puis recomptez avant de pouvoir continuer.
             </div>
           )}
+          {unreimbursedAdvances > 0 && (
+            <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              Fermeture bloquée : {formatMoney(unreimbursedAdvances)} d&apos;avance(s) de caisse ne sont pas
+              encore remboursées (voir Avances de caisse ci-dessous).
+            </div>
+          )}
           {requiresJustification && (
             <div>
               <Label>Justificatif de l&apos;excédent (obligatoire)</Label>
@@ -182,7 +190,7 @@ export function CashClosingForm({
             >
               {isShortfall ? "Recompter" : "Modifier"}
             </button>
-            {!isShortfall && (
+            {!isShortfall && unreimbursedAdvances === 0 && (
               <button
                 type="button"
                 onClick={confirmClose}

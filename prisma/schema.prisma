@@ -154,6 +154,7 @@ model Company {
   expenseVouchers        ExpenseVoucher[]
   bankAccounts           BankAccount[]
   bankTransactions       BankTransaction[]
+  cashAdvances           CashAdvance[]
 }
 
 model User {
@@ -202,6 +203,7 @@ model User {
   expenseEnvelopeTopUps ExpenseEnvelopeTopUp[]
   expenseVouchersIssued ExpenseVoucher[]
   bankTransactions      BankTransaction[]
+  cashAdvances          CashAdvance[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -752,6 +754,27 @@ model CashSession {
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
+
+  advances CashAdvance[]
+}
+
+// Retrait d'argent dans la caisse pour une dépense urgente et imprévue
+// (ex: envoyer quelqu'un acheter du carburant) — distinct d'une dépense
+// normale car il doit être remboursé (l'argent remis en caisse) avant que
+// la session ne puisse être fermée (voir closeCashSession).
+model CashAdvance {
+  id           String      @id @default(cuid())
+  sessionId    String
+  session      CashSession @relation(fields: [sessionId], references: [id])
+  amount       Float
+  reason       String
+  withdrawnAt  DateTime    @default(now())
+  reimbursedAt DateTime?
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id])
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 }
 
 // Échecs de connexion par adresse IP, tous comptes confondus : le verrouillage

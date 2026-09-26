@@ -42,6 +42,10 @@ export default async function CaissePage({
     getChangeGivenTotal(companyId, from, to),
   ]);
 
+  const myAdvances = mySession
+    ? await prisma.cashAdvance.findMany({ where: { sessionId: mySession.id }, orderBy: { withdrawnAt: "desc" } })
+    : [];
+
   // Cumul en temps réel de la session ouverte de l'utilisateur courant : même
   // calcul que closeCashSession (fond initial + ventes espèces depuis
   // l'ouverture - dépenses).
@@ -71,6 +75,7 @@ export default async function CaissePage({
       warehouses={warehouses}
       sessions={sessions}
       mySession={mySession}
+      myAdvances={myAdvances}
       cumul={cumul}
       from={fromStr}
       to={toStr}

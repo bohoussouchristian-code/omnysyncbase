@@ -56,6 +56,14 @@ async function computeExpectedAmount(session: {
   return session.openingAmount + (sales._sum.paidAmount || 0) - (expenses._sum.amount || 0);
 }
 
+async function getUnreimbursedAdvancesTotal(sessionId: string) {
+  const result = await prisma.cashAdvance.aggregate({
+    where: { sessionId, reimbursedAt: null },
+    _sum: { amount: true },
+  });
+  return result._sum.amount || 0;
+}
+
 // Étape de vérification avant clôture : recalcule le montant attendu (à jour,
 // sans se fier à un cumul potentiellement affiché depuis un moment) pour que
 // l'agent compare avec le compte physique avant de confirmer la fermeture.
@@ -71,7 +79,56 @@ export async function previewCashClosing(sessionId: string) {
   if (session.closedAt) return { error: "Session déjà fermée." };
 
   const expectedAmount = await computeExpectedAmount(session);
-  return { expectedAmount };
+  const unreimbursedAdvances = await getUnreimbursedAdvancesTotal(sessionId);
+  return { expectedAmount, unreimbursedAdvances };
+}
+
+// Retrait de caisse pour une dépense urgente et imprévue : ne touche à rien
+// d'autre (ni le stock, ni un journal de dépense) — juste une trace de
+// l'argent physiquement sorti, à rembourser avant la fermeture de session.
+export async function withdrawCashAdvance(_prev: unknown, formData: FormData) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user, companyId } = check;
+
+  const sessionId = String(formData.get("sessionId") || "");
+  const amount = Number(formData.get("amount") || 0);
+  const reason = String(formData.get("reason") || "").trim();
+
+  if (amount <= 0) return { error: "Montant invalide." };
+  if (!reason) return { error: "Le motif du retrait est obligatoire." };
+
+  const session = await prisma.cashSession.findFirst({ where: { id: sessionId, companyId, userId: user.id } });
+  if (!session) return { error: "Session introuvable." };
+  if (session.closedAt) return { error: "Cette session est déjà fermée." };
+
+  await prisma.cashAdvance.create({
+    data: { sessionId, amount, reason, userId: user.id, companyId },
+  });
+
+  revalidatePath("/caisse");
+  return { success: true };
+}
+
+// Constate que l'argent retiré a été remis en caisse — obligatoire avant que
+// la session ne puisse être fermée (voir closeCashSession).
+export async function reimburseCashAdvance(advanceId: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { companyId, user } = check;
+
+  const advance = await prisma.cashAdvance.findFirst({
+    where: { id: advanceId, companyId },
+    include: { session: true },
+  });
+  if (!advance) return { error: "Avance introuvable." };
+  if (advance.session.userId !== user.id) return { error: "Cette avance ne vous appartient pas." };
+  if (advance.reimbursedAt) return { error: "Cette avance est déjà remboursée." };
+
+  await prisma.cashAdvance.update({ where: { id: advanceId }, data: { reimbursedAt: new Date() } });
+
+  revalidatePath("/caisse");
+  return { success: true };
 }
 
 export async function closeCashSession(_prev: unknown, formData: FormData) {
@@ -87,6 +144,15 @@ export async function closeCashSession(_prev: unknown, formData: FormData) {
   const session = await prisma.cashSession.findFirst({ where: { id, companyId, userId: user.id } });
   if (!session) return { error: "Session introuvable." };
   if (session.closedAt) return { error: "Session déjà fermée." };
+
+  // Un retrait de caisse pour dépense urgente doit être remboursé avant toute
+  // fermeture — jamais de fermeture avec une avance encore en suspens.
+  const unreimbursedAdvances = await getUnreimbursedAdvancesTotal(id);
+  if (unreimbursedAdvances > 0) {
+    return {
+      error: `Remboursez d'abord ${unreimbursedAdvances.toLocaleString("fr-FR")} FCFA d'avance(s) de caisse en cours avant de fermer.`,
+    };
+  }
 
   const expectedAmount = await computeExpectedAmount(session);
 
