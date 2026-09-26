@@ -7,11 +7,21 @@ export default async function ClientsPage() {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
 
-  const customers = await prisma.customer.findMany({
-    where: { companyId: user.companyId },
-    orderBy: { name: "asc" },
-  });
+  const [customers, company] = await Promise.all([
+    prisma.customer.findMany({
+      where: { companyId: user.companyId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.company.findUnique({ where: { id: user.companyId }, select: { name: true } }),
+  ]);
   const canManage = user.role === "ADMIN";
 
-  return <CustomersClient customers={customers} canManage={canManage} />;
+  return (
+    <CustomersClient
+      customers={customers}
+      canManage={canManage}
+      companyName={company?.name ?? ""}
+      userName={user.name}
+    />
+  );
 }

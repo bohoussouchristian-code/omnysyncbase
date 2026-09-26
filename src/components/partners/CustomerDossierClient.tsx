@@ -1,11 +1,18 @@
 "use client";
 
+import { useState, useActionState } from "react";
 import Link from "next/link";
-import { Card, PageHeader, StatCard, Badge } from "@/components/ui";
+import { useRouter } from "next/navigation";
+import { Card, PageHeader, StatCard, Badge, Modal, Input, Label, SubmitButton, FormError } from "@/components/ui";
 import { formatMoney, formatDate, formatDateTime } from "@/lib/utils";
 import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
-import { ArrowLeft, User, Phone, MapPin } from "lucide-react";
+import { ArrowLeft, User, Phone, MapPin, Wallet, Printer } from "lucide-react";
 import type { CustomerType, SaleStatus } from "@prisma/client";
+import { recordCustomerPayment } from "@/lib/actions/partners";
+import {
+  DebtPaymentReceiptDocument,
+  type DebtPaymentReceiptData,
+} from "@/components/partners/DebtPaymentReceiptDocument";
 
 type Customer = {
   id: string;
@@ -34,6 +41,7 @@ type Payment = {
   amount: number;
   date: Date;
   type: string;
+  sale: { number: string; status: SaleStatus } | null;
 };
 
 type Proforma = {
@@ -55,6 +63,7 @@ type LedgerRow = {
   reference: string;
   debit: number;
   credit: number;
+  payment: Payment | null;
 };
 
 export function CustomerDossierClient({
@@ -62,13 +71,19 @@ export function CustomerDossierClient({
   sales,
   payments,
   proformas,
+  companyName,
+  userName,
 }: {
   customer: Customer;
   sales: Sale[];
   payments: Payment[];
   proformas: Proforma[];
   canManage: boolean;
+  companyName: string;
+  userName: string;
 }) {
+  const [paying, setPaying] = useState(false);
+  const [receipt, setReceipt] = useState<DebtPaymentReceiptData | null>(null);
   const totalPurchased = sales
     .filter((s) => LEDGER_SALE_STATUSES.includes(s.status))
     .reduce((sum, s) => sum + s.totalAmount, 0);
@@ -83,13 +98,15 @@ export function CustomerDossierClient({
         reference: s.number,
         debit: s.totalAmount,
         credit: 0,
+        payment: null as Payment | null,
       })),
     ...payments.map((p) => ({
       date: p.date,
       label: p.type === "DETTE_CLIENT" ? "Paiement de dette" : "Paiement à la vente",
-      reference: p.id.slice(-8).toUpperCase(),
+      reference: p.sale ? p.sale.number : p.id.slice(-8).toUpperCase(),
       debit: 0,
       credit: p.amount,
+      payment: p.type === "DETTE_CLIENT" ? p : null,
     })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -113,7 +130,19 @@ export function CustomerDossierClient({
       <PageHeader
         title={customer.name}
         subtitle={customer.code ?? undefined}
-        action={<Badge tone="default">{CUSTOMER_TYPE_LABELS[customer.type]}</Badge>}
+        action={
+          <div className="flex items-center gap-3">
+            <Badge tone="default">{CUSTOMER_TYPE_LABELS[customer.type]}</Badge>
+            {customer.creditBalance > 0 && (
+              <button
+                onClick={() => setPaying(true)}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700"
+              >
+                <Wallet size={16} /> Payer sa dette
+              </button>
+            )}
+          </div>
+        }
       />
 
       <Card className="p-5 mb-6">
@@ -163,6 +192,7 @@ export function CustomerDossierClient({
                 <th className="px-4 py-2.5 font-medium text-right">Débit</th>
                 <th className="px-4 py-2.5 font-medium text-right">Crédit</th>
                 <th className="px-4 py-2.5 font-medium text-right">Solde</th>
+                <th className="px-4 py-2.5 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -178,11 +208,36 @@ export function CustomerDossierClient({
                     {r.credit > 0 ? formatMoney(r.credit) : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-slate-900">{formatMoney(r.balance)}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {r.payment && (
+                      <button
+                        onClick={() =>
+                          setReceipt({
+                            companyName,
+                            customerName: customer.name,
+                            customerCode: customer.code,
+                            amount: r.payment!.amount,
+                            appliedSales: r.payment!.sale
+                              ? [{ number: r.payment!.sale!.number, applied: r.payment!.amount, newStatus: r.payment!.sale!.status as "PAYEE" | "PARTIELLE" }]
+                              : [],
+                            leftover: r.payment!.sale ? 0 : r.payment!.amount,
+                            newBalance: r.balance,
+                            cashierName: userName,
+                            issuedAt: r.payment!.date,
+                          })
+                        }
+                        title="Réimprimer le reçu de ce paiement"
+                        className="text-slate-400 hover:text-blue-600"
+                      >
+                        <Printer size={15} />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {ledger.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Aucune opération enregistrée.
                   </td>
                 </tr>
@@ -223,6 +278,100 @@ export function CustomerDossierClient({
           </div>
         </Card>
       )}
+
+      <Modal open={paying} onClose={() => setPaying(false)} title="Encaisser un paiement">
+        <DossierPaymentForm
+          customer={customer}
+          companyName={companyName}
+          userName={userName}
+          onDone={() => setPaying(false)}
+          onReceipt={(r) => setReceipt(r)}
+        />
+      </Modal>
+
+      {receipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setReceipt(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+            <DebtPaymentReceiptDocument data={receipt} />
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setReceipt(null)}
+                className="flex-1 rounded-lg border border-slate-300 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+              >
+                <Printer size={14} /> Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receipt && (
+        <div id="receipt-print" className="hidden">
+          <DebtPaymentReceiptDocument data={receipt} />
+        </div>
+      )}
     </div>
+  );
+}
+
+function DossierPaymentForm({
+  customer,
+  companyName,
+  userName,
+  onDone,
+  onReceipt,
+}: {
+  customer: Customer;
+  companyName: string;
+  userName: string;
+  onDone: () => void;
+  onReceipt: (data: DebtPaymentReceiptData) => void;
+}) {
+  const router = useRouter();
+  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
+    const res = await recordCustomerPayment(prev, formData);
+    if (res && "success" in res && res.success) {
+      onReceipt({
+        companyName,
+        customerName: customer.name,
+        customerCode: customer.code,
+        amount: res.amount,
+        appliedSales: res.appliedSales,
+        leftover: res.leftover,
+        newBalance: res.newBalance,
+        cashierName: userName,
+        issuedAt: new Date(),
+      });
+      onDone();
+      router.refresh();
+    }
+    return res;
+  }, undefined as { error?: string } | undefined);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <input type="hidden" name="customerId" value={customer.id} />
+      <p className="text-sm text-slate-500">
+        Dette actuelle : <span className="font-semibold text-slate-800">{formatMoney(customer.creditBalance)}</span>
+      </p>
+      <div>
+        <Label>Montant encaissé</Label>
+        <Input type="number" name="amount" min={1} step="1" max={customer.creditBalance} required autoFocus />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Encaisser</SubmitButton>
+      </div>
+    </form>
   );
 }

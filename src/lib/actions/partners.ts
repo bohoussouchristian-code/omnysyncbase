@@ -72,6 +72,12 @@ export async function updateCustomer(_prev: unknown, formData: FormData) {
   return { success: true };
 }
 
+// Un paiement de dette s'impute automatiquement sur les ventes à crédit/
+// partielles du client les plus anciennes en premier (FIFO) : c'est ce qui
+// manquait avant — le solde global du client baissait bien, mais chaque
+// facture restait affichée "Crédit"/"Partielle" indéfiniment dans le
+// bilan/l'historique. Un paiement (ou un versement échelonné) par vente
+// touchée pour que chaque reçu reste traçable et réimprimable individuellement.
 export async function recordCustomerPayment(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
@@ -85,15 +91,62 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
   const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
   if (!customer) return { error: "Client introuvable." };
 
-  await prisma.$transaction([
-    prisma.payment.create({
-      data: { type: "DETTE_CLIENT", customerId, amount, userId: user.id, companyId },
-    }),
-    prisma.customer.update({ where: { id: customerId, companyId }, data: { creditBalance: { decrement: amount } } }),
-  ]);
+  const outstandingSales = await prisma.sale.findMany({
+    where: { customerId, companyId, status: { in: ["CREDIT", "PARTIELLE"] } },
+    orderBy: { date: "asc" },
+  });
+
+  const appliedSales: { number: string; applied: number; newStatus: "PAYEE" | "PARTIELLE" }[] = [];
+  let remaining = amount;
+
+  await prisma.$transaction(async (tx) => {
+    for (const sale of outstandingSales) {
+      if (remaining <= 0) break;
+      const due = sale.totalAmount - sale.paidAmount;
+      if (due <= 0) continue;
+      const applied = Math.min(due, remaining);
+      remaining -= applied;
+      const newPaidAmount = sale.paidAmount + applied;
+      const newStatus = newPaidAmount >= sale.totalAmount ? "PAYEE" : "PARTIELLE";
+
+      await tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          paidAmount: newPaidAmount,
+          status: newStatus,
+          dueDate: newStatus === "PAYEE" ? null : sale.dueDate,
+        },
+      });
+      await tx.payment.create({
+        data: { type: "DETTE_CLIENT", customerId, saleId: sale.id, amount: applied, userId: user.id, companyId },
+      });
+      appliedSales.push({ number: sale.number, applied, newStatus });
+    }
+
+    // Trop-perçu par rapport aux factures en cours (ou client sans facture à
+    // crédit) : conservé comme avance, sans facture liée.
+    if (remaining > 0) {
+      await tx.payment.create({
+        data: { type: "DETTE_CLIENT", customerId, amount: remaining, userId: user.id, companyId },
+      });
+    }
+
+    await tx.customer.update({ where: { id: customerId, companyId }, data: { creditBalance: { decrement: amount } } });
+  });
 
   revalidatePath("/clients");
-  return { success: true };
+  revalidatePath(`/clients/${customerId}`);
+  revalidatePath("/ventes");
+  revalidatePath("/bilan");
+  revalidatePath("/rapports");
+
+  return {
+    success: true,
+    amount,
+    appliedSales,
+    leftover: remaining,
+    newBalance: customer.creditBalance - amount,
+  };
 }
 
 async function generateSupplierCode(companyId: string): Promise<string> {

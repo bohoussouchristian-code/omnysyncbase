@@ -6,8 +6,12 @@ import { createCustomer, updateCustomer, recordCustomerPayment } from "@/lib/act
 import { Modal, Input, Label, Select, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
-import { Plus, Search, Pencil, Wallet, FolderOpen, Star } from "lucide-react";
+import { Plus, Search, Pencil, Wallet, FolderOpen, Star, Printer } from "lucide-react";
 import type { CustomerType } from "@prisma/client";
+import {
+  DebtPaymentReceiptDocument,
+  type DebtPaymentReceiptData,
+} from "@/components/partners/DebtPaymentReceiptDocument";
 
 type Customer = {
   id: string;
@@ -21,11 +25,22 @@ type Customer = {
   loyaltyPoints: number;
 };
 
-export function CustomersClient({ customers, canManage }: { customers: Customer[]; canManage: boolean }) {
+export function CustomersClient({
+  customers,
+  canManage,
+  companyName,
+  userName,
+}: {
+  customers: Customer[];
+  canManage: boolean;
+  companyName: string;
+  userName: string;
+}) {
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [paying, setPaying] = useState<Customer | null>(null);
+  const [receipt, setReceipt] = useState<DebtPaymentReceiptData | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -144,8 +159,45 @@ export function CustomersClient({ customers, canManage }: { customers: Customer[
       </Modal>
 
       <Modal open={!!paying} onClose={() => setPaying(null)} title="Encaisser un paiement">
-        {paying && <PaymentForm customer={paying} onDone={() => setPaying(null)} />}
+        {paying && (
+          <PaymentForm
+            customer={paying}
+            companyName={companyName}
+            userName={userName}
+            onDone={() => setPaying(null)}
+            onReceipt={(r) => setReceipt(r)}
+          />
+        )}
       </Modal>
+
+      {receipt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setReceipt(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+            <DebtPaymentReceiptDocument data={receipt} />
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setReceipt(null)}
+                className="flex-1 rounded-lg border border-slate-300 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
+              >
+                <Printer size={14} /> Imprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {receipt && (
+        <div id="receipt-print" className="hidden">
+          <DebtPaymentReceiptDocument data={receipt} />
+        </div>
+      )}
     </div>
   );
 }
@@ -201,10 +253,35 @@ function CustomerForm({ customer, onDone }: { customer?: Customer; onDone: () =>
   );
 }
 
-function PaymentForm({ customer, onDone }: { customer: Customer; onDone: () => void }) {
+function PaymentForm({
+  customer,
+  companyName,
+  userName,
+  onDone,
+  onReceipt,
+}: {
+  customer: Customer;
+  companyName: string;
+  userName: string;
+  onDone: () => void;
+  onReceipt: (data: DebtPaymentReceiptData) => void;
+}) {
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await recordCustomerPayment(prev, formData);
-    if (res && "success" in res && res.success) onDone();
+    if (res && "success" in res && res.success) {
+      onReceipt({
+        companyName,
+        customerName: customer.name,
+        customerCode: customer.code,
+        amount: res.amount,
+        appliedSales: res.appliedSales,
+        leftover: res.leftover,
+        newBalance: res.newBalance,
+        cashierName: userName,
+        issuedAt: new Date(),
+      });
+      onDone();
+    }
     return res;
   }, undefined as { error?: string } | undefined);
 
