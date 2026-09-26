@@ -431,6 +431,14 @@ model PurchaseItem {
   quantity   Float
   unitPrice  Float
 
+  // Renseignés uniquement à l'approvisionnement (voir stockPurchase dans
+  // src/lib/actions/purchases.ts) : seule receivedQuantity entre en stock,
+  // jamais brokenQuantity. La quantité manquante (ni reçue ni cassée) se
+  // déduit : quantity - receivedQuantity - brokenQuantity — pas besoin de
+  // colonne dédiée. null tant que l'article n'a pas encore été approvisionné.
+  receivedQuantity Float?
+  brokenQuantity   Float  @default(0)
+
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 }

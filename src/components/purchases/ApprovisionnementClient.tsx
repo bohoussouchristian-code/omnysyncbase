@@ -3,10 +3,19 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { stockPurchase } from "@/lib/actions/purchases";
-import { Modal, PageHeader, Card, Badge } from "@/components/ui";
+import { Modal, PageHeader, Card, Badge, Input, Label } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Boxes, Eye, Search } from "lucide-react";
+import { Boxes, Eye, Search, AlertTriangle } from "lucide-react";
+
+type PurchaseItemRow = {
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  receivedQuantity: number | null;
+  brokenQuantity: number;
+  product: { name: string };
+};
 
 type Purchase = {
   id: string;
@@ -19,15 +28,15 @@ type Purchase = {
   supplier: { name: string };
   warehouse: { name: string };
   stockedBy: { name: string } | null;
-  items: { id: string; quantity: number; unitPrice: number; product: { name: string } }[];
+  items: PurchaseItemRow[];
 };
 
 // Étape distincte du bon de livraison : la marchandise a été réceptionnée,
-// mais n'entre en stock qu'ici, une fois effectivement rangée/comptée.
+// mais n'entre en stock qu'ici, une fois effectivement rangée/comptée — et
+// seulement pour la quantité confirmée intacte (voir CasseForm plus bas).
 export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }) {
   const [viewing, setViewing] = useState<Purchase | null>(null);
   const [query, setQuery] = useState("");
-  const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   const q = query.trim().toLowerCase();
@@ -39,14 +48,6 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
         .sort((a, b) => (b.receivedAt ?? b.date).getTime() - (a.receivedAt ?? a.date).getTime()),
     [purchases, q]
   );
-
-  function handleStock(id: string) {
-    startTransition(async () => {
-      await stockPurchase(id);
-      router.refresh();
-      setViewing(null);
-    });
-  }
 
   return (
     <div>
@@ -64,7 +65,8 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
 
       <Card className="p-5">
         <p className="text-xs text-slate-400 mb-3">
-          Une commande déjà réceptionnée (bon de livraison) n&apos;entre en stock qu&apos;une fois approvisionnée ici.
+          Une commande déjà réceptionnée (bon de livraison) n&apos;entre en stock qu&apos;une fois approvisionnée
+          ici, article par article — seule la quantité confirmée intacte est créditée.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -81,6 +83,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
             <tbody>
               {rows.map((p) => {
                 const isPending = !p.stockedAt;
+                const totalBroken = p.items.reduce((s, it) => s + it.brokenQuantity, 0);
                 return (
                   <tr key={p.id} className="border-b border-slate-50 last:border-0">
                     <td className="py-2 font-medium text-slate-700">
@@ -91,9 +94,18 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                     </td>
                     <td className="py-2 text-slate-600">{p.supplier.name}</td>
                     <td className="py-2">
-                      <Badge tone={isPending ? "warning" : "success"}>
-                        {isPending ? "En attente d'approvisionnement" : "Approvisionnée"}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge tone={isPending ? "warning" : "success"}>
+                          {isPending ? "En attente d'approvisionnement" : "Approvisionnée"}
+                        </Badge>
+                        {!isPending && totalBroken > 0 && (
+                          <Badge tone="danger">
+                            <span className="flex items-center gap-1">
+                              <AlertTriangle size={11} /> {totalBroken} cassé(s)
+                            </span>
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 text-slate-500 whitespace-nowrap">
                       {formatDateTime(isPending ? p.receivedAt ?? p.date : p.stockedAt ?? p.date)}
@@ -102,17 +114,8 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                     <td className="py-2">
                       <div className="flex items-center gap-3 justify-end">
                         <button onClick={() => setViewing(p)} className="text-slate-400 hover:text-blue-600">
-                          <Eye size={16} />
+                          {isPending ? <Boxes size={16} /> : <Eye size={16} />}
                         </button>
-                        {isPending && (
-                          <button
-                            onClick={() => handleStock(p.id)}
-                            disabled={pending}
-                            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
-                          >
-                            <Boxes size={14} /> Approvisionner
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -130,48 +133,172 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
         </div>
       </Card>
 
-      <Modal open={!!viewing} onClose={() => setViewing(null)} title={`Commande ${viewing?.number || ""}`}>
-        {viewing && (
-          <div>
-            <table className="w-full text-sm mb-4">
-              <thead>
-                <tr className="text-left text-slate-400 border-b border-slate-100">
-                  <th className="pb-2 font-medium">Produit</th>
-                  <th className="pb-2 font-medium text-right">Qté</th>
-                  <th className="pb-2 font-medium text-right">P.U.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {viewing.items.map((it) => (
-                  <tr key={it.id} className="border-b border-slate-50">
-                    <td className="py-1.5">{it.product.name}</td>
-                    <td className="py-1.5 text-right">{it.quantity}</td>
-                    <td className="py-1.5 text-right">{formatMoney(it.unitPrice)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="flex justify-between font-semibold mb-4">
-              <span>Total</span>
-              <span>{formatMoney(viewing.totalAmount)}</span>
-            </div>
-            {!viewing.stockedAt ? (
-              <button
-                onClick={() => handleStock(viewing.id)}
-                disabled={pending}
-                className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-medium hover:bg-emerald-700"
-              >
-                Approvisionner — créditer le stock
-              </button>
-            ) : (
-              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                Approvisionnée le {formatDateTime(viewing.stockedAt)}
-                {viewing.stockedBy ? ` par ${viewing.stockedBy.name}` : ""} — {viewing.warehouse.name}
-              </p>
-            )}
-          </div>
-        )}
+      <Modal
+        open={!!viewing}
+        onClose={() => setViewing(null)}
+        title={`Commande ${viewing?.number || ""}`}
+      >
+        {viewing &&
+          (viewing.stockedAt ? (
+            <StockedSummary purchase={viewing} />
+          ) : (
+            <CasseForm purchase={viewing} onDone={() => { setViewing(null); router.refresh(); }} />
+          ))}
       </Modal>
+    </div>
+  );
+}
+
+function StockedSummary({ purchase }: { purchase: Purchase }) {
+  return (
+    <div>
+      <table className="w-full text-sm mb-4">
+        <thead>
+          <tr className="text-left text-slate-400 border-b border-slate-100">
+            <th className="pb-2 font-medium">Produit</th>
+            <th className="pb-2 font-medium text-right">Commandé</th>
+            <th className="pb-2 font-medium text-right">Reçu intact</th>
+            <th className="pb-2 font-medium text-right">Casse</th>
+            <th className="pb-2 font-medium text-right">Manquant</th>
+          </tr>
+        </thead>
+        <tbody>
+          {purchase.items.map((it) => {
+            const received = it.receivedQuantity ?? it.quantity;
+            const missing = it.quantity - received - it.brokenQuantity;
+            return (
+              <tr key={it.id} className="border-b border-slate-50">
+                <td className="py-1.5">{it.product.name}</td>
+                <td className="py-1.5 text-right text-slate-500">{it.quantity}</td>
+                <td className="py-1.5 text-right font-medium">{received}</td>
+                <td className="py-1.5 text-right">
+                  {it.brokenQuantity > 0 ? <span className="text-red-600">{it.brokenQuantity}</span> : "—"}
+                </td>
+                <td className="py-1.5 text-right">
+                  {missing > 0 ? <span className="text-amber-600">{missing}</span> : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="flex justify-between font-semibold mb-4">
+        <span>Total</span>
+        <span>{formatMoney(purchase.totalAmount)}</span>
+      </div>
+      <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+        Approvisionnée le {formatDateTime(purchase.stockedAt!)}
+        {purchase.stockedBy ? ` par ${purchase.stockedBy.name}` : ""} — {purchase.warehouse.name}
+      </p>
+    </div>
+  );
+}
+
+function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => void }) {
+  const [values, setValues] = useState<Record<string, { received: number; broken: number }>>(() =>
+    Object.fromEntries(purchase.items.map((it) => [it.id, { received: it.quantity, broken: 0 }]))
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function updateReceived(itemId: string, received: number, itemQty: number) {
+    setValues((prev) => {
+      const broken = Math.min(prev[itemId].broken, Math.max(0, itemQty - received));
+      return { ...prev, [itemId]: { received, broken } };
+    });
+  }
+
+  function updateBroken(itemId: string, broken: number, itemQty: number) {
+    setValues((prev) => {
+      const received = Math.min(prev[itemId].received, Math.max(0, itemQty - broken));
+      return { ...prev, [itemId]: { received, broken } };
+    });
+  }
+
+  function submit() {
+    setError(null);
+    startTransition(async () => {
+      const res = await stockPurchase(
+        purchase.id,
+        purchase.items.map((it) => ({
+          itemId: it.id,
+          receivedQuantity: values[it.id].received,
+          brokenQuantity: values[it.id].broken,
+        }))
+      );
+      if (res && "error" in res) {
+        setError(res.error ?? "Erreur inconnue.");
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div>
+      {error && (
+        <div className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
+      <p className="text-xs text-slate-500 mb-3">
+        Vérifiez la marchandise reçue : indiquez ce qui est intact (crédité au stock) et ce qui est cassé. Le reste
+        est compté comme manquant.
+      </p>
+      <div className="space-y-4 mb-4">
+        {purchase.items.map((it) => {
+          const v = values[it.id];
+          const missing = it.quantity - v.received - v.broken;
+          return (
+            <div key={it.id} className="border border-slate-200 rounded-lg p-3">
+              <div className="flex justify-between items-center mb-2">
+                <span className="font-medium text-slate-800 text-sm">{it.product.name}</span>
+                <span className="text-xs text-slate-400">Commandé : {it.quantity}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Reçu intact</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={it.quantity}
+                    step="1"
+                    value={v.received}
+                    onChange={(e) => updateReceived(it.id, Math.max(0, Number(e.target.value)), it.quantity)}
+                  />
+                </div>
+                <div>
+                  <Label>Casse</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={it.quantity}
+                    step="1"
+                    value={v.broken}
+                    onChange={(e) => updateBroken(it.id, Math.max(0, Number(e.target.value)), it.quantity)}
+                  />
+                </div>
+              </div>
+              {missing > 0 && (
+                <p className="mt-2 text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle size={12} /> {missing} manquant(s) — ni reçu ni cassé
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-between font-semibold mb-4">
+        <span>Total commande</span>
+        <span>{formatMoney(purchase.totalAmount)}</span>
+      </div>
+      <button
+        onClick={submit}
+        disabled={pending}
+        className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+      >
+        {pending ? "Enregistrement..." : "Approvisionner — créditer le stock"}
+      </button>
     </div>
   );
 }

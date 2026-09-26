@@ -175,10 +175,15 @@ export async function receivePurchase(purchaseId: string) {
   return { success: true };
 }
 
+export type StockPurchaseItemInput = { itemId: string; receivedQuantity: number; brokenQuantity: number };
+
 // Étape distincte du bon de livraison : c'est seulement ici, quand la
 // marchandise déjà réceptionnée est effectivement rangée/comptée, que le
-// stock est crédité — jamais avant.
-export async function stockPurchase(purchaseId: string) {
+// stock est crédité — jamais avant. L'écart entre la quantité commandée et
+// ce qui entre réellement en stock se déclare ici : reçu intact (crédité),
+// casse (jamais créditée, jamais vendue), le reste étant implicitement
+// manquant (ni l'un ni l'autre — perte ou erreur de livraison non qualifiée).
+export async function stockPurchase(purchaseId: string, itemInputs: StockPurchaseItemInput[]) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
@@ -192,28 +197,53 @@ export async function stockPurchase(purchaseId: string) {
     return { error: "Cette commande doit d'abord être réceptionnée (bon de livraison)." };
   if (purchase.stockedAt) return { error: "Déjà approvisionnée." };
 
+  const inputByItemId = new Map(itemInputs.map((i) => [i.itemId, i]));
+  for (const item of purchase.items) {
+    const input = inputByItemId.get(item.id);
+    if (!input) return { error: `Quantités manquantes pour ${item.id}.` };
+    if (input.receivedQuantity < 0 || input.brokenQuantity < 0)
+      return { error: "Les quantités ne peuvent pas être négatives." };
+    if (input.receivedQuantity + input.brokenQuantity > item.quantity)
+      return { error: "La somme reçu + casse ne peut pas dépasser la quantité commandée." };
+  }
+
   await prisma.$transaction(async (tx) => {
     for (const item of purchase.items) {
-      const stock = await tx.stock.findUnique({
-        where: { productId_warehouseId: { productId: item.productId, warehouseId: purchase.warehouseId } },
-      });
-      if (stock) {
-        await tx.stock.update({ where: { id: stock.id }, data: { quantity: stock.quantity + item.quantity } });
-      } else {
-        await tx.stock.create({
-          data: { productId: item.productId, warehouseId: purchase.warehouseId, quantity: item.quantity, companyId },
+      const input = inputByItemId.get(item.id)!;
+      if (input.receivedQuantity > 0) {
+        const stock = await tx.stock.findUnique({
+          where: { productId_warehouseId: { productId: item.productId, warehouseId: purchase.warehouseId } },
+        });
+        if (stock) {
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: { quantity: stock.quantity + input.receivedQuantity },
+          });
+        } else {
+          await tx.stock.create({
+            data: {
+              productId: item.productId,
+              warehouseId: purchase.warehouseId,
+              quantity: input.receivedQuantity,
+              companyId,
+            },
+          });
+        }
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            warehouseId: purchase.warehouseId,
+            type: "ACHAT",
+            quantity: input.receivedQuantity,
+            reference: purchase.number,
+            userId: user.id,
+            companyId,
+          },
         });
       }
-      await tx.stockMovement.create({
-        data: {
-          productId: item.productId,
-          warehouseId: purchase.warehouseId,
-          type: "ACHAT",
-          quantity: item.quantity,
-          reference: purchase.number,
-          userId: user.id,
-          companyId,
-        },
+      await tx.purchaseItem.update({
+        where: { id: item.id },
+        data: { receivedQuantity: input.receivedQuantity, brokenQuantity: input.brokenQuantity },
       });
     }
     await tx.purchase.update({
