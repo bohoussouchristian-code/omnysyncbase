@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Modal, PageHeader } from "@/components/ui";
+import { Card, Modal } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
@@ -49,11 +49,13 @@ export function SalesHistoryClient({
   from,
   to,
   companyName,
+  basePath = "/ventes/historique",
 }: {
   sales: Sale[];
   from: string;
   to: string;
   companyName: string;
+  basePath?: string;
 }) {
   const [detail, setDetail] = useState<Sale | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -70,20 +72,27 @@ export function SalesHistoryClient({
 
   return (
     <div>
-      <PageHeader title="Historique des ventes" subtitle={`${filteredSales.length} vente(s)`} />
-
       <Card className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-end gap-2 p-5 pb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher un n°, un client..."
-              className="w-56 rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-4">
+          <p className="text-sm text-slate-500">{filteredSales.length} vente(s)</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher un n°, un client..."
+                className="w-56 rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <DateRangePicker
+              from={from}
+              to={to}
+              onApply={(f, t) =>
+                router.push(`${basePath}${basePath.includes("?") ? "&" : "?"}from=${f}&to=${t}`)
+              }
             />
           </div>
-          <DateRangePicker from={from} to={to} onApply={(f, t) => router.push(`/ventes/historique?from=${f}&to=${t}`)} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

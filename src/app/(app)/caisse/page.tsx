@@ -59,7 +59,7 @@ export default async function CaissePage({
         _sum: { paidAmount: true },
       }),
       prisma.expense.aggregate({
-        where: { warehouseId: mySession.warehouseId, date: { gte: mySession.openedAt } },
+        where: { warehouseId: mySession.warehouseId, date: { gte: mySession.openedAt }, cancelled: false },
         _sum: { amount: true },
       }),
     ]);

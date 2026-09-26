@@ -57,7 +57,7 @@ export default async function RapportsPage({
         where: { companyId, date: { gte: from, lte: to }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
         include: { items: { include: { product: true, service: true } }, user: true },
       }),
-      prisma.expense.aggregate({ where: { companyId, date: { gte: from, lte: to } }, _sum: { amount: true } }),
+      prisma.expense.aggregate({ where: { companyId, date: { gte: from, lte: to }, cancelled: false }, _sum: { amount: true } }),
       prisma.product.findMany({
         where: { active: true, companyId },
         include: { stocks: true, unit: true, packUnit: true },

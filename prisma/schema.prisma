@@ -193,6 +193,7 @@ model User {
   stockedPurchases  Purchase[]      @relation("PurchaseStockedBy")
   stockMovements    StockMovement[]
   expenses          Expense[]
+  cancelledExpenses Expense[]       @relation("ExpenseCancelledBy")
   cashSessions      CashSession[]
   payments          Payment[]
   proformas         Proforma[]
@@ -658,6 +659,16 @@ model Expense {
   date        DateTime  @default(now())
   userId      String?
   user        User?     @relation(fields: [userId], references: [id])
+
+  // Annulation centralisée dans le module Annulations (même principe que les
+  // ventes) : motif obligatoire conservé pour l'audit. Une dépense annulée
+  // restitue son montant à la caisse de dépense (ExpenseEnvelope) dont elle
+  // relevait, comme si elle n'avait jamais été consommée.
+  cancelled     Boolean   @default(false)
+  cancelReason  String?
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelledBy   User?     @relation("ExpenseCancelledBy", fields: [cancelledById], references: [id])
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])

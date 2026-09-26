@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, type ComponentProps, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { PosClient } from "@/components/sales/PosClient";
 import { RecentSalesTable } from "@/components/sales/RecentSalesTable";
 import { AchatsClientsPanel } from "@/components/sales/AchatsClientsPanel";
+import { SalesHistoryClient } from "@/components/sales/SalesHistoryClient";
 
 type PosClientProps = ComponentProps<typeof PosClient>;
 type RecentSales = ComponentProps<typeof RecentSalesTable>["sales"];
 type AchatsClientsProps = ComponentProps<typeof AchatsClientsPanel>;
+type HistorySales = ComponentProps<typeof SalesHistoryClient>["sales"];
 
-type Tab = "jour" | "achats";
+type Tab = "jour" | "achats" | "historique";
 
 export function VenteDuJourClient({
   products,
@@ -22,6 +25,10 @@ export function VenteDuJourClient({
   allCustomers,
   assignedWarehouseId,
   initialTab = "jour",
+  historySales,
+  historyFrom,
+  historyTo,
+  companyName,
 }: {
   products: PosClientProps["products"];
   services: PosClientProps["services"];
@@ -32,20 +39,48 @@ export function VenteDuJourClient({
   allCustomers: AchatsClientsProps["customers"];
   assignedWarehouseId: PosClientProps["assignedWarehouseId"];
   initialTab?: Tab;
+  historySales: HistorySales;
+  historyFrom: string;
+  historyTo: string;
+  companyName: string;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [formOpen, setFormOpen] = useState(false);
+
+  // L'onglet Historique charge ses données côté serveur (jusqu'à 500 ventes
+  // avec tous leurs articles) seulement quand il est effectivement demandé —
+  // basculer dessus doit donc naviguer (pour redéclencher ce chargement), pas
+  // juste changer un état local comme pour les deux autres onglets déjà
+  // entièrement chargés. Ajustement pendant le rendu (pas dans un effet) dès
+  // que le serveur répond avec un nouvel initialTab, même idiome que
+  // l'ajustement de l'état actif dans Sidebar.tsx.
+  const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
+  if (initialTab !== prevInitialTab) {
+    setPrevInitialTab(initialTab);
+    setTab(initialTab);
+  }
+
+  function selectTab(next: Tab) {
+    if (next === "historique") {
+      router.push("/ventes?tab=historique");
+      return;
+    }
+    setTab(next);
+  }
+
+  const subtitles: Record<Tab, string> = {
+    jour: "Suivi des ventes saisies — le paiement s'encaisse séparément à la Caisse",
+    achats: "Historique des achats de chaque client",
+    historique: "Toutes les ventes de la période, avec réimpression du reçu",
+  };
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Vente du jour</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {tab === "jour"
-              ? "Suivi des ventes saisies — le paiement s'encaisse séparément à la Caisse"
-              : "Historique des achats de chaque client"}
-          </p>
+          <p className="text-sm text-slate-500 mt-0.5">{subtitles[tab]}</p>
         </div>
         <div className="flex items-center gap-4">
           <button
@@ -58,18 +93,27 @@ export function VenteDuJourClient({
       </div>
 
       <div className="flex gap-1 mb-5 border-b border-slate-200">
-        <TabButton active={tab === "jour"} onClick={() => setTab("jour")}>
+        <TabButton active={tab === "jour"} onClick={() => selectTab("jour")}>
           Vente du jour
         </TabButton>
-        <TabButton active={tab === "achats"} onClick={() => setTab("achats")}>
+        <TabButton active={tab === "achats"} onClick={() => selectTab("achats")}>
           Achats clients
+        </TabButton>
+        <TabButton active={tab === "historique"} onClick={() => selectTab("historique")}>
+          Historique
         </TabButton>
       </div>
 
-      {tab === "jour" ? (
-        <RecentSalesTable sales={recentSales} />
-      ) : (
-        <AchatsClientsPanel sales={clientSales} customers={allCustomers} />
+      {tab === "jour" && <RecentSalesTable sales={recentSales} />}
+      {tab === "achats" && <AchatsClientsPanel sales={clientSales} customers={allCustomers} />}
+      {tab === "historique" && (
+        <SalesHistoryClient
+          sales={historySales}
+          from={historyFrom}
+          to={historyTo}
+          companyName={companyName}
+          basePath="/ventes?tab=historique"
+        />
       )}
 
       {formOpen && (

@@ -20,7 +20,7 @@ export default async function BilanPage() {
       include: { items: { include: { product: true } } },
     }),
     prisma.expense.aggregate({
-      where: { companyId, date: { gte: startOfMonth } },
+      where: { companyId, date: { gte: startOfMonth }, cancelled: false },
       _sum: { amount: true },
     }),
     prisma.supplier.aggregate({ where: { companyId }, _sum: { balance: true } }),

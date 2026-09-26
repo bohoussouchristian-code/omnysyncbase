@@ -5,6 +5,40 @@ import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 
+// Centralisée dans le module Annulations (même principe que les ventes) :
+// motif obligatoire, conservé pour l'audit. Restitue le montant à la caisse
+// de dépense concernée, comme si la dépense n'avait jamais été consommée.
+export async function cancelExpense(expenseId: string, reason: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user, companyId } = check;
+  if (user.role !== "ADMIN") return { error: "Seul un administrateur peut annuler une dépense." };
+  if (!reason.trim()) return { error: "Un motif d'annulation est obligatoire." };
+
+  const expense = await prisma.expense.findFirst({ where: { id: expenseId, companyId } });
+  if (!expense) return { error: "Dépense introuvable." };
+  if (expense.cancelled) return { error: "Cette dépense est déjà annulée." };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.expense.update({
+      where: { id: expenseId },
+      data: { cancelled: true, cancelReason: reason, cancelledAt: new Date(), cancelledById: user.id },
+    });
+    const envelope = await tx.expenseEnvelope.findUnique({
+      where: { companyId_category: { companyId, category: expense.category } },
+    });
+    if (envelope) {
+      await tx.expenseEnvelope.update({ where: { id: envelope.id }, data: { balance: { increment: expense.amount } } });
+    }
+  });
+
+  revalidatePath("/depenses");
+  revalidatePath("/annulations");
+  revalidatePath("/dashboard");
+  revalidatePath("/bilan");
+  return { success: true };
+}
+
 export async function createExpense(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
