@@ -21,9 +21,10 @@ type Product = {
   packUnit: { symbol: string } | null;
   piecesPerPack: number;
   packSalePrice: number | null;
-  // Consigne emballage (par casier) — distincte du prix du liquide, non
-  // obligatoire (le client peut rapporter ses emballages vides).
-  deposit: number | null;
+  // Consigne emballage (par casier), via un type configuré une seule fois —
+  // distincte du prix du liquide, non obligatoire (le client peut rapporter
+  // ses emballages vides).
+  packagingType: { deposit: number } | null;
   stocks: { warehouseId: string; quantity: number }[];
 };
 type Service = {
@@ -153,7 +154,7 @@ export function PosClient({
     const key = `p:${p.id}:${mode}`;
     // La consigne ne s'applique qu'à la vente par casier (jamais à l'unité) —
     // sélectionnée par défaut dès qu'un tarif de consigne existe.
-    const depositPerUnit = mode === "pack" ? p.deposit || 0 : 0;
+    const depositPerUnit = mode === "pack" ? p.packagingType?.deposit || 0 : 0;
 
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);

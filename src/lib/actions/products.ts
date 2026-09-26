@@ -76,14 +76,13 @@ function parseBusinessFields(formData: FormData) {
     return v || null;
   };
   const warrantyRaw = formData.get("warrantyMonths");
-  const depositRaw = formData.get("deposit");
   return {
     brand: str("brand"),
     reference: str("reference"),
     material: str("material"),
     publisher: str("publisher"),
     warrantyMonths: warrantyRaw && String(warrantyRaw) !== "" ? Number(warrantyRaw) : null,
-    deposit: depositRaw && String(depositRaw) !== "" ? Number(depositRaw) : null,
+    packagingTypeId: str("packagingTypeId"),
   };
 }
 
@@ -113,7 +112,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   const packPurchasePrice =
     packPurchasePriceRaw && String(packPurchasePriceRaw) !== "" ? Number(packPurchasePriceRaw) : null;
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
-  const { brand, reference, material, warrantyMonths, deposit, publisher } = parseBusinessFields(formData);
+  const { brand, reference, material, warrantyMonths, packagingTypeId, publisher } = parseBusinessFields(formData);
 
   if (!name) return { error: "Le nom du produit est requis." };
   if (packUnitId && piecesPerPack <= 1)
@@ -123,6 +122,10 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   // 24 bouteilles).
   if (packUnitId && packUnitId === unitId)
     return { error: "L'unité de lot doit être différente de l'unité de base." };
+  if (packagingTypeId) {
+    const packagingType = await prisma.packagingType.findFirst({ where: { id: packagingTypeId, companyId } });
+    if (!packagingType) return { error: "Type d'emballage introuvable." };
+  }
 
   const supplierPrices = await parseSupplierPrices(formData, companyId);
 
@@ -146,7 +149,7 @@ export async function createProduct(_prev: unknown, formData: FormData) {
         reference,
         material,
         warrantyMonths,
-        deposit,
+        packagingTypeId,
         publisher,
         companyId,
         supplierPrices: {
@@ -187,13 +190,17 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
   const packPurchasePrice =
     packPurchasePriceRaw && String(packPurchasePriceRaw) !== "" ? Number(packPurchasePriceRaw) : null;
   const packSalePrice = packSalePriceRaw && String(packSalePriceRaw) !== "" ? Number(packSalePriceRaw) : null;
-  const { brand, reference, material, warrantyMonths, deposit, publisher } = parseBusinessFields(formData);
+  const { brand, reference, material, warrantyMonths, packagingTypeId, publisher } = parseBusinessFields(formData);
 
   if (!id || !name) return { error: "Données invalides." };
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
   if (packUnitId && packUnitId === unitId)
     return { error: "L'unité de lot doit être différente de l'unité de base." };
+  if (packagingTypeId) {
+    const packagingType = await prisma.packagingType.findFirst({ where: { id: packagingTypeId, companyId } });
+    if (!packagingType) return { error: "Type d'emballage introuvable." };
+  }
 
   const existing = await prisma.product.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Produit introuvable." };
@@ -221,7 +228,7 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
           reference,
           material,
           warrantyMonths,
-          deposit,
+          packagingTypeId,
           publisher,
         },
       });
@@ -285,4 +292,40 @@ export async function createUnit(_prev: unknown, formData: FormData) {
   } catch {
     return { error: "Cette unité existe déjà." };
   }
+}
+
+// Un type d'emballage (casier standard, casier renforcé, bouteille consignée
+// seule...) porte son propre montant de consigne, configuré une seule fois
+// et partagé par tous les produits qui l'utilisent.
+export async function createPackagingType(_prev: unknown, formData: FormData) {
+  const check = await requireManager();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const name = String(formData.get("name") || "").trim();
+  const deposit = Number(formData.get("deposit") || 0);
+  if (!name) return { error: "Nom requis." };
+  if (deposit <= 0) return { error: "Le montant de consigne doit être supérieur à 0." };
+  try {
+    await prisma.packagingType.create({ data: { name, deposit, companyId } });
+    revalidatePath("/produits");
+    revalidatePath("/categories");
+    return { success: true };
+  } catch {
+    return { error: "Ce type d'emballage existe déjà." };
+  }
+}
+
+export async function togglePackagingTypeActive(id: string) {
+  const check = await requireManager();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const packagingType = await prisma.packagingType.findFirst({ where: { id, companyId } });
+  if (!packagingType) return { error: "Type d'emballage introuvable." };
+
+  await prisma.packagingType.update({ where: { id }, data: { active: !packagingType.active } });
+  revalidatePath("/categories");
+  revalidatePath("/produits");
+  return { success: true };
 }

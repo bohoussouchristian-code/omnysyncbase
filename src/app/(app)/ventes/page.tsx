@@ -34,7 +34,7 @@ export default async function VentesPage({
       prisma.product.findMany({
         where: { active: true, companyId },
         orderBy: { name: "asc" },
-        include: { unit: true, packUnit: true, stocks: true },
+        include: { unit: true, packUnit: true, packagingType: true, stocks: true },
       }),
       prisma.service.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
       prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),

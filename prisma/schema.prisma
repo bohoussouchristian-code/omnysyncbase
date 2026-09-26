@@ -155,6 +155,7 @@ model Company {
   bankAccounts           BankAccount[]
   bankTransactions       BankTransaction[]
   cashAdvances           CashAdvance[]
+  packagingTypes         PackagingType[]
 }
 
 model User {
@@ -275,6 +276,25 @@ model Unit {
   @@unique([companyId, name])
 }
 
+// Type d'emballage (boissons) configuré une seule fois avec son propre
+// montant de consigne — différents types et prix d'emballage existent
+// (casier standard, casier renforcé, bouteille consignée seule...), chacun
+// pouvant être partagé par plusieurs produits.
+model PackagingType {
+  id        String   @id @default(cuid())
+  name      String
+  deposit   Float    @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  products Product[]
+
+  @@unique([companyId, name])
+}
+
 model Product {
   id            String   @id @default(cuid())
   name          String
@@ -301,8 +321,14 @@ model Product {
   reference       String? // Référence/SKU fournisseur
   material        String? // Matériau (quincaillerie)
   warrantyMonths  Int?    // Garantie en mois (quincaillerie)
-  deposit         Float?  // Consigne remboursable sur bouteille/casier (boissons)
   publisher       String? // Éditeur (librairie)
+
+  // Consigne emballage (boissons) : renvoie vers un type d'emballage
+  // configuré une seule fois (voir PackagingType) avec son propre montant,
+  // plutôt qu'un chiffre ressaisi sur chaque produit — plusieurs produits
+  // partagent souvent le même emballage (ex: même casier).
+  packagingTypeId String?
+  packagingType   PackagingType? @relation(fields: [packagingTypeId], references: [id])
 
   // Vente/achat par lot (carton, casier...) en plus de l'unité de base.
   // Le stock reste toujours compté dans l'unité de base (`unit`).

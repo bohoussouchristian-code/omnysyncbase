@@ -8,7 +8,7 @@ export default async function ProduitsPage() {
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
-  const [products, categories, units, warehouses, suppliers, company] = await Promise.all([
+  const [products, categories, units, packagingTypes, warehouses, suppliers, company] = await Promise.all([
     prisma.product.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
@@ -16,12 +16,14 @@ export default async function ProduitsPage() {
         category: true,
         unit: true,
         packUnit: true,
+        packagingType: true,
         stocks: true,
         supplierPrices: { select: { supplierId: true, purchasePrice: true } },
       },
     }),
     prisma.category.findMany({ where: { companyId }, orderBy: { name: "asc" } }),
     prisma.unit.findMany({ where: { companyId }, orderBy: { name: "asc" } }),
+    prisma.packagingType.findMany({ where: { companyId, active: true }, orderBy: { name: "asc" } }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
     prisma.company.findUnique({ where: { id: companyId }, select: { businessType: true } }),
@@ -33,6 +35,7 @@ export default async function ProduitsPage() {
       products={products}
       categories={categories}
       units={units}
+      packagingTypes={packagingTypes}
       warehouses={warehouses}
       suppliers={suppliers}
       canManage={canManage}

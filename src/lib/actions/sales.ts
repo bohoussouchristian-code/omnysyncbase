@@ -170,7 +170,10 @@ export async function createSale(input: {
   const productItems = items.filter((i) => i.productId);
   if (productItems.length > 0) {
     const productIds = [...new Set(productItems.map((i) => i.productId!))];
-    const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId } });
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, companyId },
+      include: { packagingType: true },
+    });
     if (products.length !== productIds.length) return { error: "Un produit est introuvable." };
     const productMap = new Map(products.map((p) => [p.id, p]));
     for (const item of productItems) {
@@ -188,11 +191,11 @@ export async function createSale(input: {
       // correspondre au tarif du produit — jamais une valeur arbitraire.
       const depositAmount = item.depositAmount || 0;
       if (depositAmount > 0) {
-        if (!product.packUnitId || !product.deposit) {
+        if (!product.packUnitId || !product.packagingType) {
           return { error: `Consigne non applicable pour ${product.name}.` };
         }
         const packs = item.quantity / product.piecesPerPack;
-        const expectedDeposit = packs * product.deposit;
+        const expectedDeposit = packs * product.packagingType.deposit;
         if (Math.abs(expectedDeposit - depositAmount) > PRICE_TOLERANCE) {
           return { error: `Montant de consigne invalide pour ${product.name}.` };
         }

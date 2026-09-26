@@ -8,7 +8,7 @@ export default async function CategoriesPage() {
   if (!current?.companyId || current.role !== "ADMIN") redirect("/produits");
   const companyId = current.companyId;
 
-  const [categories, units] = await Promise.all([
+  const [categories, units, packagingTypes] = await Promise.all([
     prisma.category.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
@@ -19,7 +19,12 @@ export default async function CategoriesPage() {
       orderBy: { name: "asc" },
       include: { _count: { select: { products: true } } },
     }),
+    prisma.packagingType.findMany({
+      where: { companyId },
+      orderBy: { name: "asc" },
+      include: { _count: { select: { products: true } } },
+    }),
   ]);
 
-  return <CategoriesClient categories={categories} units={units} />;
+  return <CategoriesClient categories={categories} units={units} packagingTypes={packagingTypes} />;
 }

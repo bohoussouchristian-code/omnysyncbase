@@ -34,18 +34,21 @@ type Product = {
   reference: string | null;
   material: string | null;
   warrantyMonths: number | null;
-  deposit: number | null;
+  packagingTypeId: string | null;
+  packagingType: { id: string; name: string; deposit: number } | null;
   publisher: string | null;
 };
 
 type Option = { id: string; name: string; symbol?: string };
 type Warehouse = { id: string; name: string };
 type Supplier = { id: string; name: string };
+type PackagingType = { id: string; name: string; deposit: number };
 
 export function ProductsClient({
   products,
   categories,
   units,
+  packagingTypes,
   warehouses,
   suppliers,
   canManage,
@@ -54,6 +57,7 @@ export function ProductsClient({
   products: Product[];
   categories: Option[];
   units: Option[];
+  packagingTypes: PackagingType[];
   warehouses: Warehouse[];
   suppliers: Supplier[];
   canManage: boolean;
@@ -187,6 +191,7 @@ export function ProductsClient({
         <ProductForm
           categories={categories}
           units={units}
+          packagingTypes={packagingTypes}
           warehouses={warehouses}
           suppliers={suppliers}
           businessType={businessType}
@@ -199,6 +204,7 @@ export function ProductsClient({
           <ProductForm
             categories={categories}
             units={units}
+            packagingTypes={packagingTypes}
             warehouses={warehouses}
             suppliers={suppliers}
             businessType={businessType}
@@ -214,6 +220,7 @@ export function ProductsClient({
 function ProductForm({
   categories,
   units,
+  packagingTypes,
   warehouses,
   suppliers,
   businessType,
@@ -222,6 +229,7 @@ function ProductForm({
 }: {
   categories: Option[];
   units: Option[];
+  packagingTypes: PackagingType[];
   warehouses: Warehouse[];
   suppliers: Supplier[];
   businessType: BusinessType;
@@ -367,12 +375,19 @@ function ProductForm({
           )}
           {businessType === "BOISSON" && (
             <div>
-              <Label>Consigne emballage (par casier)</Label>
-              <Input type="number" name="deposit" min={0} step="1" defaultValue={product?.deposit ?? ""} />
+              <Label>Type d&apos;emballage (consigne)</Label>
+              <Select name="packagingTypeId" defaultValue={product?.packagingTypeId ?? ""}>
+                <option value="">— Aucun —</option>
+                {packagingTypes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({formatMoney(p.deposit)})
+                  </option>
+                ))}
+              </Select>
               <p className="text-xs text-slate-400 mt-1">
-                Montant du liquide (prix de vente ci-dessus) et de l&apos;emballage (ici) restent distincts — le
-                client pourra choisir de payer la consigne ou non à la vente selon qu&apos;il rapporte ses
-                emballages vides.
+                Montant du liquide (prix de vente ci-dessus) et de l&apos;emballage (consigne du type choisi)
+                restent distincts — le client pourra choisir de payer la consigne ou non à la vente selon
+                qu&apos;il rapporte ses emballages vides. Gérer les types dans Catégories &amp; unités.
               </p>
             </div>
           )}
