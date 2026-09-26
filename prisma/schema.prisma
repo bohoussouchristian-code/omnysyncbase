@@ -156,6 +156,7 @@ model Company {
   bankTransactions       BankTransaction[]
   cashAdvances           CashAdvance[]
   packagingTypes         PackagingType[]
+  deliveries             Delivery[]
 }
 
 model User {
@@ -205,6 +206,7 @@ model User {
   expenseVouchersIssued ExpenseVoucher[]
   bankTransactions      BankTransaction[]
   cashAdvances          CashAdvance[]
+  deliveries            Delivery[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -535,6 +537,7 @@ model Customer {
   sales     Sale[]
   payments  Payment[]
   proformas Proforma[]
+  deliveries Delivery[]
 
   @@unique([companyId, code])
 }
@@ -626,8 +629,44 @@ model Sale {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 
-  items    SaleItem[]
-  payments Payment[]
+  items      SaleItem[]
+  payments   Payment[]
+  deliveries Delivery[]
+
+  @@unique([companyId, number])
+}
+
+enum DeliveryStatus {
+  EN_ATTENTE
+  LIVREE
+  ANNULEE
+}
+
+// Livraison client — module à part, distinct des Bons de livraison
+// (réception fournisseur, voir /livraisons). Le montant facturé au client
+// (`fee`) n'est jamais calculé automatiquement : c'est un montant décidé au
+// cas par cas (distance, secteur, quantité...) par un administrateur ou un
+// gérant, jamais une formule figée.
+model Delivery {
+  id          String         @id @default(cuid())
+  number      String
+  saleId      String?
+  sale        Sale?          @relation(fields: [saleId], references: [id])
+  customerId  String?
+  customer    Customer?      @relation(fields: [customerId], references: [id])
+  destination String
+  quantity    Float?
+  fee         Float
+  paid        Boolean        @default(false)
+  status      DeliveryStatus @default(EN_ATTENTE)
+  notes       String?
+  createdAt   DateTime       @default(now())
+  deliveredAt DateTime?
+  userId      String?
+  user        User?          @relation(fields: [userId], references: [id])
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 
   @@unique([companyId, number])
 }
