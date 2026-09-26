@@ -227,12 +227,12 @@ export function PosClient({
     if (!q) return;
     const exactBarcode = products.find((p) => p.barcode && p.barcode === q);
     if (exactBarcode && (availableBase.get(exactBarcode.id) || 0) > 0) {
-      addToCart(exactBarcode, "piece");
+      addToCart(exactBarcode, exactBarcode.packUnit ? "pack" : "piece");
       setQuery("");
       return;
     }
     if (filtered.length === 1 && filteredServices.length === 0) {
-      addToCart(filtered[0], "piece");
+      addToCart(filtered[0], filtered[0].packUnit ? "pack" : "piece");
       setQuery("");
     } else if (filteredServices.length === 1 && filtered.length === 0) {
       addServiceToCart(filteredServices[0]);
@@ -332,15 +332,25 @@ export function PosClient({
           <div className="border border-slate-200 rounded-xl bg-white divide-y divide-slate-100 overflow-hidden mb-6">
             {filtered.map((p) => {
               const baseQty = availableBase.get(p.id) || 0;
-              const packQty = p.packUnit ? Math.floor(baseQty / p.piecesPerPack) : 0;
-              const price = priceForCustomer(p, selectedCustomer?.type ?? null);
-              const inCartQty = cart.find((l) => l.key === `p:${p.id}:piece`)?.qty || 0;
-              const lowStock = baseQty <= 5;
+              const hasPack = !!p.packUnit;
+              const mode: "piece" | "pack" = hasPack ? "pack" : "piece";
+              const displayQty = hasPack ? Math.floor(baseQty / p.piecesPerPack) : baseQty;
+              const unitLabel = hasPack ? p.packUnit!.symbol : p.unit?.symbol || "";
+              const price = hasPack
+                ? p.packSalePrice ?? p.salePrice * p.piecesPerPack
+                : priceForCustomer(p, selectedCustomer?.type ?? null);
+              const inCartQty = cart.find((l) => l.key === `p:${p.id}:${mode}`)?.qty || 0;
+              const lowStock = displayQty <= 5;
+              const disabled = displayQty <= 0;
               return (
                 <div key={p.id} className="group flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors">
-                  <button onClick={() => addToCart(p, "piece")} className="flex flex-1 min-w-0 items-center gap-3 text-left">
+                  <button
+                    onClick={() => addToCart(p, mode)}
+                    disabled={disabled}
+                    className="flex flex-1 min-w-0 items-center gap-3 text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-100 transition-colors">
-                      <CupSoda size={17} />
+                      {hasPack ? <PackagePlus size={17} /> : <CupSoda size={17} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-slate-800 text-sm truncate">{p.name}</p>
@@ -350,23 +360,14 @@ export function PosClient({
                         }`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${lowStock ? "bg-amber-500" : "bg-emerald-500"}`} />
-                        {baseQty} {p.unit?.symbol} en stock
+                        {displayQty} {unitLabel} en stock
                       </span>
                     </div>
                     <p className="text-blue-700 font-bold text-[15px] text-right shrink-0 whitespace-nowrap">
                       {formatMoney(price)}
-                      <span className="text-slate-400 font-normal text-xs"> /{p.unit?.symbol}</span>
+                      <span className="text-slate-400 font-normal text-xs"> /{unitLabel}</span>
                     </p>
                   </button>
-                  {p.packUnit && (
-                    <button
-                      onClick={() => addToCart(p, "pack")}
-                      disabled={packQty <= 0}
-                      className="shrink-0 flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold px-2.5 py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <PackagePlus size={12} />+1 {p.packUnit.symbol} ({formatMoney(p.packSalePrice ?? p.salePrice * p.piecesPerPack)})
-                    </button>
-                  )}
                   {inCartQty > 0 && (
                     <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5">
                       {inCartQty}
