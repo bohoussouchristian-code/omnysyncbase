@@ -96,6 +96,17 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
   return { success: true };
 }
 
+async function generateSupplierCode(companyId: string): Promise<string> {
+  let n = await prisma.supplier.count({ where: { companyId } });
+  for (let attempt = 0; attempt < 10; attempt++) {
+    n += 1;
+    const code = `FOU-${String(n).padStart(6, "0")}`;
+    const exists = await prisma.supplier.findFirst({ where: { companyId, code } });
+    if (!exists) return code;
+  }
+  throw new Error("Impossible de générer un identifiant fournisseur unique.");
+}
+
 export async function createSupplier(_prev: unknown, formData: FormData) {
   const check = await requireManager();
   if ("error" in check) return { error: check.error };
@@ -107,7 +118,8 @@ export async function createSupplier(_prev: unknown, formData: FormData) {
 
   if (!name) return { error: "Le nom est requis." };
 
-  await prisma.supplier.create({ data: { name, phone, address, companyId } });
+  const code = await generateSupplierCode(companyId);
+  await prisma.supplier.create({ data: { code, name, phone, address, companyId } });
   revalidatePath("/fournisseurs");
   return { success: true };
 }

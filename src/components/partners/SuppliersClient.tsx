@@ -1,20 +1,20 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
 import { createSupplier, updateSupplier } from "@/lib/actions/partners";
 import { addSupplierPayment } from "@/lib/actions/purchases";
 import { Modal, Input, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
-import { formatMoney, formatDateTime } from "@/lib/utils";
-import { Plus, Search, Pencil, Wallet, History } from "lucide-react";
+import { formatMoney } from "@/lib/utils";
+import { Plus, Search, Pencil, Wallet, FolderOpen } from "lucide-react";
 
 type Supplier = {
   id: string;
+  code: string | null;
   name: string;
   phone: string | null;
   address: string | null;
   balance: number;
-  purchases: { id: string; number: string; date: Date; totalAmount: number; status: string }[];
-  payments: { id: string; amount: number; date: Date }[];
 };
 
 export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[]; canManage: boolean }) {
@@ -22,12 +22,16 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [paying, setPaying] = useState<Supplier | null>(null);
-  const [viewing, setViewing] = useState<Supplier | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return suppliers;
-    return suppliers.filter((s) => s.name.toLowerCase().includes(q) || (s.phone && s.phone.includes(q)));
+    return suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.phone && s.phone.includes(q)) ||
+        (s.code && s.code.toLowerCase().includes(q))
+    );
   }, [suppliers, query]);
 
   const totalDebt = suppliers.reduce((s, c) => s + c.balance, 0);
@@ -54,7 +58,7 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher un fournisseur..."
+          placeholder="Rechercher par nom, téléphone ou code (FOU-...)"
           className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -64,6 +68,7 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
+                <th className="px-4 py-3 font-medium">Code</th>
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Téléphone</th>
                 <th className="px-4 py-3 font-medium text-right">Montant dû</th>
@@ -73,6 +78,7 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
             <tbody>
               {filtered.map((s) => (
                 <tr key={s.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3 text-slate-400 font-mono text-xs">{s.code ?? "—"}</td>
                   <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
                   <td className="px-4 py-3 text-slate-600">{s.phone || "—"}</td>
                   <td className="px-4 py-3 text-right">
@@ -80,9 +86,9 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3 justify-end">
-                      <button onClick={() => setViewing(s)} className="text-slate-400 hover:text-blue-600" title="Historique">
-                        <History size={16} />
-                      </button>
+                      <Link href={`/fournisseurs/${s.id}`} className="text-slate-400 hover:text-blue-600" title="Voir le dossier">
+                        <FolderOpen size={16} />
+                      </Link>
                       {s.balance > 0 && (
                         <button onClick={() => setPaying(s)} className="text-slate-400 hover:text-emerald-600" title="Payer">
                           <Wallet size={16} />
@@ -99,7 +105,7 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                     Aucun fournisseur trouvé.
                   </td>
                 </tr>
@@ -119,43 +125,6 @@ export function SuppliersClient({ suppliers, canManage }: { suppliers: Supplier[
 
       <Modal open={!!paying} onClose={() => setPaying(null)} title="Effectuer un paiement">
         {paying && <PaymentForm supplier={paying} onDone={() => setPaying(null)} />}
-      </Modal>
-
-      <Modal open={!!viewing} onClose={() => setViewing(null)} title={`Historique — ${viewing?.name || ""}`}>
-        {viewing && (
-          <div className="space-y-4">
-            <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Achats récents</h4>
-              {viewing.purchases.length === 0 ? (
-                <p className="text-sm text-slate-400">Aucun achat.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {viewing.purchases.map((p) => (
-                    <li key={p.id} className="flex justify-between">
-                      <span className="text-slate-600">{p.number} — {formatDateTime(p.date)}</span>
-                      <span className="font-medium">{formatMoney(p.totalAmount)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-slate-700 mb-2">Paiements récents</h4>
-              {viewing.payments.length === 0 ? (
-                <p className="text-sm text-slate-400">Aucun paiement.</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {viewing.payments.map((p) => (
-                    <li key={p.id} className="flex justify-between">
-                      <span className="text-slate-600">{formatDateTime(p.date)}</span>
-                      <span className="font-medium text-emerald-600">{formatMoney(p.amount)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
       </Modal>
     </div>
   );

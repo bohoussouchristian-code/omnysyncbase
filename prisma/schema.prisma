@@ -355,6 +355,10 @@ model StockMovement {
 
 model Supplier {
   id        String   @id @default(cuid())
+  // Identifiant lisible et permanent du dossier fournisseur (ex: FOU-000001),
+  // même principe que Customer.code — voir generateSupplierCode dans
+  // src/lib/actions/partners.ts.
+  code      String?
   name      String
   phone     String?
   address   String?
@@ -368,6 +372,8 @@ model Supplier {
   purchases      Purchase[]
   payments       Payment[]
   productPrices  ProductSupplierPrice[]
+
+  @@unique([companyId, code])
 }
 
 model Purchase {
