@@ -46,6 +46,7 @@ export const LOYALTY_POINT_VALUE_FCFA = 10;
 export const EXPENSE_CATEGORIES = [
   "Loyer",
   "Transport",
+  "Carburant",
   "Électricité / Eau",
   "Salaires",
   "Fournitures",

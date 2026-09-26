@@ -149,6 +149,9 @@ model Company {
   productSupplierPrices ProductSupplierPrice[]
   employees      Employee[]
   payslips       Payslip[]
+  expenseEnvelopes       ExpenseEnvelope[]
+  expenseEnvelopeTopUps  ExpenseEnvelopeTopUp[]
+  expenseVouchers        ExpenseVoucher[]
 }
 
 model User {
@@ -193,6 +196,8 @@ model User {
   proformas         Proforma[]
   loginLogs         LoginLog[]
   payslips          Payslip[]
+  expenseEnvelopeTopUps ExpenseEnvelopeTopUp[]
+  expenseVouchersIssued ExpenseVoucher[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -653,6 +658,69 @@ model Expense {
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
+
+  // Présent seulement quand cette dépense a été générée par un bon (ex: bon
+  // de carburant) plutôt que saisie directement — voir ExpenseVoucher.
+  voucher ExpenseVoucher?
+}
+
+// "Caisse de dépense" : une enveloppe budgétaire par catégorie (loyer,
+// électricité, carburant...). Le solde diminue soit directement quand une
+// dépense de cette catégorie est enregistrée, soit via un bon émis contre
+// elle (voir ExpenseVoucher) — et augmente via un réapprovisionnement
+// (ExpenseEnvelopeTopUp), par ex. le dépôt d'une nouvelle caution carburant.
+model ExpenseEnvelope {
+  id             String   @id @default(cuid())
+  category       String
+  balance        Float    @default(0)
+  totalAllocated Float    @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  topUps   ExpenseEnvelopeTopUp[]
+  vouchers ExpenseVoucher[]
+
+  @@unique([companyId, category])
+}
+
+model ExpenseEnvelopeTopUp {
+  id         String   @id @default(cuid())
+  envelopeId String
+  envelope   ExpenseEnvelope @relation(fields: [envelopeId], references: [id])
+  amount     Float
+  note       String?
+  createdAt  DateTime @default(now())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+}
+
+// Bon (ex: bon de carburant) émis contre une enveloppe : décompte
+// immédiatement son solde et génère la dépense correspondante, pour que le
+// suivi budgétaire et le journal des dépenses restent une seule et même
+// source de vérité.
+model ExpenseVoucher {
+  id           String   @id @default(cuid())
+  number       String
+  envelopeId   String
+  envelope     ExpenseEnvelope @relation(fields: [envelopeId], references: [id])
+  amount       Float
+  beneficiary  String
+  vehiclePlate String?
+  notes        String?
+  expenseId    String?  @unique
+  expense      Expense? @relation(fields: [expenseId], references: [id])
+  issuedAt     DateTime @default(now())
+  issuedById   String?
+  issuedBy     User?    @relation(fields: [issuedById], references: [id])
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 }
 
 model CashSession {

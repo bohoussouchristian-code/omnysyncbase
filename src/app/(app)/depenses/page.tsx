@@ -8,7 +8,7 @@ export default async function DepensesPage() {
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
-  const [expenses, warehouses] = await Promise.all([
+  const [expenses, warehouses, envelopes] = await Promise.all([
     prisma.expense.findMany({
       where: { companyId },
       orderBy: { date: "desc" },
@@ -16,7 +16,27 @@ export default async function DepensesPage() {
       include: { warehouse: true, user: true },
     }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.expenseEnvelope.findMany({
+      where: { companyId },
+      orderBy: { category: "asc" },
+      include: {
+        vouchers: {
+          orderBy: { issuedAt: "desc" },
+          take: 20,
+          include: { issuedBy: { select: { name: true } } },
+        },
+      },
+    }),
   ]);
 
-  return <ExpensesClient expenses={expenses} warehouses={warehouses} />;
+  const canManageBudgets = user.role === "ADMIN" || user.role === "GERANT";
+
+  return (
+    <ExpensesClient
+      expenses={expenses}
+      warehouses={warehouses}
+      envelopes={envelopes}
+      canManageBudgets={canManageBudgets}
+    />
+  );
 }
