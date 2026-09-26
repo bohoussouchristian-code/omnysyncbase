@@ -118,6 +118,11 @@ export async function createProduct(_prev: unknown, formData: FormData) {
   if (!name) return { error: "Le nom du produit est requis." };
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
+  // "1 casier = 24 casiers" n'a pas de sens : l'unité de lot doit désigner un
+  // contenant différent de l'unité de base qu'elle regroupe (ex: 1 casier =
+  // 24 bouteilles).
+  if (packUnitId && packUnitId === unitId)
+    return { error: "L'unité de lot doit être différente de l'unité de base." };
 
   const supplierPrices = await parseSupplierPrices(formData, companyId);
 
@@ -187,6 +192,8 @@ export async function updateProduct(_prev: unknown, formData: FormData) {
   if (!id || !name) return { error: "Données invalides." };
   if (packUnitId && piecesPerPack <= 1)
     return { error: "Le nombre d'unités par lot doit être supérieur à 1." };
+  if (packUnitId && packUnitId === unitId)
+    return { error: "L'unité de lot doit être différente de l'unité de base." };
 
   const existing = await prisma.product.findFirst({ where: { id, companyId } });
   if (!existing) return { error: "Produit introuvable." };

@@ -51,6 +51,9 @@ export default async function VentesPage({
     }),
   ]);
 
+  const assignedWarehouseId =
+    user.role === "CAISSIER" || user.role === "MAGASINIER" ? user.warehouseId : undefined;
+
   return (
     <VenteDuJourClient
       products={products}
@@ -60,6 +63,7 @@ export default async function VentesPage({
       recentSales={recentSales}
       clientSales={clientSales}
       allCustomers={allCustomers}
+      assignedWarehouseId={assignedWarehouseId}
       initialTab={initialTab}
     />
   );

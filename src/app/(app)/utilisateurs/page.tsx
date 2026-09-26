@@ -7,10 +7,14 @@ export default async function UtilisateursPage() {
   const current = await getCurrentUser();
   if (!current?.companyId || current.role !== "ADMIN") redirect("/dashboard");
 
-  const users = await prisma.user.findMany({
-    where: { companyId: current.companyId },
-    orderBy: { createdAt: "asc" },
-  });
+  const [users, warehouses] = await Promise.all([
+    prisma.user.findMany({
+      where: { companyId: current.companyId },
+      orderBy: { createdAt: "asc" },
+      include: { warehouse: { select: { id: true, name: true } } },
+    }),
+    prisma.warehouse.findMany({ where: { companyId: current.companyId, active: true }, orderBy: { name: "asc" } }),
+  ]);
 
-  return <UsersClient users={users} currentUserId={current.id} />;
+  return <UsersClient users={users} warehouses={warehouses} currentUserId={current.id} />;
 }

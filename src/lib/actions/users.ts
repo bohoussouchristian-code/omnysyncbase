@@ -16,19 +16,47 @@ export async function createUser(_prev: unknown, formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
   const role = String(formData.get("role") || "CAISSIER") as Role;
+  const warehouseId = String(formData.get("warehouseId") || "") || null;
 
   if (!name || !email) return { error: "Nom et email requis." };
   const passwordError = validatePassword(password);
   if (passwordError) return { error: passwordError };
 
+  if (warehouseId) {
+    const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, companyId } });
+    if (!warehouse) return { error: "Dépôt introuvable." };
+  }
+
   try {
     const passwordHash = await hashPassword(password);
-    await prisma.user.create({ data: { name, email, passwordHash, role, companyId } });
+    await prisma.user.create({ data: { name, email, passwordHash, role, companyId, warehouseId } });
     revalidatePath("/utilisateurs");
     return { success: true };
   } catch {
     return { error: "Cet email est déjà utilisé." };
   }
+}
+
+// Dépôt de travail auquel un caissier/magasinier est rattaché — condition
+// pour pouvoir valider une vente (voir createSale dans src/lib/actions/sales.ts).
+// Seul un administrateur peut le modifier.
+export async function updateUserWarehouse(id: string, warehouseId: string | null) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user: current, companyId } = check;
+  if (current.role !== "ADMIN") return { error: "Seul un administrateur peut modifier le dépôt rattaché." };
+
+  const target = await prisma.user.findFirst({ where: { id, companyId } });
+  if (!target) return { error: "Utilisateur introuvable." };
+
+  if (warehouseId) {
+    const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, companyId } });
+    if (!warehouse) return { error: "Dépôt introuvable." };
+  }
+
+  await prisma.user.update({ where: { id, companyId }, data: { warehouseId } });
+  revalidatePath("/utilisateurs");
+  return { success: true };
 }
 
 export async function toggleUserActive(id: string) {

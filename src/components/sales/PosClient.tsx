@@ -72,14 +72,22 @@ export function PosClient({
   services,
   warehouses,
   customers,
+  assignedWarehouseId,
 }: {
   products: Product[];
   services: Service[];
   warehouses: Warehouse[];
   customers: Customer[];
+  // undefined = rôle libre de choisir (Admin/Gérant). null = rattaché à un
+  // dépôt mais aucun n'est assigné (ne peut pas vendre). string = verrouillé
+  // sur ce dépôt précis. Voir requireAssignedWarehouse côté serveur (sales.ts).
+  assignedWarehouseId?: string | null;
 }) {
   const router = useRouter();
-  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || "");
+  const isWarehouseLocked = assignedWarehouseId !== undefined;
+  const [warehouseId, setWarehouseId] = useState(
+    isWarehouseLocked ? assignedWarehouseId || "" : warehouses[0]?.id || ""
+  );
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState<Line[]>([]);
   const [customerId, setCustomerId] = useState("");
@@ -266,21 +274,40 @@ export function PosClient({
     });
   }
 
+  if (isWarehouseLocked && !assignedWarehouseId) {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        Vous n&apos;êtes rattaché à aucun dépôt. Contactez un administrateur pour pouvoir vendre.
+      </div>
+    );
+  }
+
+  const lockedWarehouseName = warehouses.find((w) => w.id === assignedWarehouseId)?.name;
+
   return (
     <div className="grid lg:grid-cols-3 gap-4">
       <div className="lg:col-span-2">
         <div className="flex flex-wrap gap-3 mb-4">
-          <select
-            value={warehouseId}
-            onChange={(e) => setWarehouseId(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
-          >
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
+          {isWarehouseLocked ? (
+            <div
+              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+              title="Dépôt rattaché — voir Utilisateurs pour le changer"
+            >
+              <CupSoda size={15} className="text-slate-400" /> {lockedWarehouseName}
+            </div>
+          ) : (
+            <select
+              value={warehouseId}
+              onChange={(e) => setWarehouseId(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+            >
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
             <input

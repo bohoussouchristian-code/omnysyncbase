@@ -20,6 +20,7 @@ export function VenteDuJourClient({
   recentSales,
   clientSales,
   allCustomers,
+  assignedWarehouseId,
   initialTab = "jour",
 }: {
   products: PosClientProps["products"];
@@ -29,6 +30,7 @@ export function VenteDuJourClient({
   recentSales: RecentSales;
   clientSales: AchatsClientsProps["sales"];
   allCustomers: AchatsClientsProps["customers"];
+  assignedWarehouseId: PosClientProps["assignedWarehouseId"];
   initialTab?: Tab;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -52,10 +54,6 @@ export function VenteDuJourClient({
           >
             <Plus size={16} /> Nouvelle vente
           </button>
-          {/* Réserve la place du menu compte (positionné en absolu en haut à
-              droite par le layout), pour que ce bouton passe à la ligne
-              plutôt que d'être caché dessous. */}
-          <div className="hidden lg:block w-52 shrink-0" aria-hidden="true" />
         </div>
       </div>
 
@@ -85,7 +83,13 @@ export function VenteDuJourClient({
               </button>
             </div>
             <div className="p-5">
-              <PosClient products={products} services={services} warehouses={warehouses} customers={customers} />
+              <PosClient
+                products={products}
+                services={services}
+                warehouses={warehouses}
+                customers={customers}
+                assignedWarehouseId={assignedWarehouseId}
+              />
             </div>
           </div>
         </div>

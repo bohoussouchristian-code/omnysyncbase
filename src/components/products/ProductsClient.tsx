@@ -235,6 +235,7 @@ function ProductForm({
     return res;
   }, undefined as { error?: string } | undefined);
   const [packEnabled, setPackEnabled] = useState(!!product?.packUnitId);
+  const [unitId, setUnitId] = useState(product?.unitId || "");
   const [supplierPrices, setSupplierPrices] = useState<{ supplierId: string; purchasePrice: number }[]>(
     product?.supplierPrices ?? []
   );
@@ -291,7 +292,7 @@ function ProductForm({
         </div>
         <div>
           <Label>Unité</Label>
-          <Select name="unitId" defaultValue={product?.unitId || ""}>
+          <Select name="unitId" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
             <option value="">— Aucune —</option>
             {units.map((u) => (
               <option key={u.id} value={u.id}>
@@ -459,12 +460,17 @@ function ProductForm({
                 <Label>Unité du lot</Label>
                 <Select name="packUnitId" defaultValue={product?.packUnitId || ""} required={packEnabled}>
                   <option value="">— Choisir —</option>
-                  {units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({u.symbol})
-                    </option>
-                  ))}
+                  {units
+                    .filter((u) => u.id !== unitId)
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.symbol})
+                      </option>
+                    ))}
                 </Select>
+                <p className="mt-1 text-xs text-slate-500">
+                  Doit être différente de l&apos;unité de base ci-dessus (ex : Casier ≠ Bouteille).
+                </p>
               </div>
               <div>
                 <Label>Unités de base par lot</Label>

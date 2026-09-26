@@ -140,6 +140,14 @@ model User {
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id])
 
+  // Dépôt de travail actuel — obligatoire pour valider une vente quand le
+  // rôle est Caissier ou Magasinier (voir requireAssignedWarehouse dans
+  // src/lib/actions/sales.ts). Seul un administrateur peut le modifier
+  // (updateUserWarehouse, src/lib/actions/users.ts). Sans effet pour les
+  // autres rôles, qui choisissent librement le dépôt à chaque vente.
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
   sales             Sale[]
   validatedSales    Sale[]          @relation("SaleValidatedBy")
   cancelledSales    Sale[]          @relation("SaleCancelledBy")
@@ -193,6 +201,7 @@ model Warehouse {
   purchases      Purchase[]
   expenses       Expense[]
   cashSessions   CashSession[]
+  assignedUsers  User[]
 
   createdAt DateTime @default(now())
 }

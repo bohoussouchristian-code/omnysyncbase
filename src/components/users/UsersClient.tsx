@@ -8,19 +8,44 @@ import {
   resetUserPassword,
   updateUserRole,
   updateUser,
+  updateUserWarehouse,
 } from "@/lib/actions/users";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { Role } from "@prisma/client";
-import { Plus, Power, MoreVertical, KeyRound, ShieldCheck, Pencil } from "lucide-react";
+import { Plus, Power, MoreVertical, KeyRound, ShieldCheck, Pencil, Warehouse as WarehouseIcon } from "lucide-react";
 
-type User = { id: string; name: string; email: string; role: Role; active: boolean };
+type Warehouse = { id: string; name: string };
+// Ces deux rôles doivent être rattachés à un dépôt pour pouvoir valider une
+// vente (voir createSale dans src/lib/actions/sales.ts) ; Admin et Gérant
+// restent libres de choisir le dépôt à chaque vente.
+const WAREHOUSE_BOUND_ROLES: readonly Role[] = ["CAISSIER", "MAGASINIER"];
 
-export function UsersClient({ users, currentUserId }: { users: User[]; currentUserId: string }) {
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  active: boolean;
+  warehouseId: string | null;
+  warehouse: Warehouse | null;
+};
+
+export function UsersClient({
+  users,
+  warehouses,
+  currentUserId,
+}: {
+  users: User[];
+  warehouses: Warehouse[];
+  currentUserId: string;
+}) {
   const [showCreate, setShowCreate] = useState(false);
-  const [activeModal, setActiveModal] = useState<{ type: "password" | "role" | "edit"; user: User } | null>(null);
+  const [activeModal, setActiveModal] = useState<{ type: "password" | "role" | "edit" | "warehouse"; user: User } | null>(
+    null
+  );
 
-  function openAction(type: "password" | "role" | "edit", user: User) {
+  function openAction(type: "password" | "role" | "edit" | "warehouse", user: User) {
     setActiveModal({ type, user });
   }
 
@@ -47,47 +72,63 @@ export function UsersClient({ users, currentUserId }: { users: User[]; currentUs
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Rôle</th>
+                <th className="px-4 py-3 font-medium">Dépôt rattaché</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                  <td className="px-4 py-3 text-slate-600">{ROLE_LABELS[u.role]}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={u.active ? "success" : "default"}>{u.active ? "Actif" : "Inactif"}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3 justify-end">
-                      {u.id !== currentUserId && (
-                        <button
-                          onClick={() => toggleUserActive(u.id)}
-                          className="text-slate-400 hover:text-red-600"
-                          title={u.active ? "Désactiver" : "Activer"}
-                        >
-                          <Power size={16} />
-                        </button>
+              {users.map((u) => {
+                const needsWarehouse = WAREHOUSE_BOUND_ROLES.includes(u.role);
+                return (
+                  <tr key={u.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{u.email}</td>
+                    <td className="px-4 py-3 text-slate-600">{ROLE_LABELS[u.role]}</td>
+                    <td className="px-4 py-3">
+                      {needsWarehouse ? (
+                        u.warehouse ? (
+                          <span className="text-slate-600">{u.warehouse.name}</span>
+                        ) : (
+                          <Badge tone="warning">Aucun</Badge>
+                        )
+                      ) : (
+                        <span className="text-slate-400">—</span>
                       )}
-                      <UserActionsMenu
-                        onResetPassword={() => openAction("password", u)}
-                        onEditRole={() => openAction("role", u)}
-                        onEdit={() => openAction("edit", u)}
-                        canEditRole={u.id !== currentUserId}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={u.active ? "success" : "default"}>{u.active ? "Actif" : "Inactif"}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 justify-end">
+                        {u.id !== currentUserId && (
+                          <button
+                            onClick={() => toggleUserActive(u.id)}
+                            className="text-slate-400 hover:text-red-600"
+                            title={u.active ? "Désactiver" : "Activer"}
+                          >
+                            <Power size={16} />
+                          </button>
+                        )}
+                        <UserActionsMenu
+                          onResetPassword={() => openAction("password", u)}
+                          onEditRole={() => openAction("role", u)}
+                          onEdit={() => openAction("edit", u)}
+                          onEditWarehouse={needsWarehouse ? () => openAction("warehouse", u) : undefined}
+                          canEditRole={u.id !== currentUserId}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Card>
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvel utilisateur">
-        <UserForm onDone={() => setShowCreate(false)} />
+        <UserForm warehouses={warehouses} onDone={() => setShowCreate(false)} />
       </Modal>
 
       <Modal
@@ -113,6 +154,16 @@ export function UsersClient({ users, currentUserId }: { users: User[]; currentUs
       >
         {activeModal && <EditUserForm user={activeModal.user} onDone={() => setActiveModal(null)} />}
       </Modal>
+
+      <Modal
+        open={activeModal?.type === "warehouse"}
+        onClose={() => setActiveModal(null)}
+        title={`Dépôt rattaché — ${activeModal?.user.name ?? ""}`}
+      >
+        {activeModal && (
+          <WarehouseForm user={activeModal.user} warehouses={warehouses} onDone={() => setActiveModal(null)} />
+        )}
+      </Modal>
     </div>
   );
 }
@@ -121,11 +172,13 @@ function UserActionsMenu({
   onResetPassword,
   onEditRole,
   onEdit,
+  onEditWarehouse,
   canEditRole,
 }: {
   onResetPassword: () => void;
   onEditRole: () => void;
   onEdit: () => void;
+  onEditWarehouse?: () => void;
   canEditRole: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -173,6 +226,14 @@ function UserActionsMenu({
               >
                 <ShieldCheck size={15} /> Permissions & rôles
               </button>
+              {onEditWarehouse && (
+                <button
+                  onClick={() => pick(onEditWarehouse)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <WarehouseIcon size={15} /> Dépôt rattaché
+                </button>
+              )}
               <button
                 onClick={() => pick(onEdit)}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
@@ -187,12 +248,14 @@ function UserActionsMenu({
   );
 }
 
-function UserForm({ onDone }: { onDone: () => void }) {
+function UserForm({ warehouses, onDone }: { warehouses: Warehouse[]; onDone: () => void }) {
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await createUser(prev, formData);
     if (res && "success" in res && res.success) onDone();
     return res;
   }, undefined as { error?: string } | undefined);
+  const [role, setRole] = useState<Role>("CAISSIER");
+  const needsWarehouse = WAREHOUSE_BOUND_ROLES.includes(role);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -212,13 +275,29 @@ function UserForm({ onDone }: { onDone: () => void }) {
       </div>
       <div>
         <Label>Rôle</Label>
-        <Select name="role" defaultValue="CAISSIER">
+        <Select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
           <option value="ADMIN">Administrateur</option>
           <option value="GERANT">Gérant</option>
           <option value="CAISSIER">Caissier</option>
           <option value="MAGASINIER">Magasinier</option>
         </Select>
       </div>
+      {needsWarehouse && (
+        <div>
+          <Label>Dépôt rattaché</Label>
+          <Select name="warehouseId" defaultValue="">
+            <option value="">— Aucun (ne pourra pas vendre) —</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-xs text-slate-500">
+            Un caissier ou magasinier ne peut valider une vente que depuis son dépôt rattaché.
+          </p>
+        </div>
+      )}
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
           Annuler
@@ -372,5 +451,63 @@ function EditUserForm({ user, onDone }: { user: User; onDone: () => void }) {
         <SubmitButton>Enregistrer</SubmitButton>
       </div>
     </form>
+  );
+}
+
+function WarehouseForm({
+  user,
+  warehouses,
+  onDone,
+}: {
+  user: User;
+  warehouses: Warehouse[];
+  onDone: () => void;
+}) {
+  const [warehouseId, setWarehouseId] = useState(user.warehouseId || "");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function save() {
+    startTransition(async () => {
+      const res = await updateUserWarehouse(user.id, warehouseId || null);
+      if (res && "error" in res) {
+        setError(res.error ?? "Erreur inconnue.");
+        return;
+      }
+      onDone();
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <FormError error={error ?? undefined} />
+      <p className="text-sm text-slate-600">
+        {ROLE_LABELS[user.role]} ne peut valider une vente que depuis ce dépôt.
+      </p>
+      <div>
+        <Label>Dépôt rattaché</Label>
+        <Select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+          <option value="">— Aucun (ne pourra pas vendre) —</option>
+          {warehouses.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={pending}
+          className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+        >
+          {pending ? "Enregistrement..." : "Enregistrer"}
+        </button>
+      </div>
+    </div>
   );
 }
