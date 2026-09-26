@@ -152,6 +152,8 @@ model Company {
   expenseEnvelopes       ExpenseEnvelope[]
   expenseEnvelopeTopUps  ExpenseEnvelopeTopUp[]
   expenseVouchers        ExpenseVoucher[]
+  bankAccounts           BankAccount[]
+  bankTransactions       BankTransaction[]
 }
 
 model User {
@@ -198,6 +200,7 @@ model User {
   payslips          Payslip[]
   expenseEnvelopeTopUps ExpenseEnvelopeTopUp[]
   expenseVouchersIssued ExpenseVoucher[]
+  bankTransactions      BankTransaction[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -802,4 +805,45 @@ model Payslip {
   company   Company  @relation(fields: [companyId], references: [id])
 
   @@unique([employeeId, period])
+}
+
+enum BankTransactionType {
+  RECETTE
+  DECAISSEMENT
+}
+
+// Miroir d'un compte bancaire réel de l'entreprise dans l'app : chaque
+// recette (dépôt) et décaissement (retrait/paiement) saisi ici met à jour un
+// solde suivi par l'app elle-même, pour que les bilans et rapports reflètent
+// une trésorerie réelle — pas seulement la caisse et le stock. Une entreprise
+// peut avoir plusieurs comptes (banques différentes).
+model BankAccount {
+  id            String   @id @default(cuid())
+  name          String
+  bankName      String?
+  accountNumber String?
+  balance       Float    @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  transactions BankTransaction[]
+}
+
+model BankTransaction {
+  id            String              @id @default(cuid())
+  bankAccountId String
+  bankAccount   BankAccount         @relation(fields: [bankAccountId], references: [id])
+  type          BankTransactionType
+  amount        Float
+  label         String
+  reference     String?
+  date          DateTime            @default(now())
+  userId        String?
+  user          User?               @relation(fields: [userId], references: [id])
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 }

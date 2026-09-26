@@ -33,6 +33,7 @@ import {
   PackageCheck,
   UserCog,
   Receipt,
+  PiggyBank,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -71,6 +72,12 @@ const NAV: readonly NavEntry[] = [
         roles: ["ADMIN", "GERANT"],
       },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
+      {
+        href: "/tresorerie",
+        label: "Comptes bancaires",
+        icon: PiggyBank,
+        roles: ["ADMIN", "GERANT"],
+      },
     ],
   },
   {

@@ -14,7 +14,7 @@ export default async function BilanPage() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [salesMonth, expensesMonth, suppliersDebt, overdueSales] = await Promise.all([
+  const [salesMonth, expensesMonth, suppliersDebt, overdueSales, bankAccounts] = await Promise.all([
     prisma.sale.findMany({
       where: { companyId, date: { gte: startOfMonth }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
       include: { items: { include: { product: true } } },
@@ -30,7 +30,10 @@ export default async function BilanPage() {
       take: 8,
       include: { customer: true },
     }),
+    prisma.bankAccount.findMany({ where: { companyId, active: true }, select: { name: true, balance: true } }),
   ]);
+
+  const bankBalance = bankAccounts.reduce((s, a) => s + a.balance, 0);
 
   const revenueMonth = salesMonth.reduce((s, sale) => s + sale.totalAmount, 0);
   const cogsMonth = salesMonth.reduce(
@@ -60,6 +63,23 @@ export default async function BilanPage() {
           tone={profitMonth >= 0 ? "success" : "danger"}
         />
       </div>
+
+      {bankAccounts.length > 0 && (
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-900">Trésorerie bancaire</h3>
+            <Link href="/tresorerie" className="no-print text-sm text-blue-600 hover:underline">
+              Voir les comptes
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard label="Solde bancaire total" value={formatMoney(bankBalance)} tone={bankBalance >= 0 ? "success" : "danger"} />
+            {bankAccounts.map((a) => (
+              <StatCard key={a.name} label={a.name} value={formatMoney(a.balance)} />
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="p-5">
         <h3 className="font-semibold text-slate-900 mb-3">Dettes et retards</h3>
