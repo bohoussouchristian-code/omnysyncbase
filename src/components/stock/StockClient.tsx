@@ -13,16 +13,19 @@ import {
   PageHeader,
   Card,
 } from "@/components/ui";
-import { toCSV } from "@/lib/utils";
+import { toCSV, formatMoney } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { SlidersHorizontal, Search } from "lucide-react";
 
 type Product = {
   id: string;
   name: string;
+  reference: string | null;
+  purchasePrice: number;
   reorderLevel: number;
   unit: { symbol: string } | null;
   stocks: { warehouseId: string; quantity: number }[];
+  supplierPrices: { supplier: { name: string } }[];
 };
 type Warehouse = { id: string; name: string };
 
@@ -40,24 +43,31 @@ export function StockClient({
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products
-      .filter((p) => !q || p.name.toLowerCase().includes(q))
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || (p.reference?.toLowerCase().includes(q) ?? false))
       .map((p) => {
         const qty =
           warehouseId === "ALL"
             ? p.stocks.reduce((s, st) => s + st.quantity, 0)
             : p.stocks.find((st) => st.warehouseId === warehouseId)?.quantity || 0;
-        return { ...p, qty };
+        const suppliers = p.supplierPrices.map((sp) => sp.supplier.name).join(", ");
+        return { ...p, qty, suppliers, stockValue: qty * p.purchasePrice };
       });
   }, [products, warehouseId, query]);
+
+  const totalStockValue = useMemo(() => rows.reduce((s, p) => s + p.stockValue, 0), [rows]);
 
   const csv = useMemo(
     () =>
       toCSV(
-        ["Produit", "Unité", "Quantité", "Statut"],
+        ["Réf.", "Produit", "Unité", "Quantité", "Prix d'achat", "Valeur stock", "Fournisseur(s)", "Statut"],
         rows.map((p) => [
+          p.reference || "",
           p.name,
           p.unit?.symbol || "",
           p.qty,
+          p.purchasePrice,
+          p.stockValue,
+          p.suppliers,
           p.reorderLevel > 0 && p.qty <= p.reorderLevel ? "Stock bas" : "OK",
         ])
       ),
@@ -68,6 +78,7 @@ export function StockClient({
     <div>
       <PageHeader
         title="Stock Général"
+        subtitle={`${rows.length} produit(s) — Valeur totale du stock : ${formatMoney(totalStockValue)}`}
         action={
           <button
             onClick={() => setShowAdjust(true)}
@@ -108,9 +119,13 @@ export function StockClient({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
+                <th className="px-4 py-3 font-medium">Réf.</th>
                 <th className="px-4 py-3 font-medium">Produit</th>
                 <th className="px-4 py-3 font-medium">Unité</th>
                 <th className="px-4 py-3 font-medium text-right">Quantité</th>
+                <th className="px-4 py-3 font-medium text-right">Prix d&apos;achat</th>
+                <th className="px-4 py-3 font-medium text-right">Valeur stock</th>
+                <th className="px-4 py-3 font-medium">Fournisseur(s)</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
               </tr>
             </thead>
@@ -119,9 +134,13 @@ export function StockClient({
                 const low = p.reorderLevel > 0 && p.qty <= p.reorderLevel;
                 return (
                   <tr key={p.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{p.reference || "—"}</td>
                     <td className="px-4 py-3 font-medium text-slate-800">{p.name}</td>
                     <td className="px-4 py-3 text-slate-600">{p.unit?.symbol || "—"}</td>
                     <td className="px-4 py-3 text-right font-medium">{p.qty}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{formatMoney(p.purchasePrice)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-700">{formatMoney(p.stockValue)}</td>
+                    <td className="px-4 py-3 text-slate-600">{p.suppliers || "—"}</td>
                     <td className="px-4 py-3">
                       {low ? (
                         <Badge tone="danger">Stock bas</Badge>
@@ -134,7 +153,7 @@ export function StockClient({
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
                     Aucun produit trouvé.
                   </td>
                 </tr>

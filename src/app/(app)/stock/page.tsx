@@ -12,7 +12,11 @@ export default async function StockPage() {
     prisma.product.findMany({
       where: { active: true, companyId },
       orderBy: { name: "asc" },
-      include: { unit: true, stocks: true },
+      include: {
+        unit: true,
+        stocks: true,
+        supplierPrices: { include: { supplier: { select: { name: true } } } },
+      },
     }),
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
   ]);
