@@ -1,5 +1,5 @@
 import { FileText } from "lucide-react";
-import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
+import { formatMoney, formatDateTime, formatDate, amountInWordsFcfa } from "@/lib/utils";
 
 type ProformaItemData = {
   id: string;
@@ -84,6 +84,7 @@ export function ProformaDocument({ data }: { data: ProformaDocumentData }) {
         <span className="font-semibold text-base">Montant total</span>
         <span className="font-bold text-lg">{formatMoney(data.totalAmount)}</span>
       </div>
+      <p className="text-xs text-slate-400 italic mt-1">Arrêté le présent devis à la somme de : {amountInWordsFcfa(data.totalAmount)}.</p>
 
       <p className="text-xs text-slate-400 mt-4 text-center">
         Ce devis n&apos;est pas une facture et ne vaut pas encaissement.

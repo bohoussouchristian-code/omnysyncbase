@@ -7,7 +7,7 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { Eye, Search, Printer } from "lucide-react";
-import { ReceiptDocument, buildReceiptData, type ReceiptData } from "@/components/sales/ReceiptDocument";
+import { ReceiptDocument, buildReceiptData, packAwareQtyLabel, type ReceiptData } from "@/components/sales/ReceiptDocument";
 import type { PaymentMethod } from "@prisma/client";
 
 type Sale = {
@@ -29,7 +29,12 @@ type Sale = {
     quantity: number;
     unitPrice: number;
     subtotal: number;
-    product: { name: string } | null;
+    product: {
+      name: string;
+      unit: { symbol: string } | null;
+      packUnit: { symbol: string } | null;
+      piecesPerPack: number;
+    } | null;
     service: { name: string } | null;
   }[];
   payments: { amount: number; cashReceived: number | null; changeGiven: number | null }[];
@@ -154,14 +159,18 @@ export function SalesHistoryClient({
                 </tr>
               </thead>
               <tbody>
-                {detail.items.map((it) => (
-                  <tr key={it.id} className="border-b border-slate-50">
-                    <td className="py-1.5">{it.product?.name ?? it.service?.name ?? "—"}</td>
-                    <td className="py-1.5 text-right">{it.quantity}</td>
-                    <td className="py-1.5 text-right">{formatMoney(it.unitPrice)}</td>
-                    <td className="py-1.5 text-right font-medium">{formatMoney(it.subtotal)}</td>
-                  </tr>
-                ))}
+                {detail.items.map((it) => {
+                  const isPack = it.product?.packUnit && it.product.piecesPerPack > 0 && it.quantity % it.product.piecesPerPack === 0;
+                  const unitPrice = isPack ? it.unitPrice * it.product!.piecesPerPack : it.unitPrice;
+                  return (
+                    <tr key={it.id} className="border-b border-slate-50">
+                      <td className="py-1.5">{it.product?.name ?? it.service?.name ?? "—"}</td>
+                      <td className="py-1.5 text-right whitespace-nowrap">{packAwareQtyLabel(it.quantity, it.product)}</td>
+                      <td className="py-1.5 text-right">{formatMoney(unitPrice)}</td>
+                      <td className="py-1.5 text-right font-medium">{formatMoney(it.subtotal)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             <div className="flex justify-between text-sm">

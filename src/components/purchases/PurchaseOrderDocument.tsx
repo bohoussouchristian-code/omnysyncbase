@@ -1,5 +1,5 @@
 import { ClipboardList } from "lucide-react";
-import { formatMoney, formatDateTime } from "@/lib/utils";
+import { formatMoney, formatDateTime, amountInWordsFcfa } from "@/lib/utils";
 
 type Item = {
   id: string;
@@ -100,6 +100,7 @@ export function PurchaseOrderDocument({ data }: { data: PurchaseOrderDocumentDat
           <span>{formatMoney(data.paidAmount)}</span>
         </div>
       </div>
+      <p className="text-xs text-slate-400 italic mt-1">Arrêté le présent bon à la somme de : {amountInWordsFcfa(data.totalAmount)}.</p>
 
       <p className="text-xs text-slate-400 mt-4 text-center">{statusLabel(data.status)}</p>
     </div>

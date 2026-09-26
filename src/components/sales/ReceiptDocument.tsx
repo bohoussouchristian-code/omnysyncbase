@@ -1,5 +1,5 @@
 import { Receipt as ReceiptIcon, MapPin } from "lucide-react";
-import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
+import { formatMoney, formatDateTime, formatDate, amountInWordsFcfa } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
 import type { PaymentMethod } from "@prisma/client";
 
@@ -8,9 +8,36 @@ type ReceiptItem = {
   quantity: number;
   unitPrice: number;
   subtotal: number;
-  product: { name: string } | null;
+  product: {
+    name: string;
+    unit: { symbol: string } | null;
+    packUnit: { symbol: string } | null;
+    piecesPerPack: number;
+  } | null;
   service: { name: string } | null;
 };
+
+// On ne vend et n'imprime jamais la bouteille : quand la quantité vendue
+// (en unité de base) est un multiple entier du lot configuré, elle
+// s'affiche en casiers, jamais en bouteilles — réutilisé partout où une
+// vente affiche ses lignes (reçu, détail caisse, historique).
+export function packAwareQtyLabel(
+  quantity: number,
+  product: { unit: { symbol: string } | null; packUnit: { symbol: string } | null; piecesPerPack: number } | null
+): string {
+  if (product?.packUnit && product.piecesPerPack > 0 && quantity % product.piecesPerPack === 0) {
+    return `${quantity / product.piecesPerPack} ${product.packUnit.symbol}`;
+  }
+  return `${quantity} ${product?.unit?.symbol || ""}`.trim();
+}
+
+function packAwareLine(it: ReceiptItem): { qtyLabel: string; unitPrice: number } {
+  const p = it.product;
+  if (p?.packUnit && p.piecesPerPack > 0 && it.quantity % p.piecesPerPack === 0) {
+    return { qtyLabel: packAwareQtyLabel(it.quantity, p), unitPrice: it.unitPrice * p.piecesPerPack };
+  }
+  return { qtyLabel: packAwareQtyLabel(it.quantity, p), unitPrice: it.unitPrice };
+}
 
 export type ReceiptData = {
   number: string;
@@ -153,14 +180,17 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
           </tr>
         </thead>
         <tbody>
-          {data.items.map((it) => (
-            <tr key={it.id} className="border-t border-slate-100">
-              <td className="py-2">{it.product?.name ?? it.service?.name ?? "—"}</td>
-              <td className="py-2 text-right">{it.quantity}</td>
-              <td className="py-2 text-right">{formatMoney(it.unitPrice)}</td>
-              <td className="py-2 text-right font-medium">{formatMoney(it.subtotal)}</td>
-            </tr>
-          ))}
+          {data.items.map((it) => {
+            const line = it.product ? packAwareLine(it) : { qtyLabel: String(it.quantity), unitPrice: it.unitPrice };
+            return (
+              <tr key={it.id} className="border-t border-slate-100">
+                <td className="py-2">{it.product?.name ?? it.service?.name ?? "—"}</td>
+                <td className="py-2 text-right whitespace-nowrap">{line.qtyLabel}</td>
+                <td className="py-2 text-right">{formatMoney(line.unitPrice)}</td>
+                <td className="py-2 text-right font-medium">{formatMoney(it.subtotal)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -191,6 +221,7 @@ export function ReceiptDocument({ data }: { data: ReceiptData }) {
           <span className="font-semibold text-base">Montant payé</span>
           <span className="font-bold text-lg">{formatMoney(data.paid)}</span>
         </div>
+        <p className="text-xs text-slate-400 italic pt-1">Arrêté la présente facture à la somme de : {amountInWordsFcfa(data.paid)}.</p>
       </div>
 
       <div className="flex justify-between items-center mt-4 pt-3">

@@ -24,7 +24,7 @@ export default async function CaisseVentesPage({
   const from = new Date(`${fromStr}T00:00:00`);
   const to = new Date(`${toStr}T23:59:59.999`);
 
-  const itemsInclude = { include: { product: true, service: true } } as const;
+  const itemsInclude = { include: { product: { include: { unit: true, packUnit: true } }, service: true } } as const;
 
   const [pending, validated, warehouses, openSessions, company] = await Promise.all([
     // Une vente en attente reste visible quelle que soit la période : c'est

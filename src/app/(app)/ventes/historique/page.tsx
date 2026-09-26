@@ -32,7 +32,7 @@ export default async function SalesHistoryPage({
         customer: true,
         warehouse: true,
         user: true,
-        items: { include: { product: true, service: true } },
+        items: { include: { product: { include: { unit: true, packUnit: true } }, service: true } },
         payments: { select: { amount: true, cashReceived: true, changeGiven: true } },
       },
     }),
