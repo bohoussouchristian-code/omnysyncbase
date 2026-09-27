@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { createProduct, updateProduct } from "@/lib/actions/products";
+import { useRouter } from "next/navigation";
+import { createProduct, updateProduct, createPackagingType } from "@/lib/actions/products";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader } from "@/components/ui";
 import { formatMoney } from "@/lib/utils";
 import { Plus, Search, Pencil, Tag, Trash2 } from "lucide-react";
@@ -236,12 +237,14 @@ function ProductForm({
   product?: Product;
   onDone: () => void;
 }) {
+  const router = useRouter();
   const action = product ? updateProduct : createProduct;
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await action(prev, formData);
     if (res && "success" in res && res.success) onDone();
     return res;
   }, undefined as { error?: string } | undefined);
+  const [showNewPackaging, setShowNewPackaging] = useState(false);
   const [packEnabled, setPackEnabled] = useState(!!product?.packUnitId);
   const [unitId, setUnitId] = useState(product?.unitId || "");
   const [supplierPrices, setSupplierPrices] = useState<{ supplierId: string; purchasePrice: number }[]>(
@@ -267,6 +270,7 @@ function ProductForm({
   }
 
   return (
+    <>
     <form action={formAction} className="space-y-4">
       <FormError error={state?.error} />
       {product && <input type="hidden" name="id" value={product.id} />}
@@ -375,7 +379,16 @@ function ProductForm({
           )}
           {businessType === "BOISSON" && (
             <div>
-              <Label>Type d&apos;emballage (consigne)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Type d&apos;emballage (consigne)</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewPackaging(true)}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  + Nouveau type
+                </button>
+              </div>
               <Select name="packagingTypeId" defaultValue={product?.packagingTypeId ?? ""}>
                 <option value="">— Aucun —</option>
                 {packagingTypes.map((p) => (
@@ -384,10 +397,16 @@ function ProductForm({
                   </option>
                 ))}
               </Select>
+              {packagingTypes.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Aucun type d&apos;emballage configuré — cliquez sur « + Nouveau type » pour en créer un (ex :
+                  Casier standard, consigne 500 FCFA).
+                </p>
+              )}
               <p className="text-xs text-slate-400 mt-1">
                 Montant du liquide (prix de vente ci-dessus) et de l&apos;emballage (consigne du type choisi)
                 restent distincts — le client pourra choisir de payer la consigne ou non à la vente selon
-                qu&apos;il rapporte ses emballages vides. Gérer les types dans Catégories &amp; unités.
+                qu&apos;il rapporte ses emballages vides.
               </p>
             </div>
           )}
@@ -554,6 +573,44 @@ function ProductForm({
           Annuler
         </button>
         <SubmitButton>{product ? "Enregistrer" : "Créer le produit"}</SubmitButton>
+      </div>
+    </form>
+
+    <Modal open={showNewPackaging} onClose={() => setShowNewPackaging(false)} title="Nouveau type d'emballage">
+      <NewPackagingTypeForm
+        onDone={() => {
+          setShowNewPackaging(false);
+          router.refresh();
+        }}
+      />
+    </Modal>
+    </>
+  );
+}
+
+function NewPackagingTypeForm({ onDone }: { onDone: () => void }) {
+  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
+    const res = await createPackagingType(prev, formData);
+    if (res && "success" in res && res.success) onDone();
+    return res;
+  }, undefined as { error?: string } | undefined);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <div>
+        <Label>Nom</Label>
+        <Input name="name" placeholder="Ex : Casier standard" required autoFocus />
+      </div>
+      <div>
+        <Label>Montant de la consigne (FCFA)</Label>
+        <Input type="number" name="deposit" min={1} step="1" required />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Créer</SubmitButton>
       </div>
     </form>
   );
