@@ -56,7 +56,7 @@ export function ExpensesClient({
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
-  const [showVoucher, setShowVoucher] = useState<Envelope | null>(null);
+  const [voucherCategory, setVoucherCategory] = useState<string | null>(null);
   const total = expenses.filter((e) => !e.cancelled).reduce((s, e) => s + e.amount, 0);
 
   return (
@@ -82,6 +82,12 @@ export function ExpensesClient({
                 <Wallet size={16} /> Réapprovisionner
               </button>
             )}
+            <button
+              onClick={() => setVoucherCategory("Carburant")}
+              className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 px-4 py-2 text-sm font-semibold hover:bg-blue-100"
+            >
+              <Fuel size={16} /> Bon de carburant
+            </button>
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
@@ -134,7 +140,7 @@ export function ExpensesClient({
                     {formatMoney(spent)} consommé sur {formatMoney(env.totalAllocated)} alloué
                   </p>
                   <button
-                    onClick={() => setShowVoucher(env)}
+                    onClick={() => setVoucherCategory(env.category)}
                     disabled={!env.active}
                     className="mt-2 flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold px-2.5 py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
@@ -208,8 +214,18 @@ export function ExpensesClient({
         <TopUpForm onDone={() => setShowTopUp(false)} />
       </Modal>
 
-      <Modal open={!!showVoucher} onClose={() => setShowVoucher(null)} title={`Émettre un bon — ${showVoucher?.category || ""}`}>
-        {showVoucher && <VoucherForm envelope={showVoucher} onDone={() => setShowVoucher(null)} />}
+      <Modal
+        open={!!voucherCategory}
+        onClose={() => setVoucherCategory(null)}
+        title={`Émettre un bon — ${voucherCategory || ""}`}
+      >
+        {voucherCategory && (
+          <VoucherForm
+            initialCategory={voucherCategory}
+            envelopes={envelopes}
+            onDone={() => setVoucherCategory(null)}
+          />
+        )}
       </Modal>
     </div>
   );
@@ -311,8 +327,18 @@ function TopUpForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function VoucherForm({ envelope, onDone }: { envelope: Envelope; onDone: () => void }) {
+function VoucherForm({
+  initialCategory,
+  envelopes,
+  onDone,
+}: {
+  initialCategory: string;
+  envelopes: Envelope[];
+  onDone: () => void;
+}) {
   const router = useRouter();
+  const [category, setCategory] = useState(initialCategory);
+  const balance = envelopes.find((e) => e.category === category)?.balance ?? null;
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await issueExpenseVoucher(prev, formData);
     if (res && "success" in res && res.success) {
@@ -325,9 +351,24 @@ function VoucherForm({ envelope, onDone }: { envelope: Envelope; onDone: () => v
   return (
     <form action={formAction} className="space-y-4">
       <FormError error={state?.error} />
-      <input type="hidden" name="envelopeId" value={envelope.id} />
+      <div>
+        <Label>Catégorie</Label>
+        <Select name="category" value={category} onChange={(e) => setCategory(e.target.value)}>
+          {EXPENSE_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      </div>
       <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
-        Solde actuel de la caisse « {envelope.category} » : <strong>{formatMoney(envelope.balance)}</strong>
+        {balance != null ? (
+          <>
+            Solde actuel de la caisse « {category} » : <strong>{formatMoney(balance)}</strong>
+          </>
+        ) : (
+          <>Aucune caisse « {category} » pour l&apos;instant — elle sera créée avec ce bon (solde à 0, à réapprovisionner ensuite).</>
+        )}
       </p>
       <div>
         <Label>Bénéficiaire</Label>

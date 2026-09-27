@@ -127,24 +127,31 @@ export async function toggleExpenseEnvelopeActive(envelopeId: string) {
 // immédiatement son solde et enregistre la dépense correspondante, pour que
 // le journal des dépenses et le suivi budgétaire restent une seule source de
 // vérité. La caisse peut passer en négatif (dépassement) — jamais bloquant,
-// seulement visible, comme le reste du suivi budgétaire dans l'app.
+// seulement visible, comme le reste du suivi budgétaire dans l'app. Un bon
+// est une urgence (ex: carburant à payer avant un départ) : il ne doit jamais
+// attendre qu'un administrateur ait pensé à réapprovisionner la caisse au
+// préalable — la caisse de la catégorie est créée à la volée (solde 0) si
+// elle n'existe pas encore, exactement comme topUpExpenseEnvelope le fait.
 export async function issueExpenseVoucher(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
 
-  const envelopeId = String(formData.get("envelopeId") || "");
+  const category = String(formData.get("category") || "").trim();
   const amount = Number(formData.get("amount") || 0);
   const beneficiary = String(formData.get("beneficiary") || "").trim();
   const vehiclePlate = String(formData.get("vehiclePlate") || "").trim() || null;
   const notes = String(formData.get("notes") || "").trim() || null;
 
-  if (!envelopeId) return { error: "Caisse de dépense requise." };
+  if (!category) return { error: "Catégorie requise." };
   if (amount <= 0) return { error: "Montant invalide." };
   if (!beneficiary) return { error: "Bénéficiaire requis." };
 
-  const envelope = await prisma.expenseEnvelope.findFirst({ where: { id: envelopeId, companyId } });
-  if (!envelope) return { error: "Caisse de dépense introuvable." };
+  const envelope = await prisma.expenseEnvelope.upsert({
+    where: { companyId_category: { companyId, category } },
+    update: {},
+    create: { category, balance: 0, totalAllocated: 0, companyId },
+  });
   if (!envelope.active) return { error: "Cette caisse de dépense est désactivée." };
 
   const number = generateNumber("BON");
