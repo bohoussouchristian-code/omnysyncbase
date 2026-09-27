@@ -1,10 +1,12 @@
 import { Badge } from "@/components/ui";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Wallet } from "lucide-react";
 
-// La caisse valide une vente une fois qu'elle est intégralement payée :
-// "Validé" (vert, coche) si soldée, "En attente" (orange, sablier) tant qu'il
-// reste un solde (crédit, paiement partiel, ou pas encore encaissée),
-// "Annulée" pour une vente annulée.
+// Distingue bien "jamais encore encaissée" (En attente — nécessite de cliquer
+// Encaisser) d'une vente déjà validée mais dont le solde reste dû (Crédit /
+// Partielle — déjà passée par la caisse, la dette se règle désormais depuis
+// le dossier du client, pas en recliquant ici). Les confondre sous un même
+// "En attente" laissait croire qu'une vente à crédit n'avait jamais été
+// encaissée alors qu'elle l'a bien été.
 export function SaleStatusBadge({ status }: { status: string }) {
   if (status === "PAYEE") {
     return (
@@ -20,6 +22,15 @@ export function SaleStatusBadge({ status }: { status: string }) {
       <Badge tone="danger">
         <span className="inline-flex items-center gap-1">
           <XCircle size={12} className="text-red-600" /> Annulée
+        </span>
+      </Badge>
+    );
+  }
+  if (status === "CREDIT" || status === "PARTIELLE") {
+    return (
+      <Badge tone="danger">
+        <span className="inline-flex items-center gap-1">
+          <Wallet size={12} className="text-red-600" /> {status === "CREDIT" ? "Crédit" : "Partielle"}
         </span>
       </Badge>
     );

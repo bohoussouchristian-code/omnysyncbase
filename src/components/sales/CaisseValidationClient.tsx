@@ -277,6 +277,24 @@ export function CaisseValidationClient({
               <span>Total</span>
               <span>{formatMoney(viewing.totalAmount)}</span>
             </div>
+            {(viewing.status === "CREDIT" || viewing.status === "PARTIELLE") && (
+              <div className="mt-3 space-y-2">
+                <div className="flex justify-between text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  <span className="text-red-700">Reste dû par le client</span>
+                  <span className="font-semibold text-red-700">
+                    {formatMoney(viewing.totalAmount - viewing.paidAmount)}
+                  </span>
+                </div>
+                {viewing.customerId && (
+                  <Link
+                    href={`/clients/${viewing.customerId}`}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 text-red-700 py-2 text-sm font-medium hover:bg-red-100"
+                  >
+                    <Wallet size={14} /> Encaisser le règlement de cette dette
+                  </Link>
+                )}
+              </div>
+            )}
             {viewing.fneStatus === "CERTIFIED" && (
               <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                 FNE certifiée — réf. {viewing.fneReference}
