@@ -10,7 +10,7 @@ export default async function ClientsPage() {
   const [customers, company] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId: user.companyId },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.company.findUnique({ where: { id: user.companyId }, select: { name: true } }),
   ]);

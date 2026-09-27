@@ -9,7 +9,7 @@ export default async function FournisseursPage() {
 
   const suppliers = await prisma.supplier.findMany({
     where: { companyId: user.companyId },
-    orderBy: { name: "asc" },
+    orderBy: { createdAt: "desc" },
   });
   const canManage = user.role === "ADMIN";
 

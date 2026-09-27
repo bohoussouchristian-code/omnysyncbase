@@ -11,7 +11,7 @@ export default async function EmployesPage() {
 
   const employees = await prisma.employee.findMany({
     where: { companyId: user.companyId },
-    orderBy: { name: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 
   return <EmployeesClient employees={employees} />;

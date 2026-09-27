@@ -13,17 +13,19 @@ export default async function CategoriesPage() {
   const [categories, units, packagingTypes] = await Promise.all([
     prisma.category.findMany({
       where: { companyId },
-      orderBy: { name: "asc" },
+      // Category n'a pas de createdAt — l'id (cuid, croissant dans le temps)
+      // sert de substitut pour afficher le plus récent en premier.
+      orderBy: { id: "desc" },
       include: { _count: { select: { products: true, services: true } } },
     }),
     prisma.unit.findMany({
       where: { companyId },
-      orderBy: { name: "asc" },
+      orderBy: { id: "desc" },
       include: { _count: { select: { products: true, packProducts: true } } },
     }),
     prisma.packagingType.findMany({
       where: { companyId },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: { _count: { select: { products: true } } },
     }),
   ]);

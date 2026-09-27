@@ -12,7 +12,9 @@ export default async function DepotsAnnexesPage() {
     prisma.warehouse.findFirst({ where: { companyId, isGeneral: true } }),
     prisma.warehouse.findMany({
       where: { companyId, isGeneral: false },
-      orderBy: { name: "asc" },
+      // Warehouse n'a pas de createdAt — l'id (cuid, croissant dans le temps)
+      // sert de substitut pour afficher le plus récent en premier.
+      orderBy: { id: "desc" },
       include: { stocks: { include: { product: true } } },
     }),
   ]);

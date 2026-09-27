@@ -9,7 +9,9 @@ export default async function EntrepotsPage() {
 
   const warehouses = await prisma.warehouse.findMany({
     where: { companyId: current.companyId },
-    orderBy: [{ isGeneral: "desc" }, { name: "asc" }],
+    // Le Dépôt Général reste toujours en tête (rôle structurel), le reste
+    // du tri se fait par le plus récent créé en premier (id, cuid croissant).
+    orderBy: [{ isGeneral: "desc" }, { id: "desc" }],
     include: { _count: { select: { stocks: true } } },
   });
 
