@@ -10,7 +10,7 @@ export default async function UtilisateursPage() {
   const [users, warehouses, permissionRows] = await Promise.all([
     prisma.user.findMany({
       where: { companyId: current.companyId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       include: { warehouse: { select: { id: true, name: true } } },
     }),
     prisma.warehouse.findMany({ where: { companyId: current.companyId, active: true }, orderBy: { name: "asc" } }),

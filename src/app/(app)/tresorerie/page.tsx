@@ -14,7 +14,7 @@ export default async function TresoreriePage() {
 
   const accounts = await prisma.bankAccount.findMany({
     where: { companyId },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     include: {
       transactions: {
         orderBy: { date: "desc" },

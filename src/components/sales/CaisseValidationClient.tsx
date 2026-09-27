@@ -72,7 +72,9 @@ type DeliveryRow = {
   fee: number;
   status: string;
   customer: { name: string } | null;
+  createdAt: Date;
 };
+type UnifiedRow = { kind: "sale"; date: Date; sale: SaleRow } | { kind: "delivery"; date: Date; delivery: DeliveryRow };
 export function CaisseValidationClient({
   pending,
   validated,
@@ -106,19 +108,33 @@ export function CaisseValidationClient({
 
   const openWarehouseIds = useMemo(() => new Set(openSessions.map((s) => s.warehouseId)), [openSessions]);
 
-  // Un seul ticket, en attente ou déjà validé : pas deux listes séparées,
-  // le statut de chaque ligne suffit à distinguer.
-  const allSales = useMemo(() => {
-    return [...pending, ...validated].sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [pending, validated]);
+  // Un seul tableau pour tout ce qu'il y a à encaisser ou à consulter à la
+  // Caisse — ventes et livraisons mélangées, triées par date, plutôt que
+  // deux tableaux séparés : le paiement d'une livraison se valide ici
+  // exactement comme celui d'une vente (voir collectDeliveryPayment).
+  const unifiedRows = useMemo(() => {
+    const rows: UnifiedRow[] = [
+      ...pending.map((sale): UnifiedRow => ({ kind: "sale", date: sale.date, sale })),
+      ...validated.map((sale): UnifiedRow => ({ kind: "sale", date: sale.date, sale })),
+      ...pendingDeliveries.map((delivery): UnifiedRow => ({ kind: "delivery", date: delivery.createdAt, delivery })),
+    ];
+    return rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [pending, validated, pendingDeliveries]);
 
-  const filteredSales = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return allSales;
-    return allSales.filter(
-      (s) => s.number.toLowerCase().includes(q) || (s.customer?.name.toLowerCase().includes(q) ?? false)
-    );
-  }, [allSales, query]);
+    if (!q) return unifiedRows;
+    return unifiedRows.filter((r) => {
+      if (r.kind === "sale") {
+        return r.sale.number.toLowerCase().includes(q) || (r.sale.customer?.name.toLowerCase().includes(q) ?? false);
+      }
+      return (
+        r.delivery.number.toLowerCase().includes(q) ||
+        (r.delivery.customer?.name.toLowerCase().includes(q) ?? false) ||
+        r.delivery.destination.toLowerCase().includes(q)
+      );
+    });
+  }, [unifiedRows, query]);
 
   return (
     <div>
@@ -126,71 +142,15 @@ export function CaisseValidationClient({
 
       <CashSessionBar warehouses={warehouses} openSessions={openSessions} />
 
-      {pendingDeliveries.length > 0 && (
-        <Card className="overflow-hidden mb-4">
-          <div className="p-5 pb-4">
-            <h2 className="font-semibold text-slate-900">
-              Livraisons à encaisser <span className="text-slate-400 font-normal">[ {pendingDeliveries.length} ]</span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Le paiement d&apos;une livraison se valide ici, comme une vente — le livreur assigné se contente de
-              confirmer la livraison effectuée.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr className="text-left">
-                  <th className="px-4 py-3 font-medium">N°</th>
-                  <th className="px-4 py-3 font-medium">Destination</th>
-                  <th className="px-4 py-3 font-medium">Client</th>
-                  <th className="px-4 py-3 font-medium">Statut livraison</th>
-                  <th className="px-4 py-3 font-medium text-right">Frais</th>
-                  <th className="px-4 py-3 font-medium text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingDeliveries.map((d) => (
-                  <tr key={d.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                    <td className="px-4 py-3 font-medium text-slate-700">{d.number}</td>
-                    <td className="px-4 py-3 text-slate-600">{d.destination}</td>
-                    <td className="px-4 py-3 text-slate-600">{d.customer?.name || "—"}</td>
-                    <td className="px-4 py-3">
-                      <Badge tone={d.status === "LIVREE" ? "success" : "warning"}>
-                        {d.status === "LIVREE" ? "Livrée" : "En attente"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium">{formatMoney(d.fee)}</td>
-                    <td className="px-4 py-3 text-center">
-                      {openSessions.length > 0 ? (
-                        <button
-                          onClick={() => setCollecting(d)}
-                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 mx-auto"
-                        >
-                          <Wallet size={14} /> Encaisser
-                        </button>
-                      ) : (
-                        <span className="flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed mx-auto w-fit">
-                          <Lock size={14} /> Caisse fermée
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">
           <div>
             <h2 className="font-semibold text-slate-900">
-              Tickets <span className="text-slate-400 font-normal">[ {filteredSales.length} ]</span>
+              Tickets & livraisons <span className="text-slate-400 font-normal">[ {filteredRows.length} ]</span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Les tickets en attente restent toujours visibles ; la période ne filtre que l&apos;historique validé.
+              Ventes et livraisons en attente restent toujours visibles ; la période ne filtre que l&apos;historique
+              validé. Le paiement d&apos;une livraison se valide ici comme une vente.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -211,8 +171,9 @@ export function CaisseValidationClient({
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
                 <th className="px-4 py-3 font-medium">N°</th>
+                <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Client</th>
-                <th className="px-4 py-3 font-medium">Boutique</th>
+                <th className="px-4 py-3 font-medium">Boutique / Destination</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
                 <th className="px-4 py-3 font-medium">Date</th>
                 <th className="px-4 py-3 font-medium text-right">Total</th>
@@ -220,56 +181,96 @@ export function CaisseValidationClient({
               </tr>
             </thead>
             <tbody>
-              {filteredSales.map((s) => {
-                const isPendingRow = s.status === "EN_ATTENTE";
+              {filteredRows.map((r) => {
+                if (r.kind === "sale") {
+                  const s = r.sale;
+                  const isPendingRow = s.status === "EN_ATTENTE";
+                  return (
+                    <tr key={`sale-${s.id}`} className="border-t border-slate-100 hover:bg-slate-50/60">
+                      <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
+                      <td className="px-4 py-3">
+                        <Badge tone="default">Vente</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
+                      <td className="px-4 py-3 text-slate-600">{s.warehouse.name}</td>
+                      <td className="px-4 py-3">
+                        <SaleStatusBadge status={s.status} />
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 justify-center">
+                          <button
+                            onClick={() => setViewing(s)}
+                            title="Voir le détail"
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          {isPendingRow && (
+                            <>
+                              {openWarehouseIds.has(s.warehouseId) ? (
+                                <button
+                                  onClick={() => setValidating(s)}
+                                  title="Encaisser"
+                                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
+                                >
+                                  <Wallet size={14} /> Encaisser
+                                </button>
+                              ) : (
+                                <span
+                                  title={`Ouvrez votre caisse pour ${s.warehouse.name} avant d'encaisser`}
+                                  className="flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed"
+                                >
+                                  <Lock size={14} /> Caisse fermée
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+                const d = r.delivery;
                 return (
-                  <tr key={s.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                    <td className="px-4 py-3 font-medium text-slate-700">{s.number}</td>
-                    <td className="px-4 py-3 text-slate-600">{s.customer?.name || "Client comptant"}</td>
-                    <td className="px-4 py-3 text-slate-600">{s.warehouse.name}</td>
+                  <tr key={`delivery-${d.id}`} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-4 py-3 font-medium text-slate-700">{d.number}</td>
                     <td className="px-4 py-3">
-                      <SaleStatusBadge status={s.status} />
+                      <Badge tone="info">Livraison</Badge>
                     </td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(s.date)}</td>
-                    <td className="px-4 py-3 text-right font-medium">{formatMoney(s.totalAmount)}</td>
+                    <td className="px-4 py-3 text-slate-600">{d.customer?.name || "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{d.destination}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 justify-center">
-                        <button
-                          onClick={() => setViewing(s)}
-                          title="Voir le détail"
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-blue-600"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        {isPendingRow && (
-                          <>
-                            {openWarehouseIds.has(s.warehouseId) ? (
-                              <button
-                                onClick={() => setValidating(s)}
-                                title="Encaisser"
-                                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 disabled:opacity-60"
-                              >
-                                <Wallet size={14} /> Encaisser
-                              </button>
-                            ) : (
-                              <span
-                                title={`Ouvrez votre caisse pour ${s.warehouse.name} avant d'encaisser`}
-                                className="flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed"
-                              >
-                                <Lock size={14} /> Caisse fermée
-                              </span>
-                            )}
-                          </>
+                      <Badge tone={d.status === "LIVREE" ? "success" : "warning"}>
+                        {d.status === "LIVREE" ? "Livrée" : "En attente"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(d.createdAt)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatMoney(d.fee)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center">
+                        {openSessions.length > 0 ? (
+                          <button
+                            onClick={() => setCollecting(d)}
+                            className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700"
+                          >
+                            <Wallet size={14} /> Encaisser
+                          </button>
+                        ) : (
+                          <span className="flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed w-fit">
+                            <Lock size={14} /> Caisse fermée
+                          </span>
                         )}
                       </div>
                     </td>
                   </tr>
                 );
               })}
-              {filteredSales.length === 0 && (
+              {filteredRows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                    {allSales.length === 0 ? "Aucun ticket pour le moment." : "Aucun résultat."}
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                    {unifiedRows.length === 0 ? "Rien à afficher pour le moment." : "Aucun résultat."}
                   </td>
                 </tr>
               )}
