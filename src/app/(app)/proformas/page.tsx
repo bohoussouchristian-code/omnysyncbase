@@ -11,11 +11,11 @@ export default async function ProformasPage() {
   const [products, services, customers, proformas, company] = await Promise.all([
     prisma.product.findMany({
       where: { active: true, companyId },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: { unit: true },
     }),
-    prisma.service.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
-    prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.service.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
+    prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
     prisma.proforma.findMany({
       where: { companyId },
       orderBy: { createdAt: "desc" },

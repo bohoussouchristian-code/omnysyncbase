@@ -17,7 +17,7 @@ export default async function PaiePage() {
       take: 200,
       include: { employee: true },
     }),
-    prisma.employee.findMany({ where: { companyId, active: true }, orderBy: { name: "asc" } }),
+    prisma.employee.findMany({ where: { companyId, active: true }, orderBy: { createdAt: "desc" } }),
     prisma.company.findUnique({
       where: { id: companyId },
       select: { name: true, address: true, phone: true },

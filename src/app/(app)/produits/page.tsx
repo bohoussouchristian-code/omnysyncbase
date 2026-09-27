@@ -21,11 +21,11 @@ export default async function ProduitsPage() {
         supplierPrices: { select: { supplierId: true, purchasePrice: true } },
       },
     }),
-    prisma.category.findMany({ where: { companyId }, orderBy: { name: "asc" } }),
-    prisma.unit.findMany({ where: { companyId }, orderBy: { name: "asc" } }),
-    prisma.packagingType.findMany({ where: { companyId, active: true }, orderBy: { name: "asc" } }),
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
-    prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.category.findMany({ where: { companyId }, orderBy: { id: "desc" } }),
+    prisma.unit.findMany({ where: { companyId }, orderBy: { id: "desc" } }),
+    prisma.packagingType.findMany({ where: { companyId, active: true }, orderBy: { createdAt: "desc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
+    prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
     prisma.company.findUnique({ where: { id: companyId }, select: { businessType: true } }),
   ]);
   const canManage = user.role === "ADMIN";

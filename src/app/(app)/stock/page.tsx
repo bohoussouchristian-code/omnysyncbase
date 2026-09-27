@@ -11,14 +11,14 @@ export default async function StockPage() {
   const [products, warehouses] = await Promise.all([
     prisma.product.findMany({
       where: { active: true, companyId },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: {
         unit: true,
         stocks: true,
         supplierPrices: { include: { supplier: { select: { name: true } } } },
       },
     }),
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
   ]);
 
   return <StockClient products={products} warehouses={warehouses} />;

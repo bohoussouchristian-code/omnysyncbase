@@ -33,12 +33,12 @@ export default async function VentesPage({
     await Promise.all([
       prisma.product.findMany({
         where: { active: true, companyId },
-        orderBy: { name: "asc" },
+        orderBy: { createdAt: "desc" },
         include: { unit: true, packUnit: true, packagingType: true, stocks: true },
       }),
-      prisma.service.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
-      prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
-      prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+      prisma.service.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
+      prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
+      prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
       prisma.sale.findMany({
         where: { companyId, date: { gte: twoDaysAgo } },
         orderBy: { date: "desc" },
@@ -58,7 +58,7 @@ export default async function VentesPage({
       }),
       prisma.customer.findMany({
         where: { companyId },
-        orderBy: { name: "asc" },
+        orderBy: { createdAt: "desc" },
         select: { id: true, name: true },
       }),
       prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),

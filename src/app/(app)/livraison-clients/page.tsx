@@ -34,17 +34,17 @@ export default async function LivraisonClientsPage({
     }),
     prisma.customer.findMany({
       where: { companyId, active: true },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       select: { id: true, name: true },
     }),
     prisma.product.findMany({
       where: { companyId, active: true },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       select: { id: true, name: true, piecesPerPack: true, packUnit: { select: { symbol: true } } },
     }),
     prisma.user.findMany({
       where: { companyId, active: true },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       select: { id: true, name: true },
     }),
   ]);

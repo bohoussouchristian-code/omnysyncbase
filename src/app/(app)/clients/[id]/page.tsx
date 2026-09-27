@@ -14,12 +14,12 @@ export default async function CustomerDossierPage({ params }: { params: Promise<
   const [sales, payments, proformas, company] = await Promise.all([
     prisma.sale.findMany({
       where: { customerId: id, companyId: user.companyId },
-      orderBy: { date: "asc" },
+      orderBy: { date: "desc" },
       include: { warehouse: { select: { name: true } } },
     }),
     prisma.payment.findMany({
       where: { customerId: id, companyId: user.companyId },
-      orderBy: { date: "asc" },
+      orderBy: { date: "desc" },
       include: { sale: { select: { number: true, status: true } } },
     }),
     prisma.proforma.findMany({

@@ -14,7 +14,7 @@ export default async function PrestationsPage() {
       orderBy: { createdAt: "desc" },
       include: { category: true },
     }),
-    prisma.category.findMany({ where: { companyId }, orderBy: { name: "asc" } }),
+    prisma.category.findMany({ where: { companyId }, orderBy: { id: "desc" } }),
   ]);
   const canManage = user.role === "ADMIN";
 

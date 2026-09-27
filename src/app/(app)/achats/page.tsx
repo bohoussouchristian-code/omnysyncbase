@@ -24,14 +24,14 @@ export default async function AchatsPage() {
     }),
     prisma.product.findMany({
       where: { active: true, companyId },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: {
         unit: true,
         packUnit: true,
         supplierPrices: { select: { supplierId: true, purchasePrice: true } },
       },
     }),
-    prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.supplier.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
     prisma.warehouse.findFirst({ where: { companyId, isGeneral: true, active: true } }),
     prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
   ]);

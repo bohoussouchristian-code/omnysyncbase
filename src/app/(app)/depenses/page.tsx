@@ -15,10 +15,10 @@ export default async function DepensesPage() {
       take: 150,
       include: { warehouse: true, user: true },
     }),
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
     prisma.expenseEnvelope.findMany({
       where: { companyId },
-      orderBy: { category: "asc" },
+      orderBy: { createdAt: "desc" },
       include: {
         vouchers: {
           orderBy: { issuedAt: "desc" },

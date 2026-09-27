@@ -26,7 +26,7 @@ export default async function CaissePage({
   const to = new Date(`${toStr}T23:59:59.999`);
 
   const [warehouses, mySession, openPoints, totalCollected, changeGivenTotal] = await Promise.all([
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
     prisma.cashSession.findFirst({
       where: { userId: user.id, closedAt: null, companyId },
       include: { warehouse: true },

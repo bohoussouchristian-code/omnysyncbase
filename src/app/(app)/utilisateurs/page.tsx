@@ -13,7 +13,7 @@ export default async function UtilisateursPage() {
       orderBy: { createdAt: "desc" },
       include: { warehouse: { select: { id: true, name: true } } },
     }),
-    prisma.warehouse.findMany({ where: { companyId: current.companyId, active: true }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { companyId: current.companyId, active: true }, orderBy: { id: "desc" } }),
     prisma.userPermission.findMany({ where: { companyId: current.companyId } }),
   ]);
 

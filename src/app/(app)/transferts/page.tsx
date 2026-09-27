@@ -11,10 +11,10 @@ export default async function TransfertsPage() {
   const [products, warehouses, movements] = await Promise.all([
     prisma.product.findMany({
       where: { active: true, companyId },
-      orderBy: { name: "asc" },
+      orderBy: { createdAt: "desc" },
       include: { unit: true, packUnit: true, stocks: true },
     }),
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
     prisma.stockMovement.findMany({
       where: { companyId, type: "TRANSFERT_SORTIE" },
       orderBy: { createdAt: "desc" },

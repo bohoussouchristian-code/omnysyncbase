@@ -32,7 +32,7 @@ export default async function CaisseVentesPage({
     // une file d'action, pas un historique à filtrer par date.
     prisma.sale.findMany({
       where: { companyId, status: "EN_ATTENTE" },
-      orderBy: { date: "asc" },
+      orderBy: { date: "desc" },
       include: {
         customer: true,
         warehouse: true,
@@ -55,7 +55,7 @@ export default async function CaisseVentesPage({
         payments: { select: { amount: true, cashReceived: true, changeGiven: true } },
       },
     }),
-    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
+    prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
     prisma.cashSession.findMany({
       where: { companyId, userId: user.id, closedAt: null },
       include: { warehouse: true },
@@ -66,7 +66,7 @@ export default async function CaisseVentesPage({
     // voir collectDeliveryPayment dans src/lib/actions/deliveries.ts.
     prisma.delivery.findMany({
       where: { companyId, paid: false, status: { not: "ANNULEE" } },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
       include: { customer: { select: { name: true } } },
     }),
   ]);
