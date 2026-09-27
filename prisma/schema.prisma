@@ -155,6 +155,7 @@ model Company {
   expenseVouchers        ExpenseVoucher[]
   bankAccounts           BankAccount[]
   bankTransactions       BankTransaction[]
+  bankReconciliations    BankReconciliation[]
   cashAdvances           CashAdvance[]
   packagingTypes         PackagingType[]
   deliveries             Delivery[]
@@ -208,6 +209,7 @@ model User {
   expenseEnvelopeTopUps ExpenseEnvelopeTopUp[]
   expenseVouchersIssued ExpenseVoucher[]
   bankTransactions      BankTransaction[]
+  bankReconciliations   BankReconciliation[]
   cashAdvances          CashAdvance[]
   deliveries            Delivery[]
   assignedDeliveries    Delivery[]        @relation("DeliveryAssignedTo")
@@ -990,7 +992,8 @@ model BankAccount {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
-  transactions BankTransaction[]
+  transactions    BankTransaction[]
+  reconciliations BankReconciliation[]
 }
 
 model BankTransaction {
@@ -1004,6 +1007,33 @@ model BankTransaction {
   date          DateTime            @default(now())
   userId        String?
   user          User?               @relation(fields: [userId], references: [id])
+
+  // Pointage lors d'un rapprochement bancaire (voir BankReconciliation) :
+  // confirme que ce mouvement apparaît bien sur le relevé physique de la
+  // banque. Un mouvement non pointé est ce qui explique un écart.
+  reconciled   Boolean   @default(false)
+  reconciledAt DateTime?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+}
+
+// Historique des rapprochements bancaires : à chaque contrôle, l'utilisateur
+// saisit le solde du relevé physique à une date donnée ; l'écart avec le
+// solde théorique (Company.balance à cet instant) doit être identifiable,
+// expliqué et audité — jamais juste ignoré.
+model BankReconciliation {
+  id               String      @id @default(cuid())
+  bankAccountId    String
+  bankAccount      BankAccount @relation(fields: [bankAccountId], references: [id])
+  statementDate    DateTime
+  statementBalance Float
+  bookBalance      Float
+  difference       Float
+  note             String?
+  userId           String?
+  user             User?       @relation(fields: [userId], references: [id])
+  createdAt        DateTime    @default(now())
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id])

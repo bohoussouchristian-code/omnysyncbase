@@ -18,6 +18,11 @@ export default async function TresoreriePage() {
         take: 100,
         include: { user: { select: { name: true } } },
       },
+      reconciliations: {
+        orderBy: { statementDate: "desc" },
+        take: 20,
+        include: { user: { select: { name: true } } },
+      },
     },
   });
 

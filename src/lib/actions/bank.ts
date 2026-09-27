@@ -100,3 +100,68 @@ export async function recordBankTransaction(_prev: unknown, formData: FormData) 
   revalidatePath("/bilan");
   return { success: true };
 }
+
+// Pointer un mouvement confirme qu'il apparaît sur le relevé physique de la
+// banque — c'est ce qui permet, lors d'un rapprochement, de savoir quels
+// mouvements expliquent un éventuel écart (ceux non pointés).
+export async function toggleTransactionReconciled(transactionId: string) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const tx = await prisma.bankTransaction.findFirst({ where: { id: transactionId, companyId } });
+  if (!tx) return { error: "Mouvement introuvable." };
+
+  await prisma.bankTransaction.update({
+    where: { id: tx.id },
+    data: { reconciled: !tx.reconciled, reconciledAt: !tx.reconciled ? new Date() : null },
+  });
+  revalidatePath("/tresorerie");
+  return { success: true };
+}
+
+// Un rapprochement compare le solde du relevé bancaire physique (saisi par
+// l'utilisateur, à une date donnée) au solde théorique de l'application à cet
+// instant. Le résultat est conservé pour l'historique et l'audit — un écart
+// n'est jamais silencieusement ignoré, il reste visible tant qu'il n'est pas
+// expliqué par les mouvements non pointés.
+export async function recordBankReconciliation(_prev: unknown, formData: FormData) {
+  const check = await requireCompanyUser();
+  if ("error" in check) return { error: check.error };
+  const { user, companyId } = check;
+  if (!requireBankManager(user.role))
+    return { error: "Seul un administrateur ou un gérant peut effectuer un rapprochement bancaire." };
+
+  const bankAccountId = String(formData.get("bankAccountId") || "");
+  const statementDateRaw = String(formData.get("statementDate") || "");
+  const statementBalance = Number(formData.get("statementBalance") || 0);
+  const note = String(formData.get("note") || "").trim() || null;
+
+  if (!bankAccountId) return { error: "Compte bancaire requis." };
+  if (!statementDateRaw) return { error: "Date du relevé requise." };
+
+  const account = await prisma.bankAccount.findFirst({ where: { id: bankAccountId, companyId } });
+  if (!account) return { error: "Compte introuvable." };
+
+  const bookBalance = account.balance;
+  const difference = statementBalance - bookBalance;
+  if (difference !== 0 && !note) {
+    return { error: "Un écart entre le relevé et le solde théorique doit être justifié (note obligatoire)." };
+  }
+
+  await prisma.bankReconciliation.create({
+    data: {
+      bankAccountId,
+      statementDate: new Date(`${statementDateRaw}T00:00:00`),
+      statementBalance,
+      bookBalance,
+      difference,
+      note,
+      userId: user.id,
+      companyId,
+    },
+  });
+
+  revalidatePath("/tresorerie");
+  return { success: true, difference };
+}
