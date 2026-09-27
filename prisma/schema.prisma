@@ -198,6 +198,7 @@ model User {
   stockMovements    StockMovement[]
   expenses          Expense[]
   cancelledExpenses Expense[]       @relation("ExpenseCancelledBy")
+  cancelledDeliveries Delivery[]    @relation("DeliveryCancelledBy")
   cashSessions      CashSession[]
   payments          Payment[]
   proformas         Proforma[]
@@ -665,6 +666,13 @@ model Delivery {
   deliveredAt DateTime?
   userId      String?
   user        User?          @relation(fields: [userId], references: [id])
+
+  // Traçabilité de l'annulation : même principe que Sale/Expense — motif
+  // conservé en clair dans `notes`, date et auteur ici pour un historique
+  // triable dans le module Annulations (voir cancelDelivery).
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelledBy   User?          @relation("DeliveryCancelledBy", fields: [cancelledById], references: [id])
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id])

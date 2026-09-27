@@ -128,8 +128,14 @@ export async function cancelDelivery(id: string, reason: string) {
 
   await prisma.delivery.update({
     where: { id },
-    data: { status: "ANNULEE", notes: [delivery.notes, `Annulée : ${reason}`].filter(Boolean).join(" — ") },
+    data: {
+      status: "ANNULEE",
+      notes: [delivery.notes, `Annulée : ${reason}`].filter(Boolean).join(" — "),
+      cancelledAt: new Date(),
+      cancelledById: user.id,
+    },
   });
   revalidatePath("/livraison-clients");
+  revalidatePath("/annulations");
   return { success: true };
 }

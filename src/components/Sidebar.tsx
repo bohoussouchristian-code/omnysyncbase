@@ -63,8 +63,7 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
       { href: "/proformas", label: "Proformas", icon: FileText, roles: null },
-      { href: "/annulations", label: "Annulation de facture", icon: Ban, roles: ["ADMIN"] },
-      { href: "/annulations-depenses", label: "Annulation de dépense", icon: Ban, roles: ["ADMIN"] },
+      { href: "/annulations", label: "Annulations", icon: Ban, roles: ["ADMIN", "GERANT"] },
       { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
       {
         href: "/gestion-caisses-depots",

@@ -1,32 +1,66 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { AnnulationsClient } from "@/components/sales/AnnulationsClient";
+import { AnnulationsClient } from "@/components/annulations/AnnulationsClient";
 
-export default async function AnnulationsPage() {
+export default async function AnnulationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
-  // Seul un administrateur peut annuler une facture (même règle déjà en
-  // place côté serveur dans cancelSale) : ce module centralise toutes les
-  // annulations, il n'a donc de sens que pour ce rôle.
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  // Module unique pour toute annulation (ventes, dépenses, livraisons) :
+  // accessible à l'administrateur (toutes les catégories) et au gérant
+  // (livraisons uniquement — même règle que cancelDelivery). Chaque section
+  // masque son propre bouton "Annuler" quand le rôle courant ne l'autorise
+  // pas, plutôt que de bloquer l'accès à la page entière.
+  if (user.role !== "ADMIN" && user.role !== "GERANT") redirect("/dashboard");
   const companyId = user.companyId;
 
-  const [rawActiveSales, cancelledSales, cashSessions] = await Promise.all([
-    prisma.sale.findMany({
-      where: { companyId, status: { not: "ANNULEE" } },
-      orderBy: { date: "desc" },
-      take: 150,
-      include: { customer: true, warehouse: true, user: true },
-    }),
-    prisma.sale.findMany({
-      where: { companyId, status: "ANNULEE" },
-      orderBy: { cancelledAt: "desc" },
-      take: 150,
-      include: { customer: true, warehouse: true, cancelledBy: true },
-    }),
-    prisma.cashSession.findMany({ where: { companyId } }),
-  ]);
+  const { tab: tabParam } = await searchParams;
+  const initialTab = tabParam === "depenses" ? "depenses" : tabParam === "livraisons" ? "livraisons" : "ventes";
+
+  const [rawActiveSales, cancelledSales, cashSessions, activeExpenses, cancelledExpenses, activeDeliveries, cancelledDeliveries] =
+    await Promise.all([
+      prisma.sale.findMany({
+        where: { companyId, status: { not: "ANNULEE" } },
+        orderBy: { date: "desc" },
+        take: 150,
+        include: { customer: true, warehouse: true, user: true },
+      }),
+      prisma.sale.findMany({
+        where: { companyId, status: "ANNULEE" },
+        orderBy: { cancelledAt: "desc" },
+        take: 150,
+        include: { customer: true, warehouse: true, cancelledBy: true },
+      }),
+      prisma.cashSession.findMany({ where: { companyId } }),
+      prisma.expense.findMany({
+        where: { companyId, cancelled: false },
+        orderBy: { date: "desc" },
+        take: 150,
+        include: { warehouse: true, user: true },
+      }),
+      prisma.expense.findMany({
+        where: { companyId, cancelled: true },
+        orderBy: { cancelledAt: "desc" },
+        take: 150,
+        include: { warehouse: true, cancelledBy: true },
+      }),
+      prisma.delivery.findMany({
+        where: { companyId, status: { not: "ANNULEE" } },
+        orderBy: { createdAt: "desc" },
+        take: 150,
+        include: { customer: { select: { name: true } } },
+      }),
+      prisma.delivery.findMany({
+        where: { companyId, status: "ANNULEE" },
+        orderBy: { cancelledAt: "desc" },
+        take: 150,
+        include: { customer: { select: { name: true } }, cancelledBy: { select: { name: true } } },
+      }),
+    ]);
 
   // Une vente encaissée est verrouillée dès que la session de caisse dans
   // laquelle elle a été payée a été clôturée : la caissière a déjà justifié
@@ -43,5 +77,18 @@ export default async function AnnulationsPage() {
     return { ...s, locked: !!coveringSession?.closedAt };
   });
 
-  return <AnnulationsClient activeSales={activeSales} cancelledSales={cancelledSales} />;
+  return (
+    <AnnulationsClient
+      initialTab={initialTab}
+      activeSales={activeSales}
+      cancelledSales={cancelledSales}
+      canCancelSales={user.role === "ADMIN"}
+      activeExpenses={activeExpenses}
+      cancelledExpenses={cancelledExpenses}
+      canCancelExpenses={user.role === "ADMIN"}
+      activeDeliveries={activeDeliveries}
+      cancelledDeliveries={cancelledDeliveries}
+      canCancelDeliveries={user.role === "ADMIN" || user.role === "GERANT"}
+    />
+  );
 }

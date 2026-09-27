@@ -2,16 +2,12 @@
 
 import { useActionState, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createDelivery,
-  markDeliveryDelivered,
-  collectDeliveryPayment,
-  cancelDelivery,
-} from "@/lib/actions/deliveries";
+import Link from "next/link";
+import { createDelivery, markDeliveryDelivered, collectDeliveryPayment } from "@/lib/actions/deliveries";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
-import { Plus, Search, Truck, CheckCircle2, Ban, CircleDollarSign } from "lucide-react";
+import { Plus, Search, Truck, CheckCircle2, CircleDollarSign } from "lucide-react";
 
 type Customer = { id: string; name: string };
 type Delivery = {
@@ -45,10 +41,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [payingDelivery, setPayingDelivery] = useState<Delivery | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<Delivery | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelError, setCancelError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -70,36 +63,26 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
     });
   }
 
-  function confirmCancel() {
-    if (!cancelTarget) return;
-    if (!cancelReason.trim()) {
-      setCancelError("Le motif d'annulation est obligatoire.");
-      return;
-    }
-    setCancelError(null);
-    startTransition(async () => {
-      const res = await cancelDelivery(cancelTarget.id, cancelReason);
-      if (res && "error" in res && res.error) {
-        setCancelError(res.error);
-        return;
-      }
-      setCancelTarget(null);
-      router.refresh();
-    });
-  }
-
   return (
     <div>
       <PageHeader
         title="Livraison client"
         subtitle="Frais de livraison décidés au cas par cas (zone, distance, quantité...)"
         action={
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus size={16} /> Nouvelle livraison
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/annulations?tab=livraisons"
+              className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Annulation de livraison
+            </Link>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus size={16} /> Nouvelle livraison
+            </button>
+          </div>
         }
       />
 
@@ -167,22 +150,13 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-center">
                       {d.status === "EN_ATTENTE" && (
-                        <>
-                          <button
-                            onClick={() => deliver(d.id)}
-                            title="Marquer livrée"
-                            className="text-slate-400 hover:text-emerald-600"
-                          >
-                            <CheckCircle2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => setCancelTarget(d)}
-                            title="Annuler cette livraison"
-                            className="text-slate-400 hover:text-red-600"
-                          >
-                            <Ban size={16} />
-                          </button>
-                        </>
+                        <button
+                          onClick={() => deliver(d.id)}
+                          title="Marquer livrée"
+                          className="text-slate-400 hover:text-emerald-600"
+                        >
+                          <CheckCircle2 size={16} />
+                        </button>
                       )}
                     </div>
                   </td>
@@ -214,45 +188,6 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
         )}
       </Modal>
 
-      <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Annuler la livraison ${cancelTarget?.number || ""}`}>
-        {cancelTarget && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Motif d&apos;annulation <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                rows={3}
-                placeholder="Ex : client a annulé la commande..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            {cancelError && (
-              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                {cancelError}
-              </div>
-            )}
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setCancelTarget(null)}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmCancel}
-                disabled={pending || cancelReason.trim() === ""}
-                className="rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-              >
-                Confirmer l&apos;annulation
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
