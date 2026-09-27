@@ -2,12 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { CashClient } from "@/components/cash/CashClient";
-import {
-  getSessionsWithChangeGiven,
-  getOpenPointsSummary,
-  getCashCollected,
-  getChangeGivenTotal,
-} from "@/lib/cashSessionStats";
+import { getOpenPointsSummary, getCashCollected, getChangeGivenTotal } from "@/lib/cashSessionStats";
 
 function toISODate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -30,9 +25,8 @@ export default async function CaissePage({
   const from = new Date(`${fromStr}T00:00:00`);
   const to = new Date(`${toStr}T23:59:59.999`);
 
-  const [warehouses, sessions, mySession, openPoints, totalCollected, changeGivenTotal] = await Promise.all([
+  const [warehouses, mySession, openPoints, totalCollected, changeGivenTotal] = await Promise.all([
     prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { name: "asc" } }),
-    getSessionsWithChangeGiven(companyId, from, to),
     prisma.cashSession.findFirst({
       where: { userId: user.id, closedAt: null, companyId },
       include: { warehouse: true },
@@ -84,7 +78,6 @@ export default async function CaissePage({
   return (
     <CashClient
       warehouses={warehouses}
-      sessions={sessions}
       mySession={mySession}
       myAdvances={myAdvances}
       cumul={cumul}

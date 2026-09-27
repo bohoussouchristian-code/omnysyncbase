@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { createPurchase, updatePurchase, validatePurchase, type PurchaseCartItem } from "@/lib/actions/purchases";
 import { Modal, Select, Input, Label, Badge, PageHeader, Card } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
+import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { PurchaseOrderDocument } from "@/components/purchases/PurchaseOrderDocument";
-import { formatMoney, formatDateTime } from "@/lib/utils";
+import { formatMoney, formatDateTime, toCSV } from "@/lib/utils";
 import { Plus, Trash2, Eye, Pencil, CheckCircle2, Printer } from "lucide-react";
 
 type Product = {
@@ -59,6 +60,7 @@ type Purchase = {
   warehouse: { name: string };
   receivedBy: { name: string } | null;
   validatedBy: { name: string } | null;
+  user: { name: string } | null;
   items: {
     id: string;
     productId: string;
@@ -72,6 +74,13 @@ type Purchase = {
     };
   }[];
 };
+
+function statusLabel(p: Purchase): string {
+  if (p.status === "ANNULEE") return "Annulée";
+  if (p.status === "RECUE") return "Reçue";
+  if (!p.validatedAt) return "Brouillon";
+  return "En attente de livraison";
+}
 
 function statusBadge(p: Purchase) {
   if (p.status === "ANNULEE") return <Badge tone="danger">Annulée</Badge>;
@@ -115,13 +124,30 @@ export function PurchaseOrdersClient({
             : "Aucun Dépôt Général désigné — voir Dépôts / Boutiques"
         }
         action={
-          <button
-            onClick={() => setShowCreate(true)}
-            disabled={!generalWarehouseName}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Plus size={16} /> Nouveau bon de commande
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportCsvButton
+              filename="bons-de-commande.csv"
+              csv={toCSV(
+                ["N° bon", "Fournisseur", "Date de commande", "Statut", "Montant total", "Émis par"],
+                purchases.map((p) => [
+                  p.number,
+                  p.supplier.name,
+                  formatDateTime(p.date),
+                  statusLabel(p),
+                  p.totalAmount,
+                  p.user?.name || "—",
+                ])
+              )}
+              label="Fiche Excel"
+            />
+            <button
+              onClick={() => setShowCreate(true)}
+              disabled={!generalWarehouseName}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Plus size={16} /> Nouveau bon de commande
+            </button>
+          </div>
         }
       />
 
@@ -130,11 +156,12 @@ export function PurchaseOrdersClient({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
-                <th className="px-4 py-3 font-medium">N°</th>
-                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">N° bon</th>
                 <th className="px-4 py-3 font-medium">Fournisseur</th>
+                <th className="px-4 py-3 font-medium">Date de commande</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium text-right">Total</th>
+                <th className="px-4 py-3 font-medium text-right">Montant total</th>
+                <th className="px-4 py-3 font-medium">Émis par</th>
                 <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
@@ -149,10 +176,11 @@ export function PurchaseOrdersClient({
                         <CopyButton text={p.number} />
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
                     <td className="px-4 py-3 text-slate-600">{p.supplier.name}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
                     <td className="px-4 py-3">{statusBadge(p)}</td>
                     <td className="px-4 py-3 text-right font-medium">{formatMoney(p.totalAmount)}</td>
+                    <td className="px-4 py-3 text-slate-600">{p.user?.name || "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 justify-center">
                         <button
@@ -187,7 +215,7 @@ export function PurchaseOrdersClient({
               })}
               {purchases.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                     Aucun bon de commande enregistré.
                   </td>
                 </tr>

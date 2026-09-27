@@ -19,6 +19,7 @@ export default async function AchatsPage() {
         items: { include: { product: { include: { unit: true, packUnit: true } } } },
         receivedBy: true,
         validatedBy: true,
+        user: { select: { name: true } },
       },
     }),
     prisma.product.findMany({

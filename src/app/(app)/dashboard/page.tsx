@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Send,
   Ban,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 
@@ -210,13 +211,18 @@ export default async function DashboardPage({
       links: [{ href: "/livraison-clients", label: "Livraison client" }],
     },
     {
+      title: "Dépenses",
+      acronym: "DEP",
+      icon: Wallet,
+      links: [{ href: "/depenses", label: "Dépenses" }],
+    },
+    {
       title: "Finances",
       acronym: "FIN",
-      icon: Wallet,
+      icon: Landmark,
       links: [
-        { href: "/caisse", label: "État de mes caisses" },
+        { href: "/caisse", label: "État de ma caisse" },
         ...(canManageCashPoints ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
-        { href: "/depenses", label: "Dépenses" },
         ...(canSeeReports ? [{ href: "/tresorerie", label: "Comptes bancaires" }] : []),
       ],
     },

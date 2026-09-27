@@ -139,12 +139,13 @@ const NAV: readonly NavEntry[] = [
     icon: Send,
     roles: null,
   },
+  { kind: "link", href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
   {
     kind: "group",
     label: "Finances",
-    icon: Wallet,
+    icon: Landmark,
     items: [
-      { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
+      { href: "/caisse", label: "État de ma caisse", icon: Landmark, roles: null },
       {
         href: "/gestion-caisses-depots",
         label: "Gestion des caisses et dépôts",
@@ -152,7 +153,6 @@ const NAV: readonly NavEntry[] = [
         roles: null,
         permission: "caisses.gerer",
       },
-      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
       {
         href: "/tresorerie",
         label: "Comptes bancaires",
