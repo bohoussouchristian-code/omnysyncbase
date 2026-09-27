@@ -14,6 +14,8 @@ import {
   Scale,
   UserCog,
   AlertTriangle,
+  Send,
+  Ban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -147,48 +149,70 @@ export default async function DashboardPage({
 
   const modules: Module[] = [
     {
-      title: "Gestion des ventes",
-      acronym: "GDV",
+      title: "Tiers",
+      acronym: "TRS",
+      icon: UserCog,
+      links: [
+        { href: "/clients", label: "Clients" },
+        { href: "/fournisseurs", label: "Fournisseurs" },
+      ],
+    },
+    {
+      title: "Catalogue & référentiel",
+      acronym: "CAT",
+      icon: Boxes,
+      links: [
+        { href: "/produits", label: "Configuration des produits" },
+        ...(isAdmin ? [{ href: "/categories", label: "Catégories & unités" }] : []),
+        { href: "/prestations", label: "Prestations" },
+      ],
+    },
+    {
+      title: "Ventes & facturation",
+      acronym: "VTE",
       icon: ShoppingCart,
       links: [
         { href: "/ventes", label: "Vente du jour" },
         { href: "/ventes/historique", label: "Historique des ventes" },
-        { href: "/clients", label: "Clients" },
-      ],
-    },
-    {
-      title: "Gestion financière",
-      acronym: "GF",
-      icon: Wallet,
-      links: [
         { href: "/caisse-ventes", label: "Caisse" },
         { href: "/proformas", label: "Proformas" },
-        ...(isAdmin ? [{ href: "/annulations", label: "Annulation de facture" }] : []),
-        { href: "/caisse", label: "État de mes caisses" },
-        ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
-        { href: "/depenses", label: "Dépenses" },
       ],
     },
     {
-      title: "Gestion appro & fournisseurs",
-      acronym: "GAF",
+      title: "Achats & approvisionnement",
+      acronym: "ACH",
       icon: ClipboardList,
       links: [
         { href: "/achats", label: "Bons de commande" },
         { href: "/livraisons", label: "Bons de livraison" },
         { href: "/approvisionnement", label: "Approvisionnement" },
-        { href: "/fournisseurs", label: "Fournisseurs" },
       ],
     },
     {
-      title: "Gestion du stock",
-      acronym: "GDS",
+      title: "Stock & logistique",
+      acronym: "STK",
       icon: Boxes,
       links: [
-        { href: "/produits", label: "Configuration des produits" },
         { href: "/stock", label: "Stock Général" },
         { href: "/depots-annexes", label: "Dépôts annexes" },
         { href: "/transferts", label: "Transferts de stock" },
+      ],
+    },
+    {
+      title: "Livraisons",
+      acronym: "LIV",
+      icon: Send,
+      links: [{ href: "/livraison-clients", label: "Livraison client" }],
+    },
+    {
+      title: "Finances",
+      acronym: "FIN",
+      icon: Wallet,
+      links: [
+        { href: "/caisse", label: "État de mes caisses" },
+        ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
+        { href: "/depenses", label: "Dépenses" },
+        ...(canSeeRapports ? [{ href: "/tresorerie", label: "Comptes bancaires" }] : []),
       ],
     },
     ...(isAdmin
@@ -205,14 +229,24 @@ export default async function DashboardPage({
         ]
       : []),
     {
-      title: "Bilan & état financier",
-      acronym: "BEF",
+      title: "Rapports & analytics",
+      acronym: "RAP",
       icon: Scale,
       links: [
         { href: "/bilan", label: "Voir le bilan complet" },
         ...(canSeeRapports ? [{ href: "/rapports", label: "Rapports" }] : []),
       ],
     },
+    ...(canSeeRapports
+      ? [
+          {
+            title: "Annulations & contrôle",
+            acronym: "ANN",
+            icon: Ban,
+            links: [{ href: "/annulations", label: "Annulations" }],
+          },
+        ]
+      : []),
   ];
 
   return (

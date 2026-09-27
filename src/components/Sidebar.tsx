@@ -36,6 +36,8 @@ import {
   Receipt,
   PiggyBank,
   Send,
+  ShieldCheck,
+  Scissors,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -44,28 +46,77 @@ type NavItem = { href: string; label: string; icon: LucideIcon; roles: readonly 
 type NavGroup = { label: string; icon: LucideIcon; items: readonly NavItem[] };
 type NavEntry = ({ kind: "link" } & NavItem) | ({ kind: "group" } & NavGroup);
 
-// Ordre d'affichage du menu : liens seuls et groupes dépliables mélangés,
-// dans l'ordre exact souhaité (Bilan & état financier juste avant Administration).
+// Structure reprise du prompt de restructuration : Tiers, Catalogue &
+// référentiel, Ventes & facturation, Achats & approvisionnement, Stock &
+// logistique, Livraisons, Finances, FNE & fiscalité, Rapports & analytics,
+// RH, Annulations & contrôle — chaque domaine métier a son propre groupe,
+// au lieu d'être mélangé dans "Gestion des ventes"/"Gestion financière"
+// comme avant. Corrige au passage deux modules orphelins qui existaient en
+// code mais n'apparaissaient nulle part dans le menu : Prestations et
+// Catégories & unités.
 const NAV: readonly NavEntry[] = [
   { kind: "link", href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
   {
     kind: "group",
-    label: "Gestion des ventes",
-    icon: ShoppingCart,
+    label: "Tiers",
+    icon: Users,
     items: [
-      { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
       { href: "/clients", label: "Clients", icon: Users, roles: null },
-      { href: "/livraison-clients", label: "Livraison client", icon: Send, roles: null },
+      { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
     ],
   },
   {
     kind: "group",
-    label: "Gestion financière",
-    icon: Wallet,
+    label: "Catalogue & référentiel",
+    icon: Package,
     items: [
+      { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
+      { href: "/categories", label: "Catégories & unités", icon: Boxes, roles: ["ADMIN"] },
+      { href: "/prestations", label: "Prestations", icon: Scissors, roles: null },
+    ],
+  },
+  {
+    kind: "group",
+    label: "Ventes & facturation",
+    icon: ShoppingCart,
+    items: [
+      { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
       { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
       { href: "/proformas", label: "Proformas", icon: FileText, roles: null },
-      { href: "/annulations", label: "Annulations", icon: Ban, roles: ["ADMIN", "GERANT"] },
+    ],
+  },
+  {
+    kind: "group",
+    label: "Achats & approvisionnement",
+    icon: ClipboardList,
+    items: [
+      { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
+      { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
+      { href: "/approvisionnement", label: "Approvisionnement", icon: PackageCheck, roles: null },
+    ],
+  },
+  {
+    kind: "group",
+    label: "Stock & logistique",
+    icon: Boxes,
+    items: [
+      { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
+      { href: "/depots-annexes", label: "Dépôts annexes", icon: Store, roles: null },
+      { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
+    ],
+  },
+  {
+    kind: "link",
+    href: "/livraison-clients",
+    label: "Livraisons",
+    icon: Send,
+    roles: null,
+  },
+  {
+    kind: "group",
+    label: "Finances",
+    icon: Wallet,
+    items: [
       { href: "/caisse", label: "État de mes caisses", icon: Landmark, roles: null },
       {
         href: "/gestion-caisses-depots",
@@ -74,34 +125,23 @@ const NAV: readonly NavEntry[] = [
         roles: ["ADMIN", "GERANT"],
       },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
-      {
-        href: "/tresorerie",
-        label: "Comptes bancaires",
-        icon: PiggyBank,
-        roles: ["ADMIN", "GERANT"],
-      },
+      { href: "/tresorerie", label: "Comptes bancaires", icon: PiggyBank, roles: ["ADMIN", "GERANT"] },
     ],
   },
   {
-    kind: "group",
-    label: "Gestion appro & fournisseurs",
-    icon: ClipboardList,
-    items: [
-      { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
-      { href: "/livraisons", label: "Bons de livraison", icon: Truck, roles: null },
-      { href: "/approvisionnement", label: "Approvisionnement", icon: PackageCheck, roles: null },
-      { href: "/fournisseurs", label: "Fournisseurs", icon: Building2, roles: null },
-    ],
+    kind: "link",
+    href: "/entreprise?tab=fne",
+    label: "FNE & fiscalité",
+    icon: ShieldCheck,
+    roles: ["ADMIN"],
   },
   {
     kind: "group",
-    label: "Gestion du stock",
-    icon: Boxes,
+    label: "Rapports & analytics",
+    icon: Scale,
     items: [
-      { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
-      { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
-      { href: "/depots-annexes", label: "Dépôts annexes", icon: Store, roles: null },
-      { href: "/transferts", label: "Transferts de stock", icon: ArrowLeftRight, roles: null },
+      { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
+      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
     ],
   },
   {
@@ -114,13 +154,11 @@ const NAV: readonly NavEntry[] = [
     ],
   },
   {
-    kind: "group",
-    label: "Bilan & état financier",
-    icon: Scale,
-    items: [
-      { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
-      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
-    ],
+    kind: "link",
+    href: "/annulations",
+    label: "Annulations & contrôle",
+    icon: Ban,
+    roles: ["ADMIN", "GERANT"],
   },
 ] as const;
 
