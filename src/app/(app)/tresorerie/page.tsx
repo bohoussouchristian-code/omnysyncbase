@@ -1,13 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { TresorerieClient } from "@/components/bank/TresorerieClient";
 
 export default async function TresoreriePage() {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
-  if (user.role !== "ADMIN" && user.role !== "GERANT" && user.role !== "COMPTABLE") redirect("/dashboard");
-  const canManage = user.role === "ADMIN" || user.role === "GERANT";
+  if (!(await userHasPermission(user, "rapports.voir"))) redirect("/dashboard");
+  const canManage = await userHasPermission(user, "banque.gerer");
+  const canReconcile = await userHasPermission(user, "banque.rapprocher");
   const companyId = user.companyId;
 
   const accounts = await prisma.bankAccount.findMany({
@@ -27,5 +29,5 @@ export default async function TresoreriePage() {
     },
   });
 
-  return <TresorerieClient accounts={accounts} canManage={canManage} />;
+  return <TresorerieClient accounts={accounts} canManage={canManage} canReconcile={canReconcile} />;
 }

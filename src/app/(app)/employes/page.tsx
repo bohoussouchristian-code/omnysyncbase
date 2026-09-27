@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { EmployeesClient } from "@/components/hr/EmployeesClient";
 
 export default async function EmployesPage() {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!(await userHasPermission(user, "employes.gerer"))) redirect("/dashboard");
 
   const employees = await prisma.employee.findMany({
     where: { companyId: user.companyId },

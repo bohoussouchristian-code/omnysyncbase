@@ -10,8 +10,10 @@ import {
   updateUser,
   updateUserWarehouse,
 } from "@/lib/actions/users";
+import { setUserPermissionOverride } from "@/lib/actions/permissions";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { ROLE_LABELS } from "@/lib/constants";
+import { PERMISSION_GROUPS, PERMISSION_LABELS, roleHasPermission, type PermissionKey } from "@/lib/permissions";
 import type { Role } from "@prisma/client";
 import { Plus, Power, MoreVertical, KeyRound, ShieldCheck, Pencil, Warehouse as WarehouseIcon } from "lucide-react";
 
@@ -35,10 +37,12 @@ export function UsersClient({
   users,
   warehouses,
   currentUserId,
+  overridesByUser,
 }: {
   users: User[];
   warehouses: Warehouse[];
   currentUserId: string;
+  overridesByUser: Record<string, Record<string, boolean>>;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [activeModal, setActiveModal] = useState<{ type: "password" | "role" | "edit" | "warehouse"; user: User } | null>(
@@ -144,7 +148,13 @@ export function UsersClient({
         onClose={() => setActiveModal(null)}
         title={`Permissions & rôles — ${activeModal?.user.name ?? ""}`}
       >
-        {activeModal && <RoleForm user={activeModal.user} onDone={() => setActiveModal(null)} />}
+        {activeModal && (
+          <RoleForm
+            user={activeModal.user}
+            overrides={overridesByUser[activeModal.user.id] ?? {}}
+            onDone={() => setActiveModal(null)}
+          />
+        )}
       </Modal>
 
       <Modal
@@ -396,34 +406,134 @@ function ResetPasswordForm({ user, onDone }: { user: User; onDone: () => void })
   );
 }
 
-function RoleForm({ user, onDone }: { user: User; onDone: () => void }) {
+function RoleForm({
+  user,
+  overrides,
+  onDone,
+}: {
+  user: User;
+  overrides: Record<string, boolean>;
+  onDone: () => void;
+}) {
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await updateUserRole(prev, formData);
     if (res && "success" in res && res.success) onDone();
     return res;
   }, undefined as { error?: string } | undefined);
+  const [role, setRole] = useState(user.role);
 
   return (
-    <form action={formAction} className="space-y-4">
-      <FormError error={state?.error} />
-      <input type="hidden" name="id" value={user.id} />
-      <div>
-        <Label>Rôle</Label>
-        <Select name="role" defaultValue={user.role}>
-          {Object.entries(ROLE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
+    <div className="space-y-5">
+      <form action={formAction} className="space-y-4">
+        <FormError error={state?.error} />
+        <input type="hidden" name="id" value={user.id} />
+        <div>
+          <Label>Rôle</Label>
+          <Select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex justify-end gap-2">
+          <SubmitButton>Enregistrer le rôle</SubmitButton>
+        </div>
+      </form>
+
+      <div className="border-t border-slate-100 pt-4">
+        <p className="text-sm font-medium text-slate-800 mb-0.5">Permissions individuelles</p>
+        <p className="text-xs text-slate-500 mb-3">
+          Écarts par rapport au comportement par défaut du rôle « {ROLE_LABELS[role]} ». Chaque changement s&apos;applique
+          immédiatement.
+        </p>
+        <PermissionsEditor userId={user.id} role={role} overrides={overrides} />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
+
+      <div className="flex justify-end pt-1">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Annuler
+          Fermer
         </button>
-        <SubmitButton>Enregistrer</SubmitButton>
       </div>
-    </form>
+    </div>
+  );
+}
+
+function PermissionsEditor({
+  userId,
+  role,
+  overrides,
+}: {
+  userId: string;
+  role: Role;
+  overrides: Record<string, boolean>;
+}) {
+  const [localOverrides, setLocalOverrides] = useState<Record<string, boolean | null>>(overrides);
+  const [, startTransition] = useTransition();
+
+  function setOverride(key: PermissionKey, granted: boolean | null) {
+    setLocalOverrides((prev) => ({ ...prev, [key]: granted }));
+    startTransition(async () => {
+      await setUserPermissionOverride(userId, key, granted);
+    });
+  }
+
+  return (
+    <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
+      {PERMISSION_GROUPS.map((group) => (
+        <div key={group.label}>
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">{group.label}</p>
+          <div className="space-y-1.5">
+            {group.keys.map((key) => {
+              const roleDefault = roleHasPermission(role, key);
+              const override = localOverrides[key] ?? null;
+              return (
+                <div key={key} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-slate-600">{PERMISSION_LABELS[key]}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setOverride(key, null)}
+                      title={`Défaut du rôle (${roleDefault ? "autorisé" : "refusé"})`}
+                      className={`px-2 py-0.5 rounded text-xs border transition-colors ${
+                        override === null
+                          ? "bg-slate-700 text-white border-slate-700"
+                          : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                      }`}
+                    >
+                      Défaut
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOverride(key, true)}
+                      className={`px-2 py-0.5 rounded text-xs border transition-colors ${
+                        override === true
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "border-slate-200 text-slate-500 hover:bg-emerald-50"
+                      }`}
+                    >
+                      Oui
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOverride(key, false)}
+                      className={`px-2 py-0.5 rounded text-xs border transition-colors ${
+                        override === false
+                          ? "bg-red-600 text-white border-red-600"
+                          : "border-slate-200 text-slate-500 hover:bg-red-50"
+                      }`}
+                    >
+                      Non
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

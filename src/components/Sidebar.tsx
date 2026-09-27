@@ -8,6 +8,7 @@ import { GlobalSearch } from "@/components/GlobalSearch";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { Logo } from "@/components/Logo";
 import type { Role } from "@prisma/client";
+import type { PermissionKey } from "@/lib/permissions";
 import {
   LayoutDashboard,
   Package,
@@ -43,9 +44,28 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-type NavItem = { href: string; label: string; icon: LucideIcon; roles: readonly Role[] | null };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  // Visibilité par rôle codée en dur (legacy) — laissé null quand `permission`
+  // est renseigné, qui prend alors le dessus (voir itemVisible plus bas).
+  roles: readonly Role[] | null;
+  // Une ou plusieurs permissions déléguables (voir src/lib/permissions.ts) :
+  // l'entrée est visible si l'utilisateur a AU MOINS une de ces permissions,
+  // indépendamment de son rôle.
+  permission?: PermissionKey | readonly PermissionKey[];
+};
 type NavGroup = { label: string; icon: LucideIcon; items: readonly NavItem[] };
 type NavEntry = ({ kind: "link" } & NavItem) | ({ kind: "group" } & NavGroup);
+
+function itemVisible(item: NavItem, userRole: Role, permissions: ReadonlySet<PermissionKey>): boolean {
+  if (item.permission) {
+    const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
+    return perms.some((p) => permissions.has(p as PermissionKey));
+  }
+  return !item.roles || item.roles.includes(userRole);
+}
 
 // Structure reprise du prompt de restructuration : Tiers, Catalogue &
 // référentiel, Ventes & facturation, Achats & approvisionnement, Stock &
@@ -72,7 +92,13 @@ const NAV: readonly NavEntry[] = [
     icon: Package,
     items: [
       { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
-      { href: "/categories", label: "Catégories & unités", icon: Boxes, roles: ["ADMIN"] },
+      {
+        href: "/categories",
+        label: "Catégories & unités",
+        icon: Boxes,
+        roles: null,
+        permission: "produits.gerer",
+      },
       { href: "/prestations", label: "Prestations", icon: Scissors, roles: null },
     ],
   },
@@ -123,14 +149,16 @@ const NAV: readonly NavEntry[] = [
         href: "/gestion-caisses-depots",
         label: "Gestion des caisses et dépôts",
         icon: Vault,
-        roles: ["ADMIN", "GERANT"],
+        roles: null,
+        permission: "caisses.gerer",
       },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
       {
         href: "/tresorerie",
         label: "Comptes bancaires",
         icon: PiggyBank,
-        roles: ["ADMIN", "GERANT", "COMPTABLE"],
+        roles: null,
+        permission: "rapports.voir",
       },
     ],
   },
@@ -147,7 +175,7 @@ const NAV: readonly NavEntry[] = [
     icon: Scale,
     items: [
       { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
-      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT", "COMPTABLE"] },
+      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: null, permission: "rapports.voir" },
     ],
   },
   {
@@ -155,8 +183,8 @@ const NAV: readonly NavEntry[] = [
     label: "Ressources humaines",
     icon: UserCog,
     items: [
-      { href: "/employes", label: "Employés", icon: Users, roles: ["ADMIN"] },
-      { href: "/paie", label: "Bulletins de salaire", icon: Receipt, roles: ["ADMIN"] },
+      { href: "/employes", label: "Employés", icon: Users, roles: null, permission: "employes.gerer" },
+      { href: "/paie", label: "Bulletins de salaire", icon: Receipt, roles: null, permission: "paie.gerer" },
     ],
   },
   {
@@ -164,14 +192,16 @@ const NAV: readonly NavEntry[] = [
     href: "/annulations",
     label: "Annulations & contrôle",
     icon: Ban,
-    roles: ["ADMIN", "GERANT"],
+    roles: null,
+    permission: ["ventes.annuler", "depenses.annuler", "livraisons.annuler"],
   },
   {
     kind: "link",
     href: "/audit",
     label: "Sécurité & audit",
     icon: Lock,
-    roles: ["ADMIN"],
+    roles: null,
+    permission: "audit.voir",
   },
 ] as const;
 
@@ -180,20 +210,23 @@ export function Sidebar({
   userEmail,
   userRole,
   companyName,
+  permissions,
 }: {
   userName: string;
   userEmail: string;
   userRole: Role;
   companyName?: string | null;
+  permissions: readonly PermissionKey[];
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  const permissionSet = new Set(permissions);
   const visibleEntries = NAV.map((entry) =>
     entry.kind === "group"
-      ? { ...entry, items: entry.items.filter((item) => !item.roles || item.roles.includes(userRole)) }
+      ? { ...entry, items: entry.items.filter((item) => itemVisible(item, userRole, permissionSet)) }
       : entry
-  ).filter((entry) => entry.kind === "link" || entry.items.length > 0);
+  ).filter((entry) => (entry.kind === "link" ? itemVisible(entry, userRole, permissionSet) : entry.items.length > 0));
 
   const allItems = visibleEntries.flatMap((entry) => (entry.kind === "link" ? [entry] : entry.items));
 

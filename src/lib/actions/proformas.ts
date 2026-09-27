@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { generateNumber } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import type { CustomerType } from "@prisma/client";
@@ -91,7 +92,8 @@ export async function deleteProforma(id: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (user.role !== "ADMIN") return { error: "Seul un administrateur peut supprimer un devis." };
+  if (!(await userHasPermission(user, "proformas.supprimer")))
+    return { error: "Permission manquante : supprimer un devis." };
 
   const proforma = await prisma.proforma.findFirst({ where: { id, companyId } });
   if (!proforma) return { error: "Devis introuvable." };

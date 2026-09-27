@@ -1,14 +1,12 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireCompanyUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 
+// Réservé à l'administrateur par défaut, délégable via "paie.gerer".
 async function requireManager() {
-  const check = await requireCompanyUser();
-  if ("error" in check) return { error: check.error };
-  if (check.user.role !== "ADMIN") return { error: "Seul un administrateur peut gérer la paie." } as const;
-  return check;
+  return requirePermission("paie.gerer");
 }
 
 // Les totaux ne sont jamais pris tels quels depuis le formulaire : ils sont

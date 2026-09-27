@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { formatMoney, formatDateTime, toCSV } from "@/lib/utils";
 import { Card, StatCard, Badge, PageHeader } from "@/components/ui";
@@ -33,11 +34,8 @@ export default async function RapportsPage({
   searchParams: Promise<{ periode?: string; from?: string; to?: string }>;
 }) {
   const current = await getCurrentUser();
-  if (
-    !current?.companyId ||
-    (current.role !== "ADMIN" && current.role !== "GERANT" && current.role !== "COMPTABLE")
-  )
-    redirect("/dashboard");
+  if (!current?.companyId) redirect("/dashboard");
+  if (!(await userHasPermission(current, "rapports.voir"))) redirect("/dashboard");
   const companyId = current.companyId;
 
   const { periode, from: fromParam, to: toParam } = await searchParams;

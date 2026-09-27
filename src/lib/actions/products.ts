@@ -1,18 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireCompanyUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 
-// Le catalogue (produits, catégories, unités) ne peut être ajouté/modifié que par
-// un administrateur. Caissiers, magasiniers et gérants utilisent l'application
-// (ventes, stock, achats) sans pouvoir modifier les fiches de base.
+// Le catalogue (produits, catégories, unités) est réservé à l'administrateur
+// par défaut ; un administrateur peut déléguer "produits.gerer" à un autre
+// utilisateur au cas par cas (voir /utilisateurs).
 async function requireManager() {
-  const check = await requireCompanyUser();
-  if ("error" in check) return { error: check.error };
-  if (check.user.role !== "ADMIN")
-    return { error: "Seul un administrateur peut modifier le catalogue." } as const;
-  return check;
+  return requirePermission("produits.gerer");
 }
 
 // La désactivation d'un produit est temporairement bloquée pour tous les rôles :

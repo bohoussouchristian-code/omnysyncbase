@@ -163,6 +163,7 @@ model Company {
   deliveries             Delivery[]
   notifications          Notification[]
   auditLogs              AuditLog[]
+  userPermissions        UserPermission[]
 }
 
 model User {
@@ -218,6 +219,29 @@ model User {
   assignedDeliveries    Delivery[]        @relation("DeliveryAssignedTo")
   notifications         Notification[]
   auditLogs             AuditLog[]
+  permissionOverrides   UserPermission[]
+}
+
+// Dérogation individuelle à la permission par défaut du rôle : granted=true
+// accorde une permission que le rôle n'a pas par défaut, granted=false retire
+// une permission que le rôle a par défaut. L'absence de ligne pour une clé
+// donnée signifie "comportement par défaut du rôle" (voir
+// ROLE_DEFAULT_PERMISSIONS dans src/lib/permissions.ts). Réservé aux
+// permissions "métier" déléguables — jamais utilisé pour élever un compte au
+// niveau administrateur (gestion des utilisateurs/entreprise/dépôts reste
+// strictement liée au rôle ADMIN, voir src/lib/permissions.ts).
+model UserPermission {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  granted   Boolean
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([userId, key])
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour

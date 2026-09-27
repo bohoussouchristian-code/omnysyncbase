@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getSession } from "@/lib/auth";
+import { getEffectivePermissions } from "@/lib/actions/permissions";
 import { exitCompany } from "@/lib/actions/console";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
@@ -18,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const session = await getSession();
   const isActingAsOwner = user.isPlatformOwner && !!session?.actingCompanyId;
+  const permissions = Array.from(await getEffectivePermissions(user));
 
   return (
     <div className="flex flex-1 min-h-screen flex-col">
@@ -41,7 +43,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </form>
       )}
       <div className="flex flex-1 min-h-0">
-        <Sidebar userName={user.name} userEmail={user.email} userRole={user.role} companyName={company?.name ?? null} />
+        <Sidebar
+          userName={user.name}
+          userEmail={user.email}
+          userRole={user.role}
+          companyName={company?.name ?? null}
+          permissions={permissions}
+        />
         <main className="flex-1 min-w-0 pt-14 lg:pt-0 overflow-x-hidden overflow-y-visible flex flex-col">
           <div className="no-print hidden lg:flex justify-end px-8 pt-6">
             <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl shadow-sm px-2 py-1.5">

@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { PayslipsClient } from "@/components/hr/PayslipsClient";
 
 export default async function PaiePage() {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!(await userHasPermission(user, "paie.gerer"))) redirect("/dashboard");
   const companyId = user.companyId;
 
   const [payslips, employees, company] = await Promise.all([

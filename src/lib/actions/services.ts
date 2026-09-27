@@ -1,17 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireCompanyUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 
-// Le catalogue de prestations ne peut être ajouté/modifié que par un administrateur,
-// même règle que le catalogue produits.
+// Le catalogue de prestations est réservé à l'administrateur par défaut,
+// délégable au cas par cas via "prestations.gerer" (voir /utilisateurs).
 async function requireManager() {
-  const check = await requireCompanyUser();
-  if ("error" in check) return check;
-  if (check.user.role !== "ADMIN")
-    return { error: "Seul un administrateur peut modifier le catalogue." } as const;
-  return check;
+  return requirePermission("prestations.gerer");
 }
 
 export async function createService(_prev: unknown, formData: FormData) {

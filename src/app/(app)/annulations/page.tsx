@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { AnnulationsClient } from "@/components/annulations/AnnulationsClient";
 
@@ -11,11 +12,16 @@ export default async function AnnulationsPage({
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
   // Module unique pour toute annulation (ventes, dépenses, livraisons) :
-  // accessible à l'administrateur (toutes les catégories) et au gérant
-  // (livraisons uniquement — même règle que cancelDelivery). Chaque section
-  // masque son propre bouton "Annuler" quand le rôle courant ne l'autorise
-  // pas, plutôt que de bloquer l'accès à la page entière.
-  if (user.role !== "ADMIN" && user.role !== "GERANT") redirect("/dashboard");
+  // chaque catégorie a sa propre permission ("ventes.annuler",
+  // "depenses.annuler", "livraisons.annuler"), déléguable indépendamment.
+  // Chaque section masque son propre bouton "Annuler" quand la permission
+  // manque, plutôt que de bloquer l'accès à la page entière.
+  const [canCancelSales, canCancelExpenses, canCancelDeliveries] = await Promise.all([
+    userHasPermission(user, "ventes.annuler"),
+    userHasPermission(user, "depenses.annuler"),
+    userHasPermission(user, "livraisons.annuler"),
+  ]);
+  if (!canCancelSales && !canCancelExpenses && !canCancelDeliveries) redirect("/dashboard");
   const companyId = user.companyId;
 
   const { tab: tabParam } = await searchParams;
@@ -82,13 +88,13 @@ export default async function AnnulationsPage({
       initialTab={initialTab}
       activeSales={activeSales}
       cancelledSales={cancelledSales}
-      canCancelSales={user.role === "ADMIN"}
+      canCancelSales={canCancelSales}
       activeExpenses={activeExpenses}
       cancelledExpenses={cancelledExpenses}
-      canCancelExpenses={user.role === "ADMIN"}
+      canCancelExpenses={canCancelExpenses}
       activeDeliveries={activeDeliveries}
       cancelledDeliveries={cancelledDeliveries}
-      canCancelDeliveries={user.role === "ADMIN" || user.role === "GERANT"}
+      canCancelDeliveries={canCancelDeliveries}
     />
   );
 }

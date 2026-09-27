@@ -7,14 +7,30 @@ export default async function UtilisateursPage() {
   const current = await getCurrentUser();
   if (!current?.companyId || current.role !== "ADMIN") redirect("/dashboard");
 
-  const [users, warehouses] = await Promise.all([
+  const [users, warehouses, permissionRows] = await Promise.all([
     prisma.user.findMany({
       where: { companyId: current.companyId },
       orderBy: { createdAt: "asc" },
       include: { warehouse: { select: { id: true, name: true } } },
     }),
     prisma.warehouse.findMany({ where: { companyId: current.companyId, active: true }, orderBy: { name: "asc" } }),
+    prisma.userPermission.findMany({ where: { companyId: current.companyId } }),
   ]);
 
-  return <UsersClient users={users} warehouses={warehouses} currentUserId={current.id} />;
+  // Regroupées par utilisateur pour que le client n'ait aucun aller-retour
+  // serveur à faire pour afficher l'éditeur de permissions (voir
+  // src/lib/permissions.ts pour le calcul "défaut du rôle + dérogation").
+  const overridesByUser: Record<string, Record<string, boolean>> = {};
+  for (const row of permissionRows) {
+    (overridesByUser[row.userId] ??= {})[row.key] = row.granted;
+  }
+
+  return (
+    <UsersClient
+      users={users}
+      warehouses={warehouses}
+      currentUserId={current.id}
+      overridesByUser={overridesByUser}
+    />
+  );
 }

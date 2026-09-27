@@ -2,25 +2,15 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
-
-function requireBankManager(role: string) {
-  return role === "ADMIN" || role === "GERANT";
-}
-
-// Le rapprochement bancaire (pointage + saisie du solde du relevé) est un
-// acte comptable — un Comptable peut le faire sans pouvoir créer de compte
-// ni enregistrer un mouvement de trésorerie ad hoc (réservé Admin/Gérant).
-function requireReconciler(role: string) {
-  return role === "ADMIN" || role === "GERANT" || role === "COMPTABLE";
-}
 
 export async function createBankAccount(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireBankManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut créer un compte bancaire." };
+  if (!(await userHasPermission(user, "banque.gerer")))
+    return { error: "Permission manquante : créer un compte bancaire." };
 
   const name = String(formData.get("name") || "").trim();
   const bankName = String(formData.get("bankName") || "").trim() || null;
@@ -56,8 +46,8 @@ export async function toggleBankAccountActive(accountId: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireBankManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut modifier un compte bancaire." };
+  if (!(await userHasPermission(user, "banque.gerer")))
+    return { error: "Permission manquante : modifier un compte bancaire." };
 
   const account = await prisma.bankAccount.findFirst({ where: { id: accountId, companyId } });
   if (!account) return { error: "Compte introuvable." };
@@ -75,8 +65,8 @@ export async function recordBankTransaction(_prev: unknown, formData: FormData) 
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireBankManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut enregistrer un mouvement bancaire." };
+  if (!(await userHasPermission(user, "banque.gerer")))
+    return { error: "Permission manquante : enregistrer un mouvement bancaire." };
 
   const bankAccountId = String(formData.get("bankAccountId") || "");
   const type = String(formData.get("type") || "");
@@ -114,7 +104,9 @@ export async function recordBankTransaction(_prev: unknown, formData: FormData) 
 export async function toggleTransactionReconciled(transactionId: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
-  const { companyId } = check;
+  const { user, companyId } = check;
+  if (!(await userHasPermission(user, "banque.rapprocher")))
+    return { error: "Permission manquante : pointer un mouvement bancaire." };
 
   const tx = await prisma.bankTransaction.findFirst({ where: { id: transactionId, companyId } });
   if (!tx) return { error: "Mouvement introuvable." };
@@ -136,8 +128,8 @@ export async function recordBankReconciliation(_prev: unknown, formData: FormDat
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireReconciler(user.role))
-    return { error: "Seul un administrateur, un gérant ou un comptable peut effectuer un rapprochement bancaire." };
+  if (!(await userHasPermission(user, "banque.rapprocher")))
+    return { error: "Permission manquante : effectuer un rapprochement bancaire." };
 
   const bankAccountId = String(formData.get("bankAccountId") || "");
   const statementDateRaw = String(formData.get("statementDate") || "");

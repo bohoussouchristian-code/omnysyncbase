@@ -2,18 +2,16 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/actions/permissions";
 import { requireOpenSessionForPayment } from "@/lib/actions/cash";
 import { revalidatePath } from "next/cache";
 import type { CustomerType, PaymentMethod } from "@prisma/client";
 
-// Créer/modifier une fiche client ou fournisseur est réservé à l'administrateur.
-// Encaisser un paiement de dette reste accessible à tous (usage courant).
+// Créer/modifier une fiche client ou fournisseur est réservé à l'administrateur
+// par défaut, délégable via "tiers.gerer". Encaisser un paiement de dette
+// reste accessible à tous (usage courant), sans rapport avec cette permission.
 async function requireManager() {
-  const check = await requireCompanyUser();
-  if ("error" in check) return { error: check.error };
-  if (check.user.role !== "ADMIN")
-    return { error: "Seul un administrateur peut modifier cette fiche." } as const;
-  return check;
+  return requirePermission("tiers.gerer");
 }
 
 // Identifiant lisible et permanent du dossier client (CLI-000001, CLI-000002...),

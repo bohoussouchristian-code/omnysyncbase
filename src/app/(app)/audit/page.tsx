@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { AuditLogClient } from "@/components/audit/AuditLogClient";
 
 export default async function AuditPage() {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (!(await userHasPermission(user, "audit.voir"))) redirect("/dashboard");
   const companyId = user.companyId;
 
   const logs = await prisma.auditLog.findMany({

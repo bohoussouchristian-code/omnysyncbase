@@ -5,6 +5,7 @@ import { PageHeader, Card, StatCard } from "@/components/ui";
 import { DashboardPeriodPicker } from "@/components/DashboardPeriodPicker";
 import { formatMoney } from "@/lib/utils";
 import { getOpenPointsSummary } from "@/lib/cashSessionStats";
+import { getEffectivePermissions } from "@/lib/actions/permissions";
 import Link from "next/link";
 import {
   ShoppingCart,
@@ -85,9 +86,12 @@ export default async function DashboardPage({
   const preset = presetParam && PRESET_LABELS[presetParam] ? presetParam : "today";
   const { from, to } = computeRange(preset, fromParam, toParam);
 
-  const canManageFinance = user.role === "ADMIN" || user.role === "GERANT";
-  const canSeeReports = canManageFinance || user.role === "COMPTABLE";
-  const isAdmin = user.role === "ADMIN";
+  const permissions = await getEffectivePermissions(user);
+  const canManageCashPoints = permissions.has("caisses.gerer");
+  const canSeeReports = permissions.has("rapports.voir");
+  const canSeeHR = permissions.has("employes.gerer") || permissions.has("paie.gerer");
+  const canSeeCancellations =
+    permissions.has("ventes.annuler") || permissions.has("depenses.annuler") || permissions.has("livraisons.annuler");
 
   const [
     salesPeriod,
@@ -164,7 +168,7 @@ export default async function DashboardPage({
       icon: Boxes,
       links: [
         { href: "/produits", label: "Configuration des produits" },
-        ...(isAdmin ? [{ href: "/categories", label: "Catégories & unités" }] : []),
+        ...(permissions.has("produits.gerer") ? [{ href: "/categories", label: "Catégories & unités" }] : []),
         { href: "/prestations", label: "Prestations" },
       ],
     },
@@ -211,12 +215,12 @@ export default async function DashboardPage({
       icon: Wallet,
       links: [
         { href: "/caisse", label: "État de mes caisses" },
-        ...(canManageFinance ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
+        ...(canManageCashPoints ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         { href: "/depenses", label: "Dépenses" },
         ...(canSeeReports ? [{ href: "/tresorerie", label: "Comptes bancaires" }] : []),
       ],
     },
-    ...(isAdmin
+    ...(canSeeHR
       ? [
           {
             title: "Ressources humaines",
@@ -238,7 +242,7 @@ export default async function DashboardPage({
         ...(canSeeReports ? [{ href: "/rapports", label: "Rapports" }] : []),
       ],
     },
-    ...(canManageFinance
+    ...(canSeeCancellations
       ? [
           {
             title: "Annulations & contrôle",

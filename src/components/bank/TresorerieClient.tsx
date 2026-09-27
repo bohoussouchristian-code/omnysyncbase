@@ -58,7 +58,15 @@ function buildLedger(account: Account) {
   return rows;
 }
 
-export function TresorerieClient({ accounts, canManage }: { accounts: Account[]; canManage: boolean }) {
+export function TresorerieClient({
+  accounts,
+  canManage,
+  canReconcile,
+}: {
+  accounts: Account[];
+  canManage: boolean;
+  canReconcile: boolean;
+}) {
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [showTx, setShowTx] = useState<{ account: Account; type: "RECETTE" | "DECAISSEMENT" } | null>(null);
@@ -159,12 +167,14 @@ export function TresorerieClient({ accounts, canManage }: { accounts: Account[];
                   </button>
                 </>
               )}
-              <button
-                onClick={() => setShowReconcile(selected)}
-                className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold px-3 py-1.5 hover:bg-blue-100"
-              >
-                <ClipboardCheck size={13} /> Rapprocher
-              </button>
+              {canReconcile && (
+                <button
+                  onClick={() => setShowReconcile(selected)}
+                  className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold px-3 py-1.5 hover:bg-blue-100"
+                >
+                  <ClipboardCheck size={13} /> Rapprocher
+                </button>
+              )}
             </div>
           </div>
 
@@ -202,8 +212,9 @@ export function TresorerieClient({ accounts, canManage }: { accounts: Account[];
                         type="checkbox"
                         checked={tx.reconciled}
                         onChange={() => toggleReconciled(tx.id)}
+                        disabled={!canReconcile}
                         title="Confirmer que ce mouvement apparaît sur le relevé bancaire"
-                        className="h-4 w-4 rounded border-slate-300 accent-blue-600 cursor-pointer"
+                        className="h-4 w-4 rounded border-slate-300 accent-blue-600 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </td>
                   </tr>

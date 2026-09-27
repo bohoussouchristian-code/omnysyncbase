@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { DeliveriesClient } from "@/components/deliveries/DeliveriesClient";
 
@@ -14,7 +15,7 @@ export default async function LivraisonClientsPage({
   // pouvoir venir confirmer sa propre livraison ici, pas seulement un
   // administrateur/gérant (qui restent seuls à pouvoir créer/encaisser/annuler).
   const companyId = user.companyId;
-  const canManage = user.role === "ADMIN" || user.role === "GERANT";
+  const canManage = await userHasPermission(user, "livraisons.gerer");
 
   const { saleId, customerId } = await searchParams;
 

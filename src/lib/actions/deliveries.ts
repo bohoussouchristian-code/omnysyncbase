@@ -3,13 +3,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
 import { requireOpenSessionForPayment } from "@/lib/actions/cash";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod, Role } from "@prisma/client";
 
-function requireDeliveryManager(role: string) {
-  return role === "ADMIN" || role === "GERANT";
+function canManageDeliveries(user: { id: string; role: Role }) {
+  return userHasPermission(user, "livraisons.gerer");
 }
 
 // Ce qui est décidé au cas par cas (zone, distance, secteur...) est le prix
@@ -21,8 +22,8 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireDeliveryManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut enregistrer une livraison." };
+  if (!(await canManageDeliveries(user)))
+    return { error: "Permission manquante : enregistrer une livraison." };
 
   const saleId = String(formData.get("saleId") || "") || null;
   const customerId = String(formData.get("customerId") || "") || null;
@@ -105,7 +106,7 @@ export async function markDeliveryDelivered(id: string) {
 
   const delivery = await prisma.delivery.findFirst({ where: { id, companyId } });
   if (!delivery) return { error: "Livraison introuvable." };
-  if (!requireDeliveryManager(user.role) && delivery.assignedToId !== user.id)
+  if (!(await canManageDeliveries(user)) && delivery.assignedToId !== user.id)
     return { error: "Cette livraison ne vous est pas assignée." };
   if (delivery.status !== "EN_ATTENTE") return { error: "Cette livraison n'est plus en attente." };
 
@@ -125,8 +126,8 @@ export async function collectDeliveryPayment(_prev: unknown, formData: FormData)
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireDeliveryManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut encaisser une livraison." };
+  if (!(await canManageDeliveries(user)))
+    return { error: "Permission manquante : encaisser une livraison." };
 
   const deliveryId = String(formData.get("deliveryId") || "");
   const method = (String(formData.get("method") || "ESPECES") as PaymentMethod) || "ESPECES";
@@ -165,8 +166,8 @@ export async function cancelDelivery(id: string, reason: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireDeliveryManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut annuler une livraison." };
+  if (!(await userHasPermission(user, "livraisons.annuler")))
+    return { error: "Permission manquante : annuler une livraison." };
   if (!reason.trim()) return { error: "Un motif d'annulation est obligatoire." };
 
   const delivery = await prisma.delivery.findFirst({ where: { id, companyId } });

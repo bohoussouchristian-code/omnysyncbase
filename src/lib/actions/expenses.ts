@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
@@ -13,7 +14,8 @@ export async function cancelExpense(expenseId: string, reason: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (user.role !== "ADMIN") return { error: "Seul un administrateur peut annuler une dépense." };
+  if (!(await userHasPermission(user, "depenses.annuler")))
+    return { error: "Permission manquante : annuler une dépense." };
   if (!reason.trim()) return { error: "Un motif d'annulation est obligatoire." };
 
   const expense = await prisma.expense.findFirst({ where: { id: expenseId, companyId } });
@@ -95,8 +97,8 @@ export async function topUpExpenseEnvelope(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (user.role !== "ADMIN" && user.role !== "GERANT")
-    return { error: "Seul un administrateur ou un gérant peut réapprovisionner une caisse de dépense." };
+  if (!(await userHasPermission(user, "budgets.gerer")))
+    return { error: "Permission manquante : réapprovisionner une caisse de dépense." };
 
   const category = String(formData.get("category") || "").trim();
   const amount = Number(formData.get("amount") || 0);
@@ -124,8 +126,8 @@ export async function toggleExpenseEnvelopeActive(envelopeId: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (user.role !== "ADMIN" && user.role !== "GERANT")
-    return { error: "Seul un administrateur ou un gérant peut modifier une caisse de dépense." };
+  if (!(await userHasPermission(user, "budgets.gerer")))
+    return { error: "Permission manquante : modifier une caisse de dépense." };
 
   const envelope = await prisma.expenseEnvelope.findFirst({ where: { id: envelopeId, companyId } });
   if (!envelope) return { error: "Caisse de dépense introuvable." };

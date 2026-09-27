@@ -24,6 +24,7 @@ const ACTION_LABELS: Record<string, string> = {
   "user.role_change": "Changement de rôle",
   "user.toggle_active": "Activation/désactivation utilisateur",
   "user.reset_password": "Réinitialisation de mot de passe",
+  "user.permission_change": "Modification d'une permission",
   "company.update": "Modification entreprise / FNE",
 };
 

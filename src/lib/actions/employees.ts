@@ -1,16 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireCompanyUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 
-// La fiche employé (et donc la paie) ne peut être créée/modifiée que par un
-// administrateur — même règle que le reste des données de base sensibles.
+// La fiche employé est réservée à l'administrateur par défaut, délégable via
+// "employes.gerer" (voir /utilisateurs).
 async function requireManager() {
-  const check = await requireCompanyUser();
-  if ("error" in check) return { error: check.error };
-  if (check.user.role !== "ADMIN") return { error: "Seul un administrateur peut gérer les employés." } as const;
-  return check;
+  return requirePermission("employes.gerer");
 }
 
 export async function createEmployee(_prev: unknown, formData: FormData) {

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 import { LOYALTY_FCFA_PER_POINT_EARNED, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
@@ -403,8 +404,8 @@ export async function cancelSale(saleId: string, reason: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (user.role !== "ADMIN")
-    return { error: "Seul un administrateur peut annuler une vente." };
+  if (!(await userHasPermission(user, "ventes.annuler")))
+    return { error: "Permission manquante : annuler une vente." };
   const trimmedReason = reason.trim();
   if (!trimmedReason) return { error: "Le motif d'annulation est obligatoire." };
 

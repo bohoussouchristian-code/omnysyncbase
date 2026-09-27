@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { CaisseValidationClient } from "@/components/sales/CaisseValidationClient";
 
@@ -62,6 +63,8 @@ export default async function CaisseVentesPage({
     prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
   ]);
 
+  const canManageDeliveries = await userHasPermission(user, "livraisons.gerer");
+
   return (
     <CaisseValidationClient
       pending={pending}
@@ -71,7 +74,7 @@ export default async function CaisseVentesPage({
       warehouses={warehouses}
       openSessions={openSessions}
       companyName={company?.name ?? ""}
-      canManageDeliveries={user.role === "ADMIN" || user.role === "GERANT"}
+      canManageDeliveries={canManageDeliveries}
     />
   );
 }

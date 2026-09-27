@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
+import { userHasPermission } from "@/lib/actions/permissions";
 import { redirect } from "next/navigation";
 import { CaissesDepotsClient } from "@/components/cash/CaissesDepotsClient";
 import {
@@ -22,7 +23,7 @@ export default async function GestionCaissesDepotsPage({
   if (!user?.companyId) redirect("/login");
   // Vue d'ensemble réservée à l'administration : contrairement à "État de mes
   // caisses" (personnel), ceci montre les clôtures de TOUS les agents.
-  if (user.role !== "ADMIN" && user.role !== "GERANT") redirect("/dashboard");
+  if (!(await userHasPermission(user, "caisses.gerer"))) redirect("/dashboard");
   const companyId = user.companyId;
 
   const { from: fromParam, to: toParam } = await searchParams;
