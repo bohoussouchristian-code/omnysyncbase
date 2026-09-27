@@ -37,7 +37,6 @@ import {
   Receipt,
   PiggyBank,
   Send,
-  ShieldCheck,
   Scissors,
   Lock,
   LineChart,
@@ -71,11 +70,12 @@ function itemVisible(item: NavItem, userRole: Role, permissions: ReadonlySet<Per
 
 // Structure reprise du prompt de restructuration : Tiers, Catalogue &
 // référentiel, Ventes & facturation, Achats & approvisionnement, Stock &
-// logistique, Livraisons, Finances, FNE & fiscalité, Rapports & analytics,
-// RH, Annulations & contrôle — chaque domaine métier a son propre groupe,
-// au lieu d'être mélangé dans "Gestion des ventes"/"Gestion financière"
-// comme avant. Corrige au passage deux modules orphelins qui existaient en
-// code mais n'apparaissaient nulle part dans le menu : Prestations et
+// logistique, Livraisons, Finances, Rapports & analytics, RH, Annulations &
+// contrôle — chaque domaine métier a son propre groupe, au lieu d'être
+// mélangé dans "Gestion des ventes"/"Gestion financière" comme avant. FNE &
+// fiscalité vit dans Paramètres (/administration, réservé Admin), pas ici.
+// Corrige au passage deux modules orphelins qui existaient en code mais
+// n'apparaissaient nulle part dans le menu : Prestations et
 // Catégories & unités.
 const NAV: readonly NavEntry[] = [
   { kind: "link", href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
@@ -170,13 +170,6 @@ const NAV: readonly NavEntry[] = [
         permission: "rapports.voir",
       },
     ],
-  },
-  {
-    kind: "link",
-    href: "/entreprise?tab=fne",
-    label: "FNE & fiscalité",
-    icon: ShieldCheck,
-    roles: ["ADMIN"],
   },
   {
     kind: "group",
@@ -365,7 +358,7 @@ export function Sidebar({
       </nav>
 
       {userRole === "ADMIN" && (
-        <div className="border-t border-slate-800 p-3 flex justify-end">
+        <div className="border-t border-slate-800 p-3">
           <SettingsMenu theme="dark" />
         </div>
       )}
