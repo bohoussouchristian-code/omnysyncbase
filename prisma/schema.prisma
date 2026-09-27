@@ -351,6 +351,7 @@ model Product {
   purchaseItems  PurchaseItem[]
   proformaItems  ProformaItem[]
   supplierPrices ProductSupplierPrice[]
+  deliveries     Delivery[]
 
   @@unique([companyId, barcode])
 }
@@ -645,21 +646,26 @@ enum DeliveryStatus {
 }
 
 // Livraison client — module à part, distinct des Bons de livraison
-// (réception fournisseur, voir /livraisons). Le montant facturé au client
-// (`fee`) n'est jamais calculé automatiquement : c'est un montant décidé au
-// cas par cas (distance, secteur, quantité...) par un administrateur ou un
-// gérant, jamais une formule figée.
+// (réception fournisseur, voir /livraisons). Le prix par bouteille
+// (`pricePerBottle`) est ce qui est décidé au cas par cas (distance,
+// secteur...) par un administrateur ou un gérant ; le montant final (`fee`)
+// se déduit ensuite automatiquement en multipliant par le nombre total de
+// bouteilles (quantité de casiers × bouteilles par casier du produit —
+// voir Product.piecesPerPack), jamais ressaisi ni recalculé à la main.
 model Delivery {
-  id          String         @id @default(cuid())
-  number      String
-  saleId      String?
-  sale        Sale?          @relation(fields: [saleId], references: [id])
-  customerId  String?
-  customer    Customer?      @relation(fields: [customerId], references: [id])
-  destination String
-  quantity    Float?
-  fee         Float
-  paid        Boolean        @default(false)
+  id             String         @id @default(cuid())
+  number         String
+  saleId         String?
+  sale           Sale?          @relation(fields: [saleId], references: [id])
+  customerId     String?
+  customer       Customer?      @relation(fields: [customerId], references: [id])
+  productId      String?
+  product        Product?       @relation(fields: [productId], references: [id])
+  destination    String
+  quantity       Float?
+  pricePerBottle Float?
+  fee            Float
+  paid           Boolean        @default(false)
   status      DeliveryStatus @default(EN_ATTENTE)
   notes       String?
   createdAt   DateTime       @default(now())

@@ -10,11 +10,13 @@ import { PAYMENT_LABELS } from "@/lib/constants";
 import { Plus, Search, Truck, CheckCircle2, CircleDollarSign } from "lucide-react";
 
 type Customer = { id: string; name: string };
+type Product = { id: string; name: string; piecesPerPack: number; packUnit: { symbol: string } | null };
 type Delivery = {
   id: string;
   number: string;
   destination: string;
   quantity: number | null;
+  pricePerBottle: number | null;
   fee: number;
   paid: boolean;
   status: "EN_ATTENTE" | "LIVREE" | "ANNULEE";
@@ -24,6 +26,7 @@ type Delivery = {
   customer: { name: string } | null;
   sale: { number: string } | null;
   user: { name: string } | null;
+  product: { name: string } | null;
 };
 
 function StatusBadge({ status }: { status: Delivery["status"] }) {
@@ -33,10 +36,19 @@ function StatusBadge({ status }: { status: Delivery["status"] }) {
 }
 
 // Module dédié aux livraisons clients — distinct des Bons de livraison
-// (réception fournisseur). Le montant facturé pour chaque livraison est
-// toujours décidé au cas par cas ici (zone, distance, quantité...), jamais
-// calculé automatiquement par une formule.
-export function DeliveriesClient({ deliveries, customers }: { deliveries: Delivery[]; customers: Customer[] }) {
+// (réception fournisseur). Ce qui est décidé au cas par cas (zone, distance,
+// secteur...) est le prix par bouteille ; le montant final se déduit toujours
+// en multipliant par le nombre total de bouteilles (casiers × bouteilles par
+// casier du produit choisi — voir createDelivery côté serveur).
+export function DeliveriesClient({
+  deliveries,
+  customers,
+  products,
+}: {
+  deliveries: Delivery[];
+  customers: Customer[];
+  products: Product[];
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -67,7 +79,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
     <div>
       <PageHeader
         title="Livraison client"
-        subtitle="Frais de livraison décidés au cas par cas (zone, distance, quantité...)"
+        subtitle="Prix par bouteille décidé au cas par cas (zone, distance, secteur...) — le montant total se calcule automatiquement"
         action={
           <div className="flex items-center gap-2">
             <Link
@@ -115,6 +127,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
                 <th className="px-4 py-3 font-medium">Date</th>
                 <th className="px-4 py-3 font-medium">Client</th>
                 <th className="px-4 py-3 font-medium">Destination</th>
+                <th className="px-4 py-3 font-medium">Produit</th>
                 <th className="px-4 py-3 font-medium text-right">Quantité</th>
                 <th className="px-4 py-3 font-medium text-right">Frais</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
@@ -129,6 +142,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDateTime(d.createdAt)}</td>
                   <td className="px-4 py-3 text-slate-600">{d.customer?.name || "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{d.destination}</td>
+                  <td className="px-4 py-3 text-slate-600">{d.product?.name || "—"}</td>
                   <td className="px-4 py-3 text-right">{d.quantity ?? "—"}</td>
                   <td className="px-4 py-3 text-right font-medium">{formatMoney(d.fee)}</td>
                   <td className="px-4 py-3">
@@ -164,7 +178,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
                     {deliveries.length === 0 ? "Aucune livraison enregistrée." : "Aucun résultat."}
                   </td>
                 </tr>
@@ -175,7 +189,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
       </Card>
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvelle livraison">
-        <DeliveryForm customers={customers} onDone={() => setShowCreate(false)} />
+        <DeliveryForm customers={customers} products={products} onDone={() => setShowCreate(false)} />
       </Modal>
 
       <Modal
@@ -192,7 +206,15 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
   );
 }
 
-function DeliveryForm({ customers, onDone }: { customers: Customer[]; onDone: () => void }) {
+function DeliveryForm({
+  customers,
+  products,
+  onDone,
+}: {
+  customers: Customer[];
+  products: Product[];
+  onDone: () => void;
+}) {
   const router = useRouter();
   const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
     const res = await createDelivery(prev, formData);
@@ -203,12 +225,22 @@ function DeliveryForm({ customers, onDone }: { customers: Customer[]; onDone: ()
     return res;
   }, undefined as { error?: string } | undefined);
 
+  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [quantity, setQuantity] = useState("");
+  const [pricePerBottle, setPricePerBottle] = useState("");
+
+  const product = products.find((p) => p.id === productId) ?? null;
+  const piecesPerPack = product?.piecesPerPack || 1;
+  const totalBottles = (Number(quantity) || 0) * piecesPerPack;
+  const computedFee = totalBottles * (Number(pricePerBottle) || 0);
+
   return (
     <form action={formAction} className="space-y-4">
       <FormError error={state?.error} />
       <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
         <Truck size={14} className="shrink-0" />
-        Le montant de la livraison est à votre appréciation (zone, distance, quantité...) — aucun calcul automatique.
+        Seul le prix par bouteille est à votre appréciation (zone, distance, secteur...) — le montant total se
+        calcule automatiquement (casiers × bouteilles par casier × prix).
       </div>
       <div>
         <Label>Client (optionnel)</Label>
@@ -225,16 +257,54 @@ function DeliveryForm({ customers, onDone }: { customers: Customer[]; onDone: ()
         <Label>Destination</Label>
         <Input name="destination" placeholder="Ex : Sous-secteur Anonkoua-Kouté, Abobo" required />
       </div>
+      <div>
+        <Label>Produit livré</Label>
+        <Select name="productId" value={productId} onChange={(e) => setProductId(e.target.value)} required>
+          {products.length === 0 && <option value="">Aucun produit configuré</option>}
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {p.packUnit ? ` (${p.piecesPerPack} bouteilles / ${p.packUnit.symbol})` : ""}
+            </option>
+          ))}
+        </Select>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Quantité (casiers, optionnel)</Label>
-          <Input type="number" name="quantity" min={1} step="1" placeholder="Ex : 300" />
+          <Label>Quantité (casiers)</Label>
+          <Input
+            type="number"
+            name="quantity"
+            min={1}
+            step="1"
+            placeholder="Ex : 300"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            required
+          />
         </div>
         <div>
-          <Label>Frais de livraison</Label>
-          <Input type="number" name="fee" min={1} step="1" required />
+          <Label>Prix par bouteille (FCFA)</Label>
+          <Input
+            type="number"
+            name="pricePerBottle"
+            min={1}
+            step="1"
+            placeholder="Ex : 100"
+            value={pricePerBottle}
+            onChange={(e) => setPricePerBottle(e.target.value)}
+            required
+          />
         </div>
       </div>
+      {totalBottles > 0 && (
+        <div className="flex items-center justify-between text-sm bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <span className="text-slate-600">
+            {quantity} casier(s) × {piecesPerPack} bouteilles = {totalBottles} bouteille(s)
+          </span>
+          <span className="font-semibold text-blue-700">{formatMoney(computedFee)}</span>
+        </div>
+      )}
       <div>
         <Label>Note (optionnel)</Label>
         <Input name="notes" placeholder="Ex : longue distance, accès difficile..." />

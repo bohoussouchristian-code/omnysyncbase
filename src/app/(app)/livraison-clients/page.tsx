@@ -9,7 +9,7 @@ export default async function LivraisonClientsPage() {
   if (user.role !== "ADMIN" && user.role !== "GERANT") redirect("/dashboard");
   const companyId = user.companyId;
 
-  const [deliveries, customers] = await Promise.all([
+  const [deliveries, customers, products] = await Promise.all([
     prisma.delivery.findMany({
       where: { companyId },
       orderBy: { createdAt: "desc" },
@@ -18,6 +18,7 @@ export default async function LivraisonClientsPage() {
         customer: { select: { name: true } },
         sale: { select: { number: true } },
         user: { select: { name: true } },
+        product: { select: { name: true } },
       },
     }),
     prisma.customer.findMany({
@@ -25,7 +26,12 @@ export default async function LivraisonClientsPage() {
       orderBy: { name: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.product.findMany({
+      where: { companyId, active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, piecesPerPack: true, packUnit: { select: { symbol: true } } },
+    }),
   ]);
 
-  return <DeliveriesClient deliveries={deliveries} customers={customers} />;
+  return <DeliveriesClient deliveries={deliveries} customers={customers} products={products} />;
 }

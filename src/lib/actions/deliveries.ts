@@ -11,10 +11,11 @@ function requireDeliveryManager(role: string) {
   return role === "ADMIN" || role === "GERANT";
 }
 
-// Le montant facturé au client pour une livraison (`fee`) n'est jamais
-// calculé automatiquement — c'est un montant décidé au cas par cas (zone,
-// distance, quantité...) par un administrateur ou un gérant, jamais une
-// formule figée par produit ou par client.
+// Ce qui est décidé au cas par cas (zone, distance, secteur...) est le prix
+// par bouteille (`pricePerBottle`), jamais le montant final : celui-ci se
+// déduit toujours en multipliant par le nombre total de bouteilles (quantité
+// de casiers × bouteilles par casier du produit livré), recalculé ici
+// côté serveur — jamais une saisie libre qui pourrait diverger du calcul.
 export async function createDelivery(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
@@ -24,14 +25,19 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
 
   const saleId = String(formData.get("saleId") || "") || null;
   const customerId = String(formData.get("customerId") || "") || null;
+  const productId = String(formData.get("productId") || "") || null;
   const destination = String(formData.get("destination") || "").trim();
-  const quantityRaw = formData.get("quantity");
-  const quantity = quantityRaw && String(quantityRaw) !== "" ? Number(quantityRaw) : null;
-  const fee = Number(formData.get("fee") || 0);
+  const quantity = Number(formData.get("quantity") || 0);
+  const pricePerBottle = Number(formData.get("pricePerBottle") || 0);
   const notes = String(formData.get("notes") || "").trim() || null;
 
   if (!destination) return { error: "Destination requise." };
-  if (fee <= 0) return { error: "Le montant de la livraison doit être supérieur à 0." };
+  if (!productId) return { error: "Produit requis pour calculer le montant de la livraison." };
+  if (quantity <= 0) return { error: "La quantité (en casiers) doit être supérieure à 0." };
+  if (pricePerBottle <= 0) return { error: "Le prix par bouteille doit être supérieur à 0." };
+
+  const product = await prisma.product.findFirst({ where: { id: productId, companyId } });
+  if (!product) return { error: "Produit introuvable." };
 
   if (saleId) {
     const sale = await prisma.sale.findFirst({ where: { id: saleId, companyId } });
@@ -42,9 +48,24 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
     if (!customer) return { error: "Client introuvable." };
   }
 
+  const totalBottles = quantity * product.piecesPerPack;
+  const fee = pricePerBottle * totalBottles;
+
   const number = generateNumber("LIV");
   await prisma.delivery.create({
-    data: { number, saleId, customerId, destination, quantity, fee, notes, userId: user.id, companyId },
+    data: {
+      number,
+      saleId,
+      customerId,
+      productId,
+      destination,
+      quantity,
+      pricePerBottle,
+      fee,
+      notes,
+      userId: user.id,
+      companyId,
+    },
   });
 
   revalidatePath("/livraison-clients");
