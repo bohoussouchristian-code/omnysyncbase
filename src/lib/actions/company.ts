@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { logAudit } from "@/lib/audit";
 import type { FneTaxCode } from "@prisma/client";
 
 const FNE_TAX_CODES: FneTaxCode[] = ["TVA", "TVAB", "TVAC", "TVAD"];
@@ -44,7 +45,10 @@ export async function updateCompanyInfo(_prev: unknown, formData: FormData) {
   const fneBaseUrl = String(formData.get("fneBaseUrl") || "").trim() || null;
   const fneTaxCodeInput = String(formData.get("fneTaxCode") || "").trim();
   const fneTaxCode = FNE_TAX_CODES.includes(fneTaxCodeInput as FneTaxCode) ? (fneTaxCodeInput as FneTaxCode) : null;
-  const current = await prisma.company.findUnique({ where: { id: companyId }, select: { fneApiKey: true } });
+  const current = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { name: true, fneApiKey: true, fneEnabled: true, fneNcc: true, fneTaxCode: true },
+  });
   const fneApiKey = fneApiKeyInput || current?.fneApiKey || null;
   if (fneEnabled && (!fneNcc || !fneApiKey || !fneTaxCode)) {
     return { error: "Renseignez le NCC, la clé API et le taux de TVA FNE avant d'activer la FNE." };
@@ -67,6 +71,27 @@ export async function updateCompanyInfo(_prev: unknown, formData: FormData) {
       fneTaxCode,
     },
   });
+
+  // La clé API elle-même n'est jamais journalisée en clair (ni dans un sens
+  // ni dans l'autre) — seul le fait qu'elle ait changé compte pour l'audit.
+  if (
+    current &&
+    (current.name !== name ||
+      current.fneEnabled !== fneEnabled ||
+      current.fneNcc !== fneNcc ||
+      current.fneTaxCode !== fneTaxCode ||
+      (fneApiKeyInput && fneApiKeyInput !== current.fneApiKey))
+  ) {
+    await logAudit({
+      companyId,
+      userId: user.id,
+      action: "company.update",
+      entityType: "Company",
+      entityId: companyId,
+      oldValue: { name: current.name, fneEnabled: current.fneEnabled, fneNcc: current.fneNcc, fneTaxCode: current.fneTaxCode },
+      newValue: { name, fneEnabled, fneNcc, fneTaxCode, apiKeyChanged: !!fneApiKeyInput },
+    });
+  }
 
   revalidatePath("/entreprise");
   revalidatePath("/administration");

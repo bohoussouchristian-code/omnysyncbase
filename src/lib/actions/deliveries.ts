@@ -5,6 +5,7 @@ import { requireCompanyUser } from "@/lib/auth";
 import { requireOpenSessionForPayment } from "@/lib/actions/cash";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 import type { PaymentMethod } from "@prisma/client";
 
 function requireDeliveryManager(role: string) {
@@ -181,6 +182,18 @@ export async function cancelDelivery(id: string, reason: string) {
       cancelledById: user.id,
     },
   });
+
+  await logAudit({
+    companyId,
+    userId: user.id,
+    action: "delivery.cancel",
+    entityType: "Delivery",
+    entityId: delivery.id,
+    oldValue: { status: delivery.status, fee: delivery.fee },
+    newValue: { status: "ANNULEE" },
+    reason,
+  });
+
   revalidatePath("/livraison-clients");
   revalidatePath("/annulations");
   return { success: true };

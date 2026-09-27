@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
+import { logAudit } from "@/lib/audit";
 
 // Centralisée dans le module Annulations (même principe que les ventes) :
 // motif obligatoire, conservé pour l'audit. Restitue le montant à la caisse
@@ -30,6 +31,17 @@ export async function cancelExpense(expenseId: string, reason: string) {
     if (envelope) {
       await tx.expenseEnvelope.update({ where: { id: envelope.id }, data: { balance: { increment: expense.amount } } });
     }
+  });
+
+  await logAudit({
+    companyId,
+    userId: user.id,
+    action: "expense.cancel",
+    entityType: "Expense",
+    entityId: expense.id,
+    oldValue: { cancelled: false, amount: expense.amount, category: expense.category },
+    newValue: { cancelled: true },
+    reason,
   });
 
   revalidatePath("/depenses");

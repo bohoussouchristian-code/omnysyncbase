@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
 import { LOYALTY_FCFA_PER_POINT_EARNED, LOYALTY_POINT_VALUE_FCFA } from "@/lib/constants";
 import { isFneConfigured, submitSaleToFne, type FnePaymentMethod } from "@/lib/fne";
+import { logAudit } from "@/lib/audit";
 import type { PaymentMethod, CustomerType } from "@prisma/client";
 
 const PAYMENT_METHOD_TO_FNE: Record<PaymentMethod, FnePaymentMethod> = {
@@ -418,6 +419,16 @@ export async function cancelSale(saleId: string, reason: string) {
       where: { id: saleId, companyId },
       data: { status: "ANNULEE", cancelReason: trimmedReason, cancelledAt: new Date(), cancelledById: user.id },
     });
+    await logAudit({
+      companyId,
+      userId: user.id,
+      action: "sale.cancel",
+      entityType: "Sale",
+      entityId: sale.id,
+      oldValue: { status: sale.status },
+      newValue: { status: "ANNULEE" },
+      reason: trimmedReason,
+    });
     revalidatePath("/ventes");
     revalidatePath("/caisse-ventes");
     revalidatePath("/annulations");
@@ -481,6 +492,17 @@ export async function cancelSale(saleId: string, reason: string) {
       where: { id: saleId, companyId },
       data: { status: "ANNULEE", cancelReason: trimmedReason, cancelledAt: new Date(), cancelledById: user.id },
     });
+  });
+
+  await logAudit({
+    companyId,
+    userId: user.id,
+    action: "sale.cancel",
+    entityType: "Sale",
+    entityId: sale.id,
+    oldValue: { status: sale.status, paidAmount: sale.paidAmount, totalAmount: sale.totalAmount },
+    newValue: { status: "ANNULEE" },
+    reason: trimmedReason,
   });
 
   revalidatePath("/ventes");

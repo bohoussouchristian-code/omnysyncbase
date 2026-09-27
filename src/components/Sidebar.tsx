@@ -38,6 +38,7 @@ import {
   Send,
   ShieldCheck,
   Scissors,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -159,6 +160,13 @@ const NAV: readonly NavEntry[] = [
     label: "Annulations & contrôle",
     icon: Ban,
     roles: ["ADMIN", "GERANT"],
+  },
+  {
+    kind: "link",
+    href: "/audit",
+    label: "Sécurité & audit",
+    icon: Lock,
+    roles: ["ADMIN"],
   },
 ] as const;
 

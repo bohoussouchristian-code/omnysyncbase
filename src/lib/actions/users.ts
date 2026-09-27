@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireCompanyUser, hashPassword, validatePassword, generatePassword } from "@/lib/auth";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { revalidatePath } from "next/cache";
+import { logAudit } from "@/lib/audit";
 import type { Role } from "@prisma/client";
 
 export async function createUser(_prev: unknown, formData: FormData) {
@@ -70,6 +71,15 @@ export async function toggleUserActive(id: string) {
   if (!target) return { error: "Utilisateur introuvable." };
 
   await prisma.user.update({ where: { id, companyId }, data: { active: !target.active } });
+  await logAudit({
+    companyId,
+    userId: current.id,
+    action: "user.toggle_active",
+    entityType: "User",
+    entityId: target.id,
+    oldValue: { active: target.active },
+    newValue: { active: !target.active },
+  });
   revalidatePath("/utilisateurs");
   return { success: true };
 }
@@ -98,6 +108,14 @@ export async function resetUserPassword(id: string) {
     password,
   });
 
+  await logAudit({
+    companyId,
+    userId: current.id,
+    action: "user.reset_password",
+    entityType: "User",
+    entityId: target.id,
+  });
+
   revalidatePath("/utilisateurs");
   return { success: true, emailSent: emailResult.ok };
 }
@@ -116,6 +134,15 @@ export async function updateUserRole(_prev: unknown, formData: FormData) {
   if (!target) return { error: "Utilisateur introuvable." };
 
   await prisma.user.update({ where: { id, companyId }, data: { role } });
+  await logAudit({
+    companyId,
+    userId: current.id,
+    action: "user.role_change",
+    entityType: "User",
+    entityId: target.id,
+    oldValue: { role: target.role },
+    newValue: { role },
+  });
   revalidatePath("/utilisateurs");
   return { success: true };
 }

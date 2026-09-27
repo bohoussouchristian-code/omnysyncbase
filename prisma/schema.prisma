@@ -160,6 +160,7 @@ model Company {
   packagingTypes         PackagingType[]
   deliveries             Delivery[]
   notifications          Notification[]
+  auditLogs              AuditLog[]
 }
 
 model User {
@@ -214,6 +215,7 @@ model User {
   deliveries            Delivery[]
   assignedDeliveries    Delivery[]        @relation("DeliveryAssignedTo")
   notifications         Notification[]
+  auditLogs             AuditLog[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -1037,4 +1039,27 @@ model BankReconciliation {
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
+}
+
+// Journal d'audit des opérations sensibles (annulations, changements de rôle,
+// désactivation d'utilisateur, réinitialisation de mot de passe, modification
+// des paramètres de l'entreprise/FNE) : qui, quoi, quand, ancienne et
+// nouvelle valeur — jamais une opération sensible qui reste invisible après
+// coup. Ne couvre pas encore chaque mutation de l'application (trop vaste
+// pour un premier jet), seulement celles explicitement désignées comme
+// sensibles par le cahier des charges.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
 }
