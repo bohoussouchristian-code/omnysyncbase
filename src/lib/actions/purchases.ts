@@ -153,20 +153,59 @@ export async function validatePurchase(purchaseId: string) {
 // Acte seulement l'arrivée physique de la commande (bon de livraison) — ne
 // touche pas le stock. C'est le passage par Approvisionnement, une étape
 // distincte et volontairement séparée, qui crédite réellement le stock.
-export async function receivePurchase(purchaseId: string) {
+export type ReceivePurchaseItemInput = {
+  itemId: string;
+  deliveredQuantity: number;
+  deliveredBrokenQuantity: number;
+  lotNumber?: string;
+  serialNumber?: string;
+  expiryDate?: string;
+};
+
+// Constat du livreur/réceptionnaire à l'arrivée de la marchandise — avant
+// tout comptage définitif en entrepôt (voir stockPurchase). N'entre jamais
+// le stock lui-même : sert seulement de première observation, reprise comme
+// valeur par défaut à l'approvisionnement, qui reste seul à créditer le
+// stock (voir deliveredQuantity/deliveredBrokenQuantity dans schema.prisma).
+export async function receivePurchase(purchaseId: string, itemInputs: ReceivePurchaseItemInput[]) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
 
-  const purchase = await prisma.purchase.findFirst({ where: { id: purchaseId, companyId } });
+  const purchase = await prisma.purchase.findFirst({ where: { id: purchaseId, companyId }, include: { items: true } });
   if (!purchase) return { error: "Commande introuvable." };
   if (!purchase.validatedAt) return { error: "Validez d'abord la commande avant de la réceptionner." };
   if (purchase.status === "RECUE") return { error: "Déjà réceptionnée." };
   if (purchase.status === "ANNULEE") return { error: "Commande annulée." };
 
-  await prisma.purchase.update({
-    where: { id: purchaseId, companyId },
-    data: { status: "RECUE", receivedAt: new Date(), receivedById: user.id },
+  const inputByItemId = new Map(itemInputs.map((i) => [i.itemId, i]));
+  for (const item of purchase.items) {
+    const input = inputByItemId.get(item.id);
+    if (!input) return { error: `Quantité livrée manquante pour un article.` };
+    if (input.deliveredQuantity < 0 || input.deliveredBrokenQuantity < 0)
+      return { error: "Les quantités ne peuvent pas être négatives." };
+    if (input.deliveredQuantity + input.deliveredBrokenQuantity > item.quantity)
+      return { error: "La somme livré + cassé ne peut pas dépasser la quantité commandée." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of purchase.items) {
+      const input = inputByItemId.get(item.id)!;
+      await tx.purchaseItem.update({
+        where: { id: item.id },
+        data: {
+          deliveredQuantity: input.deliveredQuantity,
+          deliveredBrokenQuantity: input.deliveredBrokenQuantity,
+          lotNumber: input.lotNumber?.trim() || null,
+          serialNumber: input.serialNumber?.trim() || null,
+          expiryDate: input.expiryDate ? new Date(`${input.expiryDate}T00:00:00`) : null,
+        },
+      });
+    }
+    await tx.purchase.update({
+      where: { id: purchaseId, companyId },
+      data: { status: "RECUE", receivedAt: new Date(), receivedById: user.id },
+    });
   });
 
   revalidatePath("/achats");

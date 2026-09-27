@@ -564,12 +564,21 @@ model PurchaseItem {
   receivedQuantity Float?
   brokenQuantity   Float  @default(0)
 
-  // Renseignés au même moment que receivedQuantity/brokenQuantity (à
-  // l'approvisionnement, voir stockPurchase) — utiles pour la traçabilité
-  // fournisseur et le suivi de péremption des boissons. Optionnels : aucun
-  // impact sur le calcul du stock.
-  lotNumber  String?
-  expiryDate DateTime?
+  // Première observation à la réception (bon de livraison, voir
+  // receivePurchase) — avant tout comptage définitif en entrepôt. Sert de
+  // valeur par défaut à l'approvisionnement, qui reste seul à créditer le
+  // stock : un écart entre ces deux constats (transport vs stockage) reste
+  // visible plutôt que d'être écrasé silencieusement.
+  deliveredQuantity       Float?
+  deliveredBrokenQuantity Float  @default(0)
+
+  // Renseignés une seule fois, à la réception — la marchandise ne change pas
+  // de lot/série/péremption entre le bon de livraison et l'approvisionnement.
+  // Utiles pour la traçabilité fournisseur et le suivi de péremption.
+  // Optionnels : aucun impact sur le calcul du stock.
+  lotNumber    String?
+  expiryDate   DateTime?
+  serialNumber String?
 
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])

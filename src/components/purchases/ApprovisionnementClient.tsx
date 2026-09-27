@@ -14,8 +14,11 @@ type PurchaseItemRow = {
   unitPrice: number;
   receivedQuantity: number | null;
   brokenQuantity: number;
+  deliveredQuantity: number | null;
+  deliveredBrokenQuantity: number;
   lotNumber: string | null;
   expiryDate: Date | null;
+  serialNumber: string | null;
   product: {
     name: string;
     reference: string | null;
@@ -189,6 +192,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                 <th className="pb-2 font-medium text-right">Qté approvisionnée</th>
                 <th className="pb-2 font-medium">Unité</th>
                 <th className="pb-2 font-medium text-right">Cassé</th>
+                <th className="pb-2 font-medium">N° série</th>
                 <th className="pb-2 font-medium text-right">Prix unitaire</th>
                 <th className="pb-2 font-medium">N° BL</th>
                 <th className="pb-2 font-medium">Emplacement</th>
@@ -213,6 +217,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                     <td className="py-2 text-right">
                       {broken > 0 ? <span className="text-red-600">{broken}</span> : "—"}
                     </td>
+                    <td className="py-2 text-slate-500 font-mono text-xs">{item.serialNumber || "—"}</td>
                     <td className="py-2 text-right text-slate-600">{formatMoney(item.unitPrice * factor)}</td>
                     <td className="py-2 text-slate-600 whitespace-nowrap">{purchase.number}</td>
                     <td className="py-2 text-slate-600">{purchase.warehouse.name}</td>
@@ -226,7 +231,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
               })}
               {historyRows.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="py-6 text-center text-slate-400">
+                  <td colSpan={13} className="py-6 text-center text-slate-400">
                     Aucun approvisionnement enregistré.
                   </td>
                 </tr>
@@ -275,11 +280,15 @@ function StockedSummary({ purchase }: { purchase: Purchase }) {
               <tr key={it.id} className="border-b border-slate-50">
                 <td className="py-1.5">
                   {it.product.name}
-                  {(it.lotNumber || it.expiryDate) && (
+                  {(it.lotNumber || it.serialNumber || it.expiryDate) && (
                     <p className="text-xs text-slate-400">
-                      {it.lotNumber && <>Lot {it.lotNumber}</>}
-                      {it.lotNumber && it.expiryDate && " — "}
-                      {it.expiryDate && <>Péremption {formatDate(it.expiryDate)}</>}
+                      {[
+                        it.lotNumber && `Lot ${it.lotNumber}`,
+                        it.serialNumber && `Série ${it.serialNumber}`,
+                        it.expiryDate && `Péremption ${formatDate(it.expiryDate)}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" — ")}
                     </p>
                   )}
                 </td>
@@ -317,14 +326,24 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
   // le lot est configuré et que la commande en est un multiple entier, sinon
   // l'unité de base) — voir packInfo. Convertie en unité de base uniquement
   // au moment de l'envoi, seule unité que le serveur connaisse.
+  // Pré-rempli avec le constat déjà fait à la réception (bon de livraison) —
+  // l'agent qui approvisionne n'a qu'à confirmer ou corriger, pas ressaisir.
   const [values, setValues] = useState<
     Record<string, { received: number; broken: number; lotNumber: string; expiryDate: string }>
   >(() =>
     Object.fromEntries(
-      purchase.items.map((it) => [
-        it.id,
-        { received: packInfo(it).max, broken: 0, lotNumber: it.lotNumber ?? "", expiryDate: "" },
-      ])
+      purchase.items.map((it) => {
+        const { factor, max } = packInfo(it);
+        return [
+          it.id,
+          {
+            received: it.deliveredQuantity != null ? it.deliveredQuantity / factor : max,
+            broken: it.deliveredBrokenQuantity / factor,
+            lotNumber: it.lotNumber ?? "",
+            expiryDate: it.expiryDate ? it.expiryDate.toISOString().slice(0, 10) : "",
+          },
+        ];
+      })
     )
   );
   const [error, setError] = useState<string | null>(null);
