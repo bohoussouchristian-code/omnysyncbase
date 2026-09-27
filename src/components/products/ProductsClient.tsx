@@ -310,7 +310,7 @@ function ProductForm({
           </Select>
         </div>
         <div>
-          <Label>Unité</Label>
+          <Label>Unité de base (la plus petite, ex : Bouteille)</Label>
           <Select name="unitId" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
             <option value="">— Aucune —</option>
             {units.map((u) => (
@@ -503,7 +503,7 @@ function ProductForm({
           <div className="space-y-3 bg-slate-50 rounded-lg p-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Unité du lot</Label>
+                <Label>Unité du lot (la plus grande, ex : Casier)</Label>
                 <Select
                   name="packUnitId"
                   value={packUnitId}
