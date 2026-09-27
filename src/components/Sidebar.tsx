@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
+import { NotificationBell } from "@/components/NotificationBell";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { Logo } from "@/components/Logo";
 import type { Role } from "@prisma/client";
@@ -53,7 +54,7 @@ const NAV: readonly NavEntry[] = [
     items: [
       { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
       { href: "/clients", label: "Clients", icon: Users, roles: null },
-      { href: "/livraison-clients", label: "Livraison client", icon: Send, roles: ["ADMIN", "GERANT"] },
+      { href: "/livraison-clients", label: "Livraison client", icon: Send, roles: null },
     ],
   },
   {
@@ -283,6 +284,7 @@ export function Sidebar({
           <Menu size={22} />
         </button>
         <span className="text-white font-semibold ml-2 truncate flex-1">{companyName || "OSB"}</span>
+        <NotificationBell theme="dark" />
         <AccountMenu userName={userName} userEmail={userEmail} userRole={userRole} theme="dark" />
       </div>
 

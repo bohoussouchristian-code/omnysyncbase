@@ -11,6 +11,7 @@ import { Plus, Search, Truck, CheckCircle2, CircleDollarSign } from "lucide-reac
 
 type Customer = { id: string; name: string };
 type Product = { id: string; name: string; piecesPerPack: number; packUnit: { symbol: string } | null };
+type Employee = { id: string; name: string };
 type Delivery = {
   id: string;
   number: string;
@@ -27,6 +28,7 @@ type Delivery = {
   sale: { number: string } | null;
   user: { name: string } | null;
   product: { name: string } | null;
+  assignedTo: { id: string; name: string } | null;
 };
 
 function StatusBadge({ status }: { status: Delivery["status"] }) {
@@ -39,32 +41,51 @@ function StatusBadge({ status }: { status: Delivery["status"] }) {
 // (réception fournisseur). Ce qui est décidé au cas par cas (zone, distance,
 // secteur...) est le prix par bouteille ; le montant final se déduit toujours
 // en multipliant par le nombre total de bouteilles (casiers × bouteilles par
-// casier du produit choisi — voir createDelivery côté serveur).
+// casier du produit choisi — voir createDelivery côté serveur). Un livreur
+// assigné (n'importe quel employé, pas seulement admin/gérant) vient ici
+// confirmer lui-même sa propre course une fois effectuée — la page reste
+// donc accessible à tous, mais seuls admin/gérant créent, encaissent ou
+// annulent une livraison.
 export function DeliveriesClient({
   deliveries,
   customers,
   products,
+  employees,
+  canManage,
+  currentUserId,
+  initialSaleId,
+  initialCustomerId,
 }: {
   deliveries: Delivery[];
   customers: Customer[];
   products: Product[];
+  employees: Employee[];
+  canManage: boolean;
+  currentUserId: string;
+  initialSaleId: string | null;
+  initialCustomerId: string | null;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(!!initialSaleId && canManage);
   const [payingDelivery, setPayingDelivery] = useState<Delivery | null>(null);
   const [, startTransition] = useTransition();
 
+  // Un employé sans droits de gestion ne voit que les courses qui lui sont
+  // confiées — pas le carnet complet de l'entreprise, qui reste réservé à
+  // admin/gérant.
+  const scoped = canManage ? deliveries : deliveries.filter((d) => d.assignedTo?.id === currentUserId);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return deliveries;
-    return deliveries.filter(
+    if (!q) return scoped;
+    return scoped.filter(
       (d) =>
         d.number.toLowerCase().includes(q) ||
         d.destination.toLowerCase().includes(q) ||
         (d.customer?.name.toLowerCase().includes(q) ?? false)
     );
-  }, [deliveries, query]);
+  }, [scoped, query]);
 
   const totalDue = deliveries.filter((d) => d.status !== "ANNULEE" && !d.paid).reduce((s, d) => s + d.fee, 0);
 
@@ -78,27 +99,33 @@ export function DeliveriesClient({
   return (
     <div>
       <PageHeader
-        title="Livraison client"
-        subtitle="Prix par bouteille décidé au cas par cas (zone, distance, secteur...) — le montant total se calcule automatiquement"
+        title={canManage ? "Livraison client" : "Mes livraisons"}
+        subtitle={
+          canManage
+            ? "Prix par bouteille décidé au cas par cas (zone, distance, secteur...) — le montant total se calcule automatiquement"
+            : "Les courses qui vous ont été confiées — confirmez-les une fois effectuées."
+        }
         action={
-          <div className="flex items-center gap-2">
-            <Link
-              href="/annulations?tab=livraisons"
-              className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            >
-              Annulation de livraison
-            </Link>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
-            >
-              <Plus size={16} /> Nouvelle livraison
-            </button>
-          </div>
+          canManage ? (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/annulations?tab=livraisons"
+                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Annulation de livraison
+              </Link>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+              >
+                <Plus size={16} /> Nouvelle livraison
+              </button>
+            </div>
+          ) : undefined
         }
       />
 
-      {totalDue > 0 && (
+      {canManage && totalDue > 0 && (
         <div className="mb-4 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 w-fit">
           <CircleDollarSign size={15} /> {formatMoney(totalDue)} de frais de livraison non encore payés
         </div>
@@ -130,8 +157,9 @@ export function DeliveriesClient({
                 <th className="px-4 py-3 font-medium">Produit</th>
                 <th className="px-4 py-3 font-medium text-right">Quantité</th>
                 <th className="px-4 py-3 font-medium text-right">Frais</th>
+                <th className="px-4 py-3 font-medium">Assigné à</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium">Paiement</th>
+                {canManage && <th className="px-4 py-3 font-medium">Paiement</th>}
                 <th className="px-4 py-3 font-medium text-center">Actions</th>
               </tr>
             </thead>
@@ -145,31 +173,34 @@ export function DeliveriesClient({
                   <td className="px-4 py-3 text-slate-600">{d.product?.name || "—"}</td>
                   <td className="px-4 py-3 text-right">{d.quantity ?? "—"}</td>
                   <td className="px-4 py-3 text-right font-medium">{formatMoney(d.fee)}</td>
+                  <td className="px-4 py-3 text-slate-600">{d.assignedTo?.name || "—"}</td>
                   <td className="px-4 py-3">
                     <StatusBadge status={d.status} />
                   </td>
-                  <td className="px-4 py-3">
-                    {d.paid ? (
-                      <Badge tone="success">Payée</Badge>
-                    ) : (
-                      <button
-                        onClick={() => setPayingDelivery(d)}
-                        disabled={d.status === "ANNULEE"}
-                        className="disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <Badge tone="default">Impayée</Badge>
-                      </button>
-                    )}
-                  </td>
+                  {canManage && (
+                    <td className="px-4 py-3">
+                      {d.paid ? (
+                        <Badge tone="success">Payée</Badge>
+                      ) : (
+                        <button
+                          onClick={() => setPayingDelivery(d)}
+                          disabled={d.status === "ANNULEE"}
+                          className="disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Badge tone="default">Impayée</Badge>
+                        </button>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-center">
-                      {d.status === "EN_ATTENTE" && (
+                      {d.status === "EN_ATTENTE" && (canManage || d.assignedTo?.id === currentUserId) && (
                         <button
                           onClick={() => deliver(d.id)}
-                          title="Marquer livrée"
-                          className="text-slate-400 hover:text-emerald-600"
+                          title="Confirmer la livraison effectuée"
+                          className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 px-2.5 py-1.5 text-xs font-medium hover:bg-emerald-100"
                         >
-                          <CheckCircle2 size={16} />
+                          <CheckCircle2 size={14} /> Confirmer
                         </button>
                       )}
                     </div>
@@ -178,8 +209,12 @@ export function DeliveriesClient({
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
-                    {deliveries.length === 0 ? "Aucune livraison enregistrée." : "Aucun résultat."}
+                  <td colSpan={canManage ? 11 : 10} className="px-4 py-8 text-center text-slate-400">
+                    {scoped.length === 0
+                      ? canManage
+                        ? "Aucune livraison enregistrée."
+                        : "Aucune livraison ne vous est assignée pour l'instant."
+                      : "Aucun résultat."}
                   </td>
                 </tr>
               )}
@@ -188,20 +223,30 @@ export function DeliveriesClient({
         </div>
       </Card>
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvelle livraison">
-        <DeliveryForm customers={customers} products={products} onDone={() => setShowCreate(false)} />
-      </Modal>
+      {canManage && (
+        <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvelle livraison">
+          <DeliveryForm
+            customers={customers}
+            products={products}
+            employees={employees}
+            initialSaleId={initialSaleId}
+            initialCustomerId={initialCustomerId}
+            onDone={() => setShowCreate(false)}
+          />
+        </Modal>
+      )}
 
-      <Modal
-        open={!!payingDelivery}
-        onClose={() => setPayingDelivery(null)}
-        title={`Encaisser la livraison ${payingDelivery?.number || ""}`}
-      >
-        {payingDelivery && (
-          <DeliveryPaymentForm delivery={payingDelivery} onDone={() => setPayingDelivery(null)} />
-        )}
-      </Modal>
-
+      {canManage && (
+        <Modal
+          open={!!payingDelivery}
+          onClose={() => setPayingDelivery(null)}
+          title={`Encaisser la livraison ${payingDelivery?.number || ""}`}
+        >
+          {payingDelivery && (
+            <DeliveryPaymentForm delivery={payingDelivery} onDone={() => setPayingDelivery(null)} />
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -209,10 +254,16 @@ export function DeliveriesClient({
 function DeliveryForm({
   customers,
   products,
+  employees,
+  initialSaleId,
+  initialCustomerId,
   onDone,
 }: {
   customers: Customer[];
   products: Product[];
+  employees: Employee[];
+  initialSaleId: string | null;
+  initialCustomerId: string | null;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -237,6 +288,7 @@ function DeliveryForm({
   return (
     <form action={formAction} className="space-y-4">
       <FormError error={state?.error} />
+      {initialSaleId && <input type="hidden" name="saleId" value={initialSaleId} />}
       <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
         <Truck size={14} className="shrink-0" />
         Seul le prix par bouteille est à votre appréciation (zone, distance, secteur...) — le montant total se
@@ -244,7 +296,7 @@ function DeliveryForm({
       </div>
       <div>
         <Label>Client (optionnel)</Label>
-        <Select name="customerId" defaultValue="">
+        <Select name="customerId" defaultValue={initialCustomerId ?? ""}>
           <option value="">— Client comptant —</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>
@@ -305,6 +357,21 @@ function DeliveryForm({
           <span className="font-semibold text-blue-700">{formatMoney(computedFee)}</span>
         </div>
       )}
+      <div>
+        <Label>Assigné à (optionnel)</Label>
+        <Select name="assignedToId" defaultValue="">
+          <option value="">— Personne pour l&apos;instant —</option>
+          {employees.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.name}
+            </option>
+          ))}
+        </Select>
+        <p className="text-xs text-slate-400 mt-1">
+          La personne choisie reçoit aussitôt une notification et pourra confirmer elle-même la livraison une fois
+          effectuée.
+        </p>
+      </div>
       <div>
         <Label>Note (optionnel)</Label>
         <Input name="notes" placeholder="Ex : longue distance, accès difficile..." />

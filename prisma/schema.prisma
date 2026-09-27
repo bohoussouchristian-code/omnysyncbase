@@ -158,6 +158,7 @@ model Company {
   cashAdvances           CashAdvance[]
   packagingTypes         PackagingType[]
   deliveries             Delivery[]
+  notifications          Notification[]
 }
 
 model User {
@@ -209,6 +210,8 @@ model User {
   bankTransactions      BankTransaction[]
   cashAdvances          CashAdvance[]
   deliveries            Delivery[]
+  assignedDeliveries    Delivery[]        @relation("DeliveryAssignedTo")
+  notifications         Notification[]
 }
 
 // Trace de chaque connexion réussie : consultable par un administrateur pour
@@ -673,6 +676,13 @@ model Delivery {
   userId      String?
   user        User?          @relation(fields: [userId], references: [id])
 
+  // Le livreur assigné (n'importe quel employé de l'entreprise, aucun rôle
+  // dédié) reçoit une notification à l'assignation et peut lui-même confirmer
+  // la livraison effectuée — pas seulement un administrateur/gérant (voir
+  // markDeliveryDelivered dans src/lib/actions/deliveries.ts).
+  assignedToId String?
+  assignedTo   User?          @relation("DeliveryAssignedTo", fields: [assignedToId], references: [id])
+
   // Traçabilité de l'annulation : même principe que Sale/Expense — motif
   // conservé en clair dans `notes`, date et auteur ici pour un historique
   // triable dans le module Annulations (voir cancelDelivery).
@@ -686,6 +696,24 @@ model Delivery {
   payment Payment?
 
   @@unique([companyId, number])
+}
+
+// Notification interne (cloche dans l'interface, pas un push navigateur) :
+// lue au fil de la navigation ou via un sondage périodique côté client (voir
+// getMyNotifications dans src/lib/actions/notifications.ts). Générée pour
+// l'instant uniquement par l'assignation d'une livraison, mais générique pour
+// accueillir d'autres évènements plus tard.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
 }
 
 model SaleItem {

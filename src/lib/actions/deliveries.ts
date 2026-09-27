@@ -26,6 +26,7 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
   const saleId = String(formData.get("saleId") || "") || null;
   const customerId = String(formData.get("customerId") || "") || null;
   const productId = String(formData.get("productId") || "") || null;
+  const assignedToId = String(formData.get("assignedToId") || "") || null;
   const destination = String(formData.get("destination") || "").trim();
   const quantity = Number(formData.get("quantity") || 0);
   const pricePerBottle = Number(formData.get("pricePerBottle") || 0);
@@ -47,40 +48,64 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
     const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
     if (!customer) return { error: "Client introuvable." };
   }
+  if (assignedToId) {
+    const assignee = await prisma.user.findFirst({ where: { id: assignedToId, companyId, active: true } });
+    if (!assignee) return { error: "Employé introuvable." };
+  }
 
   const totalBottles = quantity * product.piecesPerPack;
   const fee = pricePerBottle * totalBottles;
 
   const number = generateNumber("LIV");
-  await prisma.delivery.create({
-    data: {
-      number,
-      saleId,
-      customerId,
-      productId,
-      destination,
-      quantity,
-      pricePerBottle,
-      fee,
-      notes,
-      userId: user.id,
-      companyId,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.delivery.create({
+      data: {
+        number,
+        saleId,
+        customerId,
+        productId,
+        assignedToId,
+        destination,
+        quantity,
+        pricePerBottle,
+        fee,
+        notes,
+        userId: user.id,
+        companyId,
+      },
+    });
+    // Assigner une livraison à quelqu'un le prévient aussitôt (cloche de
+    // notification) — il n'a pas à consulter le module Livraison client de
+    // lui-même pour découvrir qu'on lui a confié une course.
+    if (assignedToId) {
+      await tx.notification.create({
+        data: {
+          userId: assignedToId,
+          message: `Nouvelle livraison à effectuer : ${destination} (${number})`,
+          link: "/livraison-clients",
+          companyId,
+        },
+      });
+    }
   });
 
   revalidatePath("/livraison-clients");
   return { success: true };
 }
 
+// Confirmer qu'une livraison a été effectuée revient à celui qui l'a
+// réellement faite : un administrateur/gérant peut toujours le faire (comme
+// pour tout le reste du module), mais le livreur assigné le peut aussi pour
+// sa propre course, même sans droits de gestion par ailleurs.
 export async function markDeliveryDelivered(id: string) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireDeliveryManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut modifier une livraison." };
 
   const delivery = await prisma.delivery.findFirst({ where: { id, companyId } });
   if (!delivery) return { error: "Livraison introuvable." };
+  if (!requireDeliveryManager(user.role) && delivery.assignedToId !== user.id)
+    return { error: "Cette livraison ne vous est pas assignée." };
   if (delivery.status !== "EN_ATTENTE") return { error: "Cette livraison n'est plus en attente." };
 
   await prisma.delivery.update({ where: { id }, data: { status: "LIVREE", deliveredAt: new Date() } });

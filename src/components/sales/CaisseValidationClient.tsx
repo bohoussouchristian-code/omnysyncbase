@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { validateSale, type SaleFneOutcome } from "@/lib/actions/sales";
 import { openCashSession } from "@/lib/actions/cash";
 import { CashClosingForm } from "@/components/cash/CashClosingForm";
@@ -11,7 +12,7 @@ import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { PAYMENT_LABELS } from "@/lib/constants";
 import { ReceiptDocument, buildReceiptData, packAwareQtyLabel, type ReceiptData } from "@/components/sales/ReceiptDocument";
-import { Eye, Wallet, Printer, Search, Lock, Unlock } from "lucide-react";
+import { Eye, Wallet, Printer, Search, Lock, Unlock, Truck } from "lucide-react";
 import type { PaymentMethod } from "@prisma/client";
 
 type SaleItem = {
@@ -71,6 +72,7 @@ export function CaisseValidationClient({
   warehouses,
   openSessions,
   companyName,
+  canManageDeliveries,
 }: {
   pending: SaleRow[];
   validated: SaleRow[];
@@ -79,10 +81,14 @@ export function CaisseValidationClient({
   warehouses: Warehouse[];
   openSessions: OpenSession[];
   companyName: string;
+  canManageDeliveries: boolean;
 }) {
   const [viewing, setViewing] = useState<SaleRow | null>(null);
   const [validating, setValidating] = useState<SaleRow | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [deliverableSale, setDeliverableSale] = useState<{ saleId: string; customerId: string | null } | null>(
+    null
+  );
   const [query, setQuery] = useState("");
   const router = useRouter();
 
@@ -285,6 +291,7 @@ export function CaisseValidationClient({
               <button
                 onClick={() => {
                   setReceipt(buildReceiptData(viewing, companyName));
+                  setDeliverableSale(null);
                   setViewing(null);
                 }}
                 className="w-full mt-4 flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white py-2 text-sm hover:bg-blue-700"
@@ -303,6 +310,7 @@ export function CaisseValidationClient({
             companyName={companyName}
             onDone={() => setValidating(null)}
             onReceipt={(r) => setReceipt(r)}
+            onValidated={(saleId, customerId) => setDeliverableSale({ saleId, customerId })}
           />
         )}
       </Modal>
@@ -314,7 +322,10 @@ export function CaisseValidationClient({
             <ReceiptDocument data={receipt} />
             <div className="flex gap-2 mt-5">
               <button
-                onClick={() => setReceipt(null)}
+                onClick={() => {
+                  setReceipt(null);
+                  setDeliverableSale(null);
+                }}
                 className="flex-1 rounded-lg border border-slate-300 py-2 text-sm text-slate-600 hover:bg-slate-50"
               >
                 Fermer
@@ -326,6 +337,17 @@ export function CaisseValidationClient({
                 <Printer size={14} /> Imprimer
               </button>
             </div>
+            {canManageDeliveries && deliverableSale && (
+              <Link
+                href={`/livraison-clients?saleId=${deliverableSale.saleId}${
+                  deliverableSale.customerId ? `&customerId=${deliverableSale.customerId}` : ""
+                }`}
+                onClick={() => setReceipt(null)}
+                className="mt-2 flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 py-2 text-sm font-medium hover:bg-blue-100"
+              >
+                <Truck size={14} /> Organiser une livraison
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -445,11 +467,13 @@ function ValidateForm({
   companyName,
   onDone,
   onReceipt,
+  onValidated,
 }: {
   sale: SaleRow;
   companyName: string;
   onDone: () => void;
   onReceipt: (r: ReceiptData) => void;
+  onValidated: (saleId: string, customerId: string | null) => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("ESPECES");
   const [amountPaid, setAmountPaid] = useState<string>("");
@@ -503,6 +527,7 @@ function ValidateForm({
         fneReference: ok.fneReference,
         fneToken: ok.fneToken,
       });
+      onValidated(sale.id, sale.customerId);
       onDone();
       router.refresh();
     });

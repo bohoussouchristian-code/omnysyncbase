@@ -71,6 +71,7 @@ export default async function CaisseVentesPage({
       warehouses={warehouses}
       openSessions={openSessions}
       companyName={company?.name ?? ""}
+      canManageDeliveries={user.role === "ADMIN" || user.role === "GERANT"}
     />
   );
 }
