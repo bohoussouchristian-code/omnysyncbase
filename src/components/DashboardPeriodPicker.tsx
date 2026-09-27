@@ -20,10 +20,12 @@ export function DashboardPeriodPicker({
   preset,
   from,
   to,
+  basePath = "/dashboard",
 }: {
   preset: string;
   from: string;
   to: string;
+  basePath?: string;
 }) {
   const router = useRouter();
 
@@ -32,7 +34,7 @@ export function DashboardPeriodPicker({
       {PRESETS.map((p) => (
         <button
           key={p.key}
-          onClick={() => router.push(`/dashboard?preset=${p.key}`)}
+          onClick={() => router.push(`${basePath}?preset=${p.key}`)}
           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
             preset === p.key
               ? "bg-blue-600 text-white"
@@ -45,7 +47,7 @@ export function DashboardPeriodPicker({
       <DateRangePicker
         from={from}
         to={to}
-        onApply={(f, t) => router.push(`/dashboard?preset=custom&from=${f}&to=${t}`)}
+        onApply={(f, t) => router.push(`${basePath}?preset=custom&from=${f}&to=${t}`)}
       />
     </div>
   );

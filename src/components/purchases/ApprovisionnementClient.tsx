@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { stockPurchase } from "@/lib/actions/purchases";
 import { Modal, PageHeader, Card, Badge, Input, Label } from "@/components/ui";
 import { CopyButton } from "@/components/CopyButton";
-import { formatMoney, formatDateTime } from "@/lib/utils";
+import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
 import { Boxes, Eye, Search, AlertTriangle } from "lucide-react";
 
 type PurchaseItemRow = {
@@ -14,6 +14,8 @@ type PurchaseItemRow = {
   unitPrice: number;
   receivedQuantity: number | null;
   brokenQuantity: number;
+  lotNumber: string | null;
+  expiryDate: Date | null;
   product: {
     name: string;
     unit: { symbol: string } | null;
@@ -187,7 +189,16 @@ function StockedSummary({ purchase }: { purchase: Purchase }) {
             const missing = max - received - broken;
             return (
               <tr key={it.id} className="border-b border-slate-50">
-                <td className="py-1.5">{it.product.name}</td>
+                <td className="py-1.5">
+                  {it.product.name}
+                  {(it.lotNumber || it.expiryDate) && (
+                    <p className="text-xs text-slate-400">
+                      {it.lotNumber && <>Lot {it.lotNumber}</>}
+                      {it.lotNumber && it.expiryDate && " — "}
+                      {it.expiryDate && <>Péremption {formatDate(it.expiryDate)}</>}
+                    </p>
+                  )}
+                </td>
                 <td className="py-1.5 text-right text-slate-500 whitespace-nowrap">
                   {max} {unitLabel}
                 </td>
@@ -222,8 +233,15 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
   // le lot est configuré et que la commande en est un multiple entier, sinon
   // l'unité de base) — voir packInfo. Convertie en unité de base uniquement
   // au moment de l'envoi, seule unité que le serveur connaisse.
-  const [values, setValues] = useState<Record<string, { received: number; broken: number }>>(() =>
-    Object.fromEntries(purchase.items.map((it) => [it.id, { received: packInfo(it).max, broken: 0 }]))
+  const [values, setValues] = useState<
+    Record<string, { received: number; broken: number; lotNumber: string; expiryDate: string }>
+  >(() =>
+    Object.fromEntries(
+      purchase.items.map((it) => [
+        it.id,
+        { received: packInfo(it).max, broken: 0, lotNumber: it.lotNumber ?? "", expiryDate: "" },
+      ])
+    )
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -231,15 +249,23 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
   function updateReceived(itemId: string, received: number, max: number) {
     setValues((prev) => {
       const broken = Math.min(prev[itemId].broken, Math.max(0, max - received));
-      return { ...prev, [itemId]: { received, broken } };
+      return { ...prev, [itemId]: { ...prev[itemId], received, broken } };
     });
   }
 
   function updateBroken(itemId: string, broken: number, max: number) {
     setValues((prev) => {
       const received = Math.min(prev[itemId].received, Math.max(0, max - broken));
-      return { ...prev, [itemId]: { received, broken } };
+      return { ...prev, [itemId]: { ...prev[itemId], received, broken } };
     });
+  }
+
+  function updateLotNumber(itemId: string, lotNumber: string) {
+    setValues((prev) => ({ ...prev, [itemId]: { ...prev[itemId], lotNumber } }));
+  }
+
+  function updateExpiryDate(itemId: string, expiryDate: string) {
+    setValues((prev) => ({ ...prev, [itemId]: { ...prev[itemId], expiryDate } }));
   }
 
   function submit() {
@@ -253,6 +279,8 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
             itemId: it.id,
             receivedQuantity: values[it.id].received * factor,
             brokenQuantity: values[it.id].broken * factor,
+            lotNumber: values[it.id].lotNumber || undefined,
+            expiryDate: values[it.id].expiryDate || undefined,
           };
         })
       );
@@ -309,6 +337,22 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
                     step="1"
                     value={v.broken}
                     onChange={(e) => updateBroken(it.id, Math.max(0, Number(e.target.value)), max)}
+                  />
+                </div>
+                <div>
+                  <Label>N° de lot (optionnel)</Label>
+                  <Input
+                    value={v.lotNumber}
+                    onChange={(e) => updateLotNumber(it.id, e.target.value)}
+                    placeholder="Ex : L2026-0912"
+                  />
+                </div>
+                <div>
+                  <Label>Date de péremption (optionnel)</Label>
+                  <Input
+                    type="date"
+                    value={v.expiryDate}
+                    onChange={(e) => updateExpiryDate(it.id, e.target.value)}
                   />
                 </div>
               </div>

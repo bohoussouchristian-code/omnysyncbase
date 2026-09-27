@@ -115,10 +115,15 @@ export async function markDeliveryDelivered(id: string) {
   return { success: true };
 }
 
-// Encaisser les frais d'une livraison est un vrai paiement : il n'entre pas
-// dans la caisse en silence, il exige une session ouverte pour l'agent (comme
-// une vente ou un règlement de dette) et laisse une trace (Payment.type
-// LIVRAISON) comptée au montant attendu à la fermeture — voir
+// Encaisser les frais d'une livraison est un vrai paiement : comme une vente,
+// c'est un acte de caisse, pas de gestion — n'importe quel utilisateur ayant
+// une session de caisse ouverte peut le faire (même règle que validateSale),
+// pas seulement ceux qui gèrent les livraisons. Une livraison émise apparaît
+// donc à la Caisse dès sa création, pour que le paiement y soit validé,
+// pendant que le livreur assigné se contente de confirmer la livraison
+// elle-même (voir markDeliveryDelivered). Exige une session ouverte pour
+// l'agent (comme une vente ou un règlement de dette) et laisse une trace
+// (Payment.type LIVRAISON) comptée au montant attendu à la fermeture — voir
 // computeExpectedAmount dans src/lib/actions/cash.ts. Une fois payée, la
 // livraison ne repasse plus à "impayée" (pas de bouton pour annuler
 // silencieusement un encaissement déjà en caisse).
@@ -126,8 +131,6 @@ export async function collectDeliveryPayment(_prev: unknown, formData: FormData)
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!(await canManageDeliveries(user)))
-    return { error: "Permission manquante : encaisser une livraison." };
 
   const deliveryId = String(formData.get("deliveryId") || "");
   const method = (String(formData.get("method") || "ESPECES") as PaymentMethod) || "ESPECES";

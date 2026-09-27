@@ -40,6 +40,7 @@ import {
   ShieldCheck,
   Scissors,
   Lock,
+  LineChart,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -174,6 +175,7 @@ const NAV: readonly NavEntry[] = [
     label: "Rapports & analytics",
     icon: Scale,
     items: [
+      { href: "/statistiques", label: "Statistiques", icon: LineChart, roles: null },
       { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
       { href: "/rapports", label: "Rapports", icon: BarChart3, roles: null, permission: "rapports.voir" },
     ],

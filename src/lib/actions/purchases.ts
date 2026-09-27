@@ -175,7 +175,13 @@ export async function receivePurchase(purchaseId: string) {
   return { success: true };
 }
 
-export type StockPurchaseItemInput = { itemId: string; receivedQuantity: number; brokenQuantity: number };
+export type StockPurchaseItemInput = {
+  itemId: string;
+  receivedQuantity: number;
+  brokenQuantity: number;
+  lotNumber?: string;
+  expiryDate?: string;
+};
 
 // Étape distincte du bon de livraison : c'est seulement ici, quand la
 // marchandise déjà réceptionnée est effectivement rangée/comptée, que le
@@ -243,7 +249,12 @@ export async function stockPurchase(purchaseId: string, itemInputs: StockPurchas
       }
       await tx.purchaseItem.update({
         where: { id: item.id },
-        data: { receivedQuantity: input.receivedQuantity, brokenQuantity: input.brokenQuantity },
+        data: {
+          receivedQuantity: input.receivedQuantity,
+          brokenQuantity: input.brokenQuantity,
+          lotNumber: input.lotNumber?.trim() || null,
+          expiryDate: input.expiryDate ? new Date(`${input.expiryDate}T00:00:00`) : null,
+        },
       });
     }
     await tx.purchase.update({

@@ -545,6 +545,13 @@ model PurchaseItem {
   receivedQuantity Float?
   brokenQuantity   Float  @default(0)
 
+  // Renseignés au même moment que receivedQuantity/brokenQuantity (à
+  // l'approvisionnement, voir stockPurchase) — utiles pour la traçabilité
+  // fournisseur et le suivi de péremption des boissons. Optionnels : aucun
+  // impact sur le calcul du stock.
+  lotNumber  String?
+  expiryDate DateTime?
+
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
 }

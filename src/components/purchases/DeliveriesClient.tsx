@@ -70,10 +70,11 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
+                <th className="pb-2 font-medium">Statut</th>
                 <th className="pb-2 font-medium">N° commande</th>
                 <th className="pb-2 font-medium">Fournisseur</th>
-                <th className="pb-2 font-medium">Statut</th>
-                <th className="pb-2 font-medium">Date</th>
+                <th className="pb-2 font-medium">Date de commande</th>
+                <th className="pb-2 font-medium">Date de livraison</th>
                 <th className="pb-2 font-medium text-right">Total</th>
                 <th className="pb-2 font-medium"></th>
               </tr>
@@ -83,6 +84,11 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
                 const isPending = p.status === "EN_ATTENTE";
                 return (
                   <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                    <td className="py-2">
+                      <Badge tone={isPending ? "warning" : "success"}>
+                        {isPending ? "En attente de réception" : "Reçue"}
+                      </Badge>
+                    </td>
                     <td className="py-2 font-medium text-slate-700">
                       <div className="flex items-center gap-1.5">
                         {p.number}
@@ -90,13 +96,9 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
                       </div>
                     </td>
                     <td className="py-2 text-slate-600">{p.supplier.name}</td>
-                    <td className="py-2">
-                      <Badge tone={isPending ? "warning" : "success"}>
-                        {isPending ? "En attente de réception" : "Reçue"}
-                      </Badge>
-                    </td>
+                    <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>
                     <td className="py-2 text-slate-500 whitespace-nowrap">
-                      {formatDateTime(isPending ? p.date : p.receivedAt ?? p.date)}
+                      {p.receivedAt ? formatDateTime(p.receivedAt) : "—"}
                     </td>
                     <td className="py-2 text-right font-medium">{formatMoney(p.totalAmount)}</td>
                     <td className="py-2">
@@ -120,7 +122,7 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
               })}
               {deliveries.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-slate-400">
+                  <td colSpan={7} className="py-6 text-center text-slate-400">
                     {q ? "Aucun résultat." : "Aucune livraison enregistrée."}
                   </td>
                 </tr>

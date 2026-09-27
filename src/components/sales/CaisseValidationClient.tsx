@@ -4,9 +4,10 @@ import { useActionState, useEffect, useMemo, useState, useTransition } from "rea
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { validateSale, type SaleFneOutcome } from "@/lib/actions/sales";
+import { collectDeliveryPayment } from "@/lib/actions/deliveries";
 import { openCashSession } from "@/lib/actions/cash";
 import { CashClosingForm } from "@/components/cash/CashClosingForm";
-import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton } from "@/components/ui";
+import { Card, Modal, PageHeader, Select, Input, Label, FormError, SubmitButton, Badge } from "@/components/ui";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { SaleStatusBadge } from "@/components/sales/SaleStatusBadge";
 import { formatMoney, formatDateTime } from "@/lib/utils";
@@ -64,6 +65,14 @@ type OpenSession = {
   openedAt: Date;
   warehouse: { name: string };
 };
+type DeliveryRow = {
+  id: string;
+  number: string;
+  destination: string;
+  fee: number;
+  status: string;
+  customer: { name: string } | null;
+};
 export function CaisseValidationClient({
   pending,
   validated,
@@ -73,6 +82,7 @@ export function CaisseValidationClient({
   openSessions,
   companyName,
   canManageDeliveries,
+  pendingDeliveries,
 }: {
   pending: SaleRow[];
   validated: SaleRow[];
@@ -82,9 +92,11 @@ export function CaisseValidationClient({
   openSessions: OpenSession[];
   companyName: string;
   canManageDeliveries: boolean;
+  pendingDeliveries: DeliveryRow[];
 }) {
   const [viewing, setViewing] = useState<SaleRow | null>(null);
   const [validating, setValidating] = useState<SaleRow | null>(null);
+  const [collecting, setCollecting] = useState<DeliveryRow | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [deliverableSale, setDeliverableSale] = useState<{ saleId: string; customerId: string | null } | null>(
     null
@@ -113,6 +125,63 @@ export function CaisseValidationClient({
       <PageHeader title="Caisse" />
 
       <CashSessionBar warehouses={warehouses} openSessions={openSessions} />
+
+      {pendingDeliveries.length > 0 && (
+        <Card className="overflow-hidden mb-4">
+          <div className="p-5 pb-4">
+            <h2 className="font-semibold text-slate-900">
+              Livraisons à encaisser <span className="text-slate-400 font-normal">[ {pendingDeliveries.length} ]</span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Le paiement d&apos;une livraison se valide ici, comme une vente — le livreur assigné se contente de
+              confirmer la livraison effectuée.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr className="text-left">
+                  <th className="px-4 py-3 font-medium">N°</th>
+                  <th className="px-4 py-3 font-medium">Destination</th>
+                  <th className="px-4 py-3 font-medium">Client</th>
+                  <th className="px-4 py-3 font-medium">Statut livraison</th>
+                  <th className="px-4 py-3 font-medium text-right">Frais</th>
+                  <th className="px-4 py-3 font-medium text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingDeliveries.map((d) => (
+                  <tr key={d.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-4 py-3 font-medium text-slate-700">{d.number}</td>
+                    <td className="px-4 py-3 text-slate-600">{d.destination}</td>
+                    <td className="px-4 py-3 text-slate-600">{d.customer?.name || "—"}</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={d.status === "LIVREE" ? "success" : "warning"}>
+                        {d.status === "LIVREE" ? "Livrée" : "En attente"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium">{formatMoney(d.fee)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {openSessions.length > 0 ? (
+                        <button
+                          onClick={() => setCollecting(d)}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-700 mx-auto"
+                        >
+                          <Wallet size={14} /> Encaisser
+                        </button>
+                      ) : (
+                        <span className="flex items-center gap-1.5 rounded-lg bg-slate-100 text-slate-400 px-3 py-1.5 text-xs font-medium cursor-not-allowed mx-auto w-fit">
+                          <Lock size={14} /> Caisse fermée
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-4">
@@ -330,6 +399,12 @@ export function CaisseValidationClient({
             onReceipt={(r) => setReceipt(r)}
             onValidated={(saleId, customerId) => setDeliverableSale({ saleId, customerId })}
           />
+        )}
+      </Modal>
+
+      <Modal open={!!collecting} onClose={() => setCollecting(null)} title={`Encaisser la livraison ${collecting?.number || ""}`}>
+        {collecting && (
+          <CollectDeliveryForm delivery={collecting} onDone={() => setCollecting(null)} />
         )}
       </Modal>
 
@@ -618,6 +693,69 @@ function ValidateForm({
           className="rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
         >
           {pending ? "Encaissement..." : "Valider le paiement"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const DELIVERY_PAYMENT_METHODS: PaymentMethod[] = ["ESPECES", "MOBILE_MONEY", "VIREMENT"];
+
+function CollectDeliveryForm({ delivery, onDone }: { delivery: DeliveryRow; onDone: () => void }) {
+  const [method, setMethod] = useState<PaymentMethod>("ESPECES");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function submit() {
+    setError(null);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("deliveryId", delivery.id);
+      formData.set("method", method);
+      const res = await collectDeliveryPayment(undefined, formData);
+      if (res && "error" in res && res.error) {
+        setError(res.error);
+        return;
+      }
+      onDone();
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+      <div className="text-sm bg-slate-50 rounded-lg p-3">
+        <div className="flex justify-between">
+          <span className="text-slate-500">Destination</span>
+          <span className="font-medium">{delivery.destination}</span>
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-slate-500">Frais de livraison</span>
+          <span className="font-semibold">{formatMoney(delivery.fee)}</span>
+        </div>
+      </div>
+      <div>
+        <Label>Mode de paiement</Label>
+        <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+          {DELIVERY_PAYMENT_METHODS.map((m) => (
+            <option key={m} value={m}>
+              {PAYMENT_LABELS[m]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <button
+          onClick={submit}
+          disabled={pending}
+          className="rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
+        >
+          {pending ? "Encaissement..." : "Encaisser"}
         </button>
       </div>
     </div>

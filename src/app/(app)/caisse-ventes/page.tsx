@@ -27,7 +27,7 @@ export default async function CaisseVentesPage({
 
   const itemsInclude = { include: { product: { include: { unit: true, packUnit: true } }, service: true } } as const;
 
-  const [pending, validated, warehouses, openSessions, company] = await Promise.all([
+  const [pending, validated, warehouses, openSessions, company, pendingDeliveries] = await Promise.all([
     // Une vente en attente reste visible quelle que soit la période : c'est
     // une file d'action, pas un historique à filtrer par date.
     prisma.sale.findMany({
@@ -61,6 +61,14 @@ export default async function CaisseVentesPage({
       include: { warehouse: true },
     }),
     prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
+    // Une livraison émise apparaît ici dès sa création (pas seulement une fois
+    // livrée) pour que le paiement soit validé à la Caisse, comme une vente —
+    // voir collectDeliveryPayment dans src/lib/actions/deliveries.ts.
+    prisma.delivery.findMany({
+      where: { companyId, paid: false, status: { not: "ANNULEE" } },
+      orderBy: { createdAt: "asc" },
+      include: { customer: { select: { name: true } } },
+    }),
   ]);
 
   const canManageDeliveries = await userHasPermission(user, "livraisons.gerer");
@@ -75,6 +83,7 @@ export default async function CaisseVentesPage({
       openSessions={openSessions}
       companyName={company?.name ?? ""}
       canManageDeliveries={canManageDeliveries}
+      pendingDeliveries={pendingDeliveries}
     />
   );
 }

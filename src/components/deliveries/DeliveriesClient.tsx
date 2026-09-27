@@ -3,10 +3,9 @@
 import { useActionState, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createDelivery, markDeliveryDelivered, collectDeliveryPayment } from "@/lib/actions/deliveries";
+import { createDelivery, markDeliveryDelivered } from "@/lib/actions/deliveries";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
-import { PAYMENT_LABELS } from "@/lib/constants";
 import { Plus, Search, Truck, CheckCircle2, CircleDollarSign } from "lucide-react";
 
 type Customer = { id: string; name: string };
@@ -44,8 +43,9 @@ function StatusBadge({ status }: { status: Delivery["status"] }) {
 // casier du produit choisi — voir createDelivery côté serveur). Un livreur
 // assigné (n'importe quel employé, pas seulement admin/gérant) vient ici
 // confirmer lui-même sa propre course une fois effectuée — la page reste
-// donc accessible à tous, mais seuls admin/gérant créent, encaissent ou
-// annulent une livraison.
+// donc accessible à tous. L'encaissement du paiement se fait exclusivement à
+// la Caisse (voir CaisseValidationClient), jamais ici : le livreur ne fait
+// que confirmer la livraison, jamais l'argent.
 export function DeliveriesClient({
   deliveries,
   customers,
@@ -68,7 +68,6 @@ export function DeliveriesClient({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(!!initialSaleId && canManage);
-  const [payingDelivery, setPayingDelivery] = useState<Delivery | null>(null);
   const [, startTransition] = useTransition();
 
   // Un employé sans droits de gestion ne voit que les courses qui lui sont
@@ -127,7 +126,8 @@ export function DeliveriesClient({
 
       {canManage && totalDue > 0 && (
         <div className="mb-4 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 w-fit">
-          <CircleDollarSign size={15} /> {formatMoney(totalDue)} de frais de livraison non encore payés
+          <CircleDollarSign size={15} /> {formatMoney(totalDue)} de frais de livraison non encore payés — à encaisser
+          depuis la Caisse
         </div>
       )}
 
@@ -179,17 +179,7 @@ export function DeliveriesClient({
                   </td>
                   {canManage && (
                     <td className="px-4 py-3">
-                      {d.paid ? (
-                        <Badge tone="success">Payée</Badge>
-                      ) : (
-                        <button
-                          onClick={() => setPayingDelivery(d)}
-                          disabled={d.status === "ANNULEE"}
-                          className="disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Badge tone="default">Impayée</Badge>
-                        </button>
-                      )}
+                      <Badge tone={d.paid ? "success" : "default"}>{d.paid ? "Payée" : "Impayée"}</Badge>
                     </td>
                   )}
                   <td className="px-4 py-3">
@@ -236,17 +226,6 @@ export function DeliveriesClient({
         </Modal>
       )}
 
-      {canManage && (
-        <Modal
-          open={!!payingDelivery}
-          onClose={() => setPayingDelivery(null)}
-          title={`Encaisser la livraison ${payingDelivery?.number || ""}`}
-        >
-          {payingDelivery && (
-            <DeliveryPaymentForm delivery={payingDelivery} onDone={() => setPayingDelivery(null)} />
-          )}
-        </Modal>
-      )}
     </div>
   );
 }
@@ -386,46 +365,3 @@ function DeliveryForm({
   );
 }
 
-function DeliveryPaymentForm({ delivery, onDone }: { delivery: Delivery; onDone: () => void }) {
-  const router = useRouter();
-  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
-    const res = await collectDeliveryPayment(prev, formData);
-    if (res && "success" in res && res.success) {
-      router.refresh();
-      onDone();
-    }
-    return res;
-  }, undefined as { error?: string } | undefined);
-
-  return (
-    <form action={formAction} className="space-y-4">
-      <FormError error={state?.error} />
-      <input type="hidden" name="deliveryId" value={delivery.id} />
-      <p className="text-sm text-slate-500">
-        Frais à encaisser : <span className="font-semibold text-slate-800">{formatMoney(delivery.fee)}</span>
-      </p>
-      <div>
-        <Label>Mode de paiement</Label>
-        <Select name="method" defaultValue="ESPECES">
-          {Object.entries(PAYMENT_LABELS)
-            .filter(([k]) => k !== "CREDIT")
-            .map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-        </Select>
-      </div>
-      <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
-        Encaisser ce paiement exige d&apos;avoir ouvert votre caisse — un règlement en espèces y sera compté à la
-        fermeture.
-      </p>
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
-          Annuler
-        </button>
-        <SubmitButton>Encaisser</SubmitButton>
-      </div>
-    </form>
-  );
-}
