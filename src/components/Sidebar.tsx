@@ -281,7 +281,7 @@ export function Sidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav className="sidebar-scroll flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {visibleEntries.map((entry) => {
           if (entry.kind === "link") {
             const Icon = entry.icon;
