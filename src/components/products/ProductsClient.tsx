@@ -75,6 +75,7 @@ export function ProductsClient({
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.barcode && p.barcode.toLowerCase().includes(q)) ||
+        (p.reference && p.reference.toLowerCase().includes(q)) ||
         (p.category?.name.toLowerCase().includes(q) ?? false)
     );
   }, [products, query]);
@@ -120,6 +121,7 @@ export function ProductsClient({
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
                 <th className="px-4 py-3 font-medium">Produit</th>
+                <th className="px-4 py-3 font-medium">Référence</th>
                 <th className="px-4 py-3 font-medium">Catégorie</th>
                 <th className="px-4 py-3 font-medium">Unité</th>
                 <th className="px-4 py-3 font-medium text-right">Achat</th>
@@ -139,6 +141,7 @@ export function ProductsClient({
                       <div className="font-medium text-slate-800">{p.name}</div>
                       {p.barcode && <div className="text-xs text-slate-400">{p.barcode}</div>}
                     </td>
+                    <td className="px-4 py-3 text-slate-600">{p.reference || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{p.category?.name || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">
                       {p.unit?.symbol || "—"}
@@ -178,7 +181,7 @@ export function ProductsClient({
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                     Aucun produit trouvé.
                   </td>
                 </tr>

@@ -26,6 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   "user.reset_password": "Réinitialisation de mot de passe",
   "user.permission_change": "Modification d'une permission",
   "company.update": "Modification entreprise / FNE",
+  "general_balance.base_change": "Modification de la base du solde général",
 };
 
 function actionTone(action: string): "default" | "danger" | "warning" {

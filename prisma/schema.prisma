@@ -164,6 +164,7 @@ model Company {
   notifications          Notification[]
   auditLogs              AuditLog[]
   userPermissions        UserPermission[]
+  generalBalance         GeneralBalance?
 }
 
 model User {
@@ -220,6 +221,24 @@ model User {
   notifications         Notification[]
   auditLogs             AuditLog[]
   permissionOverrides   UserPermission[]
+  generalBalanceEdits   GeneralBalance[]
+}
+
+// Solde fictif de l'entreprise (distinct des vrais comptes bancaires de
+// Trésorerie) : une base de départ saisie une fois par un administrateur,
+// puis calculée automatiquement en cumulant depuis toujours toutes les
+// ventes encaissées (Sale.paidAmount) moins toutes les dépenses non
+// annulées — pour donner un chiffre d'affaires net global, indépendamment
+// de toute période. Une seule ligne par entreprise.
+model GeneralBalance {
+  id          String   @id @default(cuid())
+  baseAmount  Float    @default(0)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation(fields: [updatedById], references: [id])
+
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id])
 }
 
 // Dérogation individuelle à la permission par défaut du rôle : granted=true
