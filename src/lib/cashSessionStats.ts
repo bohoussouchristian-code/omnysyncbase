@@ -29,8 +29,21 @@ export async function getSessionsWithChangeGiven(companyId: string, from: Date, 
   );
 }
 
-async function computeLiveCumul(session: { warehouseId: string; userId: string; openingAmount: number; openedAt: Date }) {
-  const [cashSales, expenses] = await Promise.all([
+// Tout flux financier passe par la caisse : ce cumul ne se limite jamais aux
+// seules ventes. Il doit refléter aussi tout autre paiement explicitement
+// rattaché à cette session (règlement de dette client, frais de livraison...
+// voir Payment.sessionId), exactement comme computeExpectedAmount dans
+// src/lib/actions/cash.ts au moment de la fermeture — même calcul, deux
+// endroits, pour que l'affichage en cours de session ne mente jamais par
+// rapport au montant qui sera exigé à la fermeture.
+async function computeLiveCumul(session: {
+  id: string;
+  warehouseId: string;
+  userId: string;
+  openingAmount: number;
+  openedAt: Date;
+}) {
+  const [cashSales, otherPayments, expenses] = await Promise.all([
     prisma.sale.aggregate({
       where: {
         warehouseId: session.warehouseId,
@@ -41,12 +54,21 @@ async function computeLiveCumul(session: { warehouseId: string; userId: string; 
       },
       _sum: { paidAmount: true },
     }),
+    prisma.payment.aggregate({
+      where: { sessionId: session.id, method: { in: ["ESPECES", "MIXTE"] } },
+      _sum: { amount: true },
+    }),
     prisma.expense.aggregate({
       where: { warehouseId: session.warehouseId, date: { gte: session.openedAt } },
       _sum: { amount: true },
     }),
   ]);
-  return session.openingAmount + (cashSales._sum.paidAmount || 0) - (expenses._sum.amount || 0);
+  return (
+    session.openingAmount +
+    (cashSales._sum.paidAmount || 0) +
+    (otherPayments._sum.amount || 0) -
+    (expenses._sum.amount || 0)
+  );
 }
 
 // Sessions actuellement ouvertes (indépendant de la période affichée) et la
@@ -58,16 +80,25 @@ export async function getOpenPointsSummary(companyId: string) {
 }
 
 export async function getCashCollected(companyId: string, from: Date, to: Date) {
-  const result = await prisma.sale.aggregate({
-    where: {
-      companyId,
-      status: { not: "ANNULEE" },
-      paymentMethod: { in: ["ESPECES", "MIXTE"] },
-      validatedAt: { gte: from, lte: to },
-    },
-    _sum: { paidAmount: true },
-  });
-  return result._sum.paidAmount || 0;
+  const [sales, otherPayments] = await Promise.all([
+    prisma.sale.aggregate({
+      where: {
+        companyId,
+        status: { not: "ANNULEE" },
+        paymentMethod: { in: ["ESPECES", "MIXTE"] },
+        validatedAt: { gte: from, lte: to },
+      },
+      _sum: { paidAmount: true },
+    }),
+    // Tout paiement rattaché à une caisse (dette client réglée, livraison
+    // encaissée...) compte comme de l'argent réellement encaissé — jamais
+    // seulement les ventes (voir Payment.sessionId).
+    prisma.payment.aggregate({
+      where: { companyId, sessionId: { not: null }, method: { in: ["ESPECES", "MIXTE"] }, date: { gte: from, lte: to } },
+      _sum: { amount: true },
+    }),
+  ]);
+  return (sales._sum.paidAmount || 0) + (otherPayments._sum.amount || 0);
 }
 
 export async function getChangeGivenTotal(companyId: string, from: Date, to: Date) {

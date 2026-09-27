@@ -59,7 +59,7 @@ async function computeExpectedAmount(session: {
     _sum: { amount: true },
   });
   const expenses = await prisma.expense.aggregate({
-    where: { warehouseId: session.warehouseId, date: { gte: session.openedAt } },
+    where: { warehouseId: session.warehouseId, date: { gte: session.openedAt }, cancelled: false },
     _sum: { amount: true },
   });
   return (

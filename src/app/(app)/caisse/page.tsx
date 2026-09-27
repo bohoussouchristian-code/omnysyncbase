@@ -47,11 +47,14 @@ export default async function CaissePage({
     : [];
 
   // Cumul en temps réel de la session ouverte de l'utilisateur courant : même
-  // calcul que closeCashSession (fond initial + ventes espèces depuis
-  // l'ouverture - dépenses).
+  // calcul que closeCashSession (fond initial + ventes espèces + tout autre
+  // paiement rattaché à cette caisse depuis l'ouverture - dépenses) — voir
+  // computeExpectedAmount dans src/lib/actions/cash.ts. Aucun flux financier
+  // ne doit passer à côté de la caisse : un règlement de dette ou une
+  // livraison encaissée compte ici exactement comme une vente.
   let cumul: number | null = null;
   if (mySession) {
-    const [cashSales, expenses] = await Promise.all([
+    const [cashSales, otherPayments, expenses] = await Promise.all([
       prisma.sale.aggregate({
         where: {
           warehouseId: mySession.warehouseId,
@@ -62,12 +65,20 @@ export default async function CaissePage({
         },
         _sum: { paidAmount: true },
       }),
+      prisma.payment.aggregate({
+        where: { sessionId: mySession.id, method: { in: ["ESPECES", "MIXTE"] } },
+        _sum: { amount: true },
+      }),
       prisma.expense.aggregate({
         where: { warehouseId: mySession.warehouseId, date: { gte: mySession.openedAt }, cancelled: false },
         _sum: { amount: true },
       }),
     ]);
-    cumul = mySession.openingAmount + (cashSales._sum.paidAmount || 0) - (expenses._sum.amount || 0);
+    cumul =
+      mySession.openingAmount +
+      (cashSales._sum.paidAmount || 0) +
+      (otherPayments._sum.amount || 0) -
+      (expenses._sum.amount || 0);
   }
 
   return (
