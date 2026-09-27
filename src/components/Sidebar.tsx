@@ -37,7 +37,6 @@ import {
   Receipt,
   PiggyBank,
   Send,
-  Scissors,
   Lock,
   LineChart,
   Coins,
@@ -74,9 +73,9 @@ function itemVisible(item: NavItem, userRole: Role, permissions: ReadonlySet<Per
 // contrôle — chaque domaine métier a son propre groupe, au lieu d'être
 // mélangé dans "Gestion des ventes"/"Gestion financière" comme avant. FNE &
 // fiscalité vit dans Paramètres (/administration, réservé Admin), pas ici.
-// Corrige au passage deux modules orphelins qui existaient en code mais
-// n'apparaissaient nulle part dans le menu : Prestations et
-// Catégories & unités.
+// Prestations (module services, hors-stock) n'est pas dans ce menu — pas
+// utilisé par ce dépôt de boissons ; la page /prestations reste en code,
+// simplement plus liée nulle part.
 const NAV: readonly NavEntry[] = [
   { kind: "link", href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
   {
@@ -101,7 +100,6 @@ const NAV: readonly NavEntry[] = [
         roles: null,
         permission: "produits.gerer",
       },
-      { href: "/prestations", label: "Prestations", icon: Scissors, roles: null },
     ],
   },
   {

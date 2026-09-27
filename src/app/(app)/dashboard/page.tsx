@@ -66,7 +66,6 @@ export default async function DashboardPage() {
       links: [
         { href: "/produits", label: "Configuration des produits" },
         ...(permissions.has("produits.gerer") ? [{ href: "/categories", label: "Catégories & unités" }] : []),
-        { href: "/prestations", label: "Prestations" },
       ],
     },
     {

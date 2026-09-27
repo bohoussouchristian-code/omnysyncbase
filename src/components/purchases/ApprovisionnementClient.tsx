@@ -18,9 +18,11 @@ type PurchaseItemRow = {
   expiryDate: Date | null;
   product: {
     name: string;
+    reference: string | null;
     unit: { symbol: string } | null;
     packUnit: { symbol: string } | null;
     piecesPerPack: number;
+    stocks: { quantity: number }[];
   };
 };
 
@@ -67,6 +69,27 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
         .sort((a, b) => (b.receivedAt ?? b.date).getTime() - (a.receivedAt ?? a.date).getTime()),
     [purchases, q]
   );
+
+  // Vue détaillée article par article de tout ce qui a déjà été approvisionné
+  // (toutes commandes confondues) — chaque ligne de commande stockée devient
+  // une ligne ici, avec le stock disponible actuel du produit concerné.
+  const historyRows = useMemo(() => {
+    const list = purchases
+      .filter((p) => p.stockedAt)
+      .flatMap((p) =>
+        p.items
+          .filter((it) => (it.receivedQuantity ?? 0) > 0 || it.brokenQuantity > 0)
+          .map((it) => ({ purchase: p, item: it }))
+      );
+    if (!q) return list;
+    return list.filter(
+      ({ purchase, item }) =>
+        purchase.number.toLowerCase().includes(q) ||
+        purchase.supplier.name.toLowerCase().includes(q) ||
+        item.product.name.toLowerCase().includes(q) ||
+        (item.product.reference?.toLowerCase().includes(q) ?? false)
+    );
+  }, [purchases, q]);
 
   return (
     <div>
@@ -144,6 +167,67 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-slate-400">
                     {q ? "Aucun résultat." : "Aucune commande reçue pour le moment."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card className="p-5 mt-6">
+        <h3 className="font-semibold text-slate-900 mb-3">
+          Historique d&apos;approvisionnement <span className="text-slate-400 font-normal">[ {historyRows.length} ]</span>
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-100">
+                <th className="pb-2 font-medium">Réf. produit</th>
+                <th className="pb-2 font-medium">Produit</th>
+                <th className="pb-2 font-medium text-right">Stock dispo</th>
+                <th className="pb-2 font-medium text-right">Qté approvisionnée</th>
+                <th className="pb-2 font-medium">Unité</th>
+                <th className="pb-2 font-medium text-right">Cassé</th>
+                <th className="pb-2 font-medium text-right">Prix unitaire</th>
+                <th className="pb-2 font-medium">N° BL</th>
+                <th className="pb-2 font-medium">Emplacement</th>
+                <th className="pb-2 font-medium">Fournisseur</th>
+                <th className="pb-2 font-medium">Mis à jour le</th>
+                <th className="pb-2 font-medium">Fait par</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyRows.map(({ purchase, item }) => {
+                const { factor, unitLabel } = packInfo(item);
+                const stockDispo = item.product.stocks.reduce((s, st) => s + st.quantity, 0) / factor;
+                const qtyAppro = (item.receivedQuantity ?? 0) / factor;
+                const broken = item.brokenQuantity / factor;
+                return (
+                  <tr key={item.id} className="border-b border-slate-50 last:border-0">
+                    <td className="py-2 text-slate-400 font-mono text-xs">{item.product.reference || "—"}</td>
+                    <td className="py-2 font-medium text-slate-700">{item.product.name}</td>
+                    <td className="py-2 text-right">{stockDispo}</td>
+                    <td className="py-2 text-right font-medium">{qtyAppro}</td>
+                    <td className="py-2 text-slate-600">{unitLabel}</td>
+                    <td className="py-2 text-right">
+                      {broken > 0 ? <span className="text-red-600">{broken}</span> : "—"}
+                    </td>
+                    <td className="py-2 text-right text-slate-600">{formatMoney(item.unitPrice * factor)}</td>
+                    <td className="py-2 text-slate-600 whitespace-nowrap">{purchase.number}</td>
+                    <td className="py-2 text-slate-600">{purchase.warehouse.name}</td>
+                    <td className="py-2 text-slate-600">{purchase.supplier.name}</td>
+                    <td className="py-2 text-slate-500 whitespace-nowrap">
+                      {purchase.stockedAt ? formatDateTime(purchase.stockedAt) : "—"}
+                    </td>
+                    <td className="py-2 text-slate-600">{purchase.stockedBy?.name || "—"}</td>
+                  </tr>
+                );
+              })}
+              {historyRows.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="py-6 text-center text-slate-400">
+                    Aucun approvisionnement enregistré.
                   </td>
                 </tr>
               )}
