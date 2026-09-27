@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/AccountMenu";
 import { NotificationBell } from "@/components/NotificationBell";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { Logo } from "@/components/Logo";
 import type { Role } from "@prisma/client";
@@ -284,6 +285,7 @@ export function Sidebar({
           <Menu size={22} />
         </button>
         <span className="text-white font-semibold ml-2 truncate flex-1">{companyName || "OSB"}</span>
+        <GlobalSearch theme="dark" />
         <NotificationBell theme="dark" />
         <AccountMenu userName={userName} userEmail={userEmail} userRole={userRole} theme="dark" />
       </div>
