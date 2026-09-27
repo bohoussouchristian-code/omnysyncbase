@@ -14,12 +14,12 @@ export default async function CategoriesPage() {
     prisma.category.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
-      include: { _count: { select: { products: true } } },
+      include: { _count: { select: { products: true, services: true } } },
     }),
     prisma.unit.findMany({
       where: { companyId },
       orderBy: { name: "asc" },
-      include: { _count: { select: { products: true } } },
+      include: { _count: { select: { products: true, packProducts: true } } },
     }),
     prisma.packagingType.findMany({
       where: { companyId },

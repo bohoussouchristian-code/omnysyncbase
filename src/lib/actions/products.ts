@@ -290,6 +290,50 @@ export async function createUnit(_prev: unknown, formData: FormData) {
   }
 }
 
+// Supprimable uniquement si plus aucun produit/prestation n'y fait référence
+// — sinon la fiche produit se retrouverait avec une catégorie fantôme.
+export async function deleteCategory(id: string) {
+  const check = await requireManager();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const category = await prisma.category.findFirst({
+    where: { id, companyId },
+    include: { _count: { select: { products: true, services: true } } },
+  });
+  if (!category) return { error: "Catégorie introuvable." };
+  if (category._count.products > 0 || category._count.services > 0) {
+    return { error: "Cette catégorie est utilisée par au moins un produit ou une prestation." };
+  }
+
+  await prisma.category.delete({ where: { id } });
+  revalidatePath("/produits");
+  revalidatePath("/categories");
+  return { success: true };
+}
+
+// Supprimable uniquement si plus aucun produit ne l'utilise, ni comme unité
+// de base ni comme unité de lot.
+export async function deleteUnit(id: string) {
+  const check = await requireManager();
+  if ("error" in check) return { error: check.error };
+  const { companyId } = check;
+
+  const unit = await prisma.unit.findFirst({
+    where: { id, companyId },
+    include: { _count: { select: { products: true, packProducts: true } } },
+  });
+  if (!unit) return { error: "Unité introuvable." };
+  if (unit._count.products > 0 || unit._count.packProducts > 0) {
+    return { error: "Cette unité est utilisée par au moins un produit." };
+  }
+
+  await prisma.unit.delete({ where: { id } });
+  revalidatePath("/produits");
+  revalidatePath("/categories");
+  return { success: true };
+}
+
 // Un type d'emballage (casier standard, casier renforcé, bouteille consignée
 // seule...) porte son propre montant de consigne, configuré une seule fois
 // et partagé par tous les produits qui l'utilisent.

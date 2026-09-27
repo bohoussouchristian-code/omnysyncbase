@@ -1,13 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
-import { createCategory, createUnit, createPackagingType, togglePackagingTypeActive } from "@/lib/actions/products";
+import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  createCategory,
+  createUnit,
+  createPackagingType,
+  togglePackagingTypeActive,
+  deleteCategory,
+  deleteUnit,
+} from "@/lib/actions/products";
 import { Card, Input, SubmitButton, FormError, PageHeader, Badge } from "@/components/ui";
-import { Power } from "lucide-react";
+import { Power, Trash2 } from "lucide-react";
 import { formatMoney } from "@/lib/utils";
 
-type Category = { id: string; name: string; _count: { products: number } };
-type Unit = { id: string; name: string; symbol: string; _count: { products: number } };
+type Category = { id: string; name: string; _count: { products: number; services: number } };
+type Unit = { id: string; name: string; symbol: string; _count: { products: number; packProducts: number } };
 type PackagingType = {
   id: string;
   name: string;
@@ -31,10 +39,34 @@ export function CategoriesClient({
     createPackagingType,
     undefined as { error?: string } | undefined
   );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleDeleteCategory(c: Category) {
+    if (!window.confirm(`Supprimer la catégorie « ${c.name} » ?`)) return;
+    setDeleteError(null);
+    const res = await deleteCategory(c.id);
+    if (res && "error" in res && res.error) setDeleteError(res.error);
+    else router.refresh();
+  }
+
+  async function handleDeleteUnit(u: Unit) {
+    if (!window.confirm(`Supprimer l'unité « ${u.name} » ?`)) return;
+    setDeleteError(null);
+    const res = await deleteUnit(u.id);
+    if (res && "error" in res && res.error) setDeleteError(res.error);
+    else router.refresh();
+  }
 
   return (
     <div>
       <PageHeader title="Catégories & unités" />
+
+      {deleteError && (
+        <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {deleteError}
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
         <Card className="p-5">
@@ -45,12 +77,25 @@ export function CategoriesClient({
           </form>
           <FormError error={catState?.error} />
           <ul className="divide-y divide-slate-100">
-            {categories.map((c) => (
-              <li key={c.id} className="py-2 flex items-center justify-between text-sm">
-                <span className="text-slate-700">{c.name}</span>
-                <span className="text-slate-400">{c._count.products} produit(s)</span>
-              </li>
-            ))}
+            {categories.map((c) => {
+              const inUse = c._count.products > 0 || c._count.services > 0;
+              return (
+                <li key={c.id} className="py-2 flex items-center justify-between text-sm">
+                  <span className="text-slate-700">{c.name}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-slate-400">{c._count.products} produit(s)</span>
+                    <button
+                      onClick={() => handleDeleteCategory(c)}
+                      disabled={inUse}
+                      title={inUse ? "Utilisée par au moins un produit/prestation" : "Supprimer"}
+                      className="text-slate-300 hover:text-red-600 disabled:opacity-30 disabled:hover:text-slate-300 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
             {categories.length === 0 && <p className="text-sm text-slate-400 py-2">Aucune catégorie.</p>}
           </ul>
         </Card>
@@ -66,14 +111,27 @@ export function CategoriesClient({
           </form>
           <FormError error={unitState?.error} />
           <ul className="divide-y divide-slate-100">
-            {units.map((u) => (
-              <li key={u.id} className="py-2 flex items-center justify-between text-sm">
-                <span className="text-slate-700">
-                  {u.name} <span className="text-slate-400">({u.symbol})</span>
-                </span>
-                <span className="text-slate-400">{u._count.products} produit(s)</span>
-              </li>
-            ))}
+            {units.map((u) => {
+              const inUse = u._count.products > 0 || u._count.packProducts > 0;
+              return (
+                <li key={u.id} className="py-2 flex items-center justify-between text-sm">
+                  <span className="text-slate-700">
+                    {u.name} <span className="text-slate-400">({u.symbol})</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-slate-400">{u._count.products} produit(s)</span>
+                    <button
+                      onClick={() => handleDeleteUnit(u)}
+                      disabled={inUse}
+                      title={inUse ? "Utilisée par au moins un produit" : "Supprimer"}
+                      className="text-slate-300 hover:text-red-600 disabled:opacity-30 disabled:hover:text-slate-300 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
             {units.length === 0 && <p className="text-sm text-slate-400 py-2">Aucune unité.</p>}
           </ul>
         </Card>
