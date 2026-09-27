@@ -1,7 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, Card, StatCard } from "@/components/ui";
+import { DashboardPeriodPicker } from "@/components/DashboardPeriodPicker";
+import { formatMoney } from "@/lib/utils";
+import { getOpenPointsSummary } from "@/lib/cashSessionStats";
 import Link from "next/link";
 import {
   ShoppingCart,
@@ -10,21 +13,137 @@ import {
   Boxes,
   Scale,
   UserCog,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 
 type ModuleLink = { href: string; label: string };
 type Module = { title: string; acronym: string; icon: LucideIcon; links: ModuleLink[] };
 
-export default async function DashboardPage() {
+const PRESET_LABELS: Record<string, string> = {
+  today: "aujourd'hui",
+  yesterday: "hier",
+  week: "cette semaine",
+  month: "ce mois",
+  lastMonth: "le mois précédent",
+  year: "cette année",
+  custom: "la période choisie",
+};
+
+function toISODate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+// Bornes de chaque préréglage, toujours calculées côté serveur (jamais fiées
+// à l'horloge du navigateur) — un "custom" sans from/to valides retombe sur
+// "aujourd'hui" plutôt que d'échouer silencieusement.
+function computeRange(preset: string, fromParam?: string, toParam?: string) {
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  if (preset === "custom" && fromParam && toParam) {
+    return { from: new Date(`${fromParam}T00:00:00`), to: new Date(`${toParam}T23:59:59.999`) };
+  }
+  if (preset === "yesterday") {
+    const y = new Date(now);
+    y.setDate(y.getDate() - 1);
+    return { from: startOfDay(y), to: endOfDay(y) };
+  }
+  if (preset === "week") {
+    const dayIndex = (now.getDay() + 6) % 7; // lundi = 0
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dayIndex);
+    return { from: startOfDay(monday), to: endOfDay(now) };
+  }
+  if (preset === "month") {
+    return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: endOfDay(now) };
+  }
+  if (preset === "lastMonth") {
+    const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const last = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    return { from: first, to: last };
+  }
+  if (preset === "year") {
+    return { from: new Date(now.getFullYear(), 0, 1), to: endOfDay(now) };
+  }
+  return { from: startOfDay(now), to: endOfDay(now) };
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preset?: string; from?: string; to?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
   const companyId = user.companyId;
 
-  const warehousesCount = await prisma.warehouse.count({ where: { active: true, companyId } });
+  const { preset: presetParam, from: fromParam, to: toParam } = await searchParams;
+  const preset = presetParam && PRESET_LABELS[presetParam] ? presetParam : "today";
+  const { from, to } = computeRange(preset, fromParam, toParam);
 
   const canSeeRapports = user.role === "ADMIN" || user.role === "GERANT";
   const isAdmin = user.role === "ADMIN";
+
+  const [
+    salesPeriod,
+    expensesPeriod,
+    purchasesPeriod,
+    warehousesCount,
+    products,
+    overdueSales,
+    suppliersDebt,
+    bankAccounts,
+    openPoints,
+    pendingDeliveries,
+    unreimbursedAdvances,
+  ] = await Promise.all([
+    prisma.sale.findMany({
+      where: { companyId, date: { gte: from, lte: to }, status: { notIn: ["ANNULEE", "EN_ATTENTE"] } },
+      include: { items: { include: { product: true } } },
+    }),
+    prisma.expense.aggregate({
+      where: { companyId, date: { gte: from, lte: to }, cancelled: false },
+      _sum: { amount: true },
+    }),
+    prisma.purchase.aggregate({
+      where: { companyId, date: { gte: from, lte: to }, status: { not: "ANNULEE" } },
+      _sum: { totalAmount: true },
+      _count: true,
+    }),
+    prisma.warehouse.count({ where: { active: true, companyId } }),
+    prisma.product.findMany({ where: { active: true, companyId }, include: { stocks: true } }),
+    prisma.sale.findMany({
+      where: { companyId, status: { in: ["CREDIT", "PARTIELLE"] }, dueDate: { lt: new Date() } },
+    }),
+    prisma.supplier.aggregate({ where: { companyId }, _sum: { balance: true } }),
+    prisma.bankAccount.findMany({ where: { companyId, active: true }, select: { balance: true } }),
+    getOpenPointsSummary(companyId),
+    prisma.delivery.count({ where: { companyId, status: "EN_ATTENTE" } }),
+    prisma.cashAdvance.count({ where: { session: { companyId }, reimbursedAt: null } }),
+  ]);
+
+  const revenue = salesPeriod.reduce((s, sale) => s + sale.totalAmount, 0);
+  const cogs = salesPeriod.reduce(
+    (s, sale) => s + sale.items.reduce((si, it) => si + it.quantity * (it.product?.purchasePrice ?? 0), 0),
+    0
+  );
+  const expensesTotal = expensesPeriod._sum.amount || 0;
+  const profit = revenue - cogs - expensesTotal;
+  const margin = revenue > 0 ? Math.round((profit / revenue) * 100) : null;
+
+  const stockValue = products.reduce(
+    (s, p) => s + p.stocks.reduce((qs, st) => qs + st.quantity, 0) * p.purchasePrice,
+    0
+  );
+  const lowStockCount = products.filter((p) => {
+    const qty = p.stocks.reduce((s, st) => s + st.quantity, 0);
+    return p.reorderLevel > 0 && qty <= p.reorderLevel;
+  }).length;
+
+  const overdueTotal = overdueSales.reduce((s, sale) => s + (sale.totalAmount - sale.paidAmount), 0);
+  const bankTotal = bankAccounts.reduce((s, a) => s + a.balance, 0);
 
   const modules: Module[] = [
     {
@@ -100,8 +219,72 @@ export default async function DashboardPage() {
     <div>
       <PageHeader
         title="Tableau de bord"
-        subtitle={`Vos modules — ${warehousesCount} dépôt(s)/boutique(s)`}
+        subtitle={`${warehousesCount} dépôt(s)/boutique(s)`}
+        action={<DashboardPeriodPicker preset={preset} from={toISODate(from)} to={toISODate(to)} />}
       />
+
+      {(lowStockCount > 0 || pendingDeliveries > 0 || unreimbursedAdvances > 0) && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {lowStockCount > 0 && (
+            <Link
+              href="/stock"
+              className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 text-xs font-medium hover:bg-amber-100"
+            >
+              <AlertTriangle size={13} /> {lowStockCount} produit(s) en stock bas
+            </Link>
+          )}
+          {pendingDeliveries > 0 && (
+            <Link
+              href="/livraison-clients"
+              className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 text-xs font-medium hover:bg-amber-100"
+            >
+              <AlertTriangle size={13} /> {pendingDeliveries} livraison(s) en attente
+            </Link>
+          )}
+          {unreimbursedAdvances > 0 && (
+            <Link
+              href="/caisse"
+              className="flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-1.5 text-xs font-medium hover:bg-red-100"
+            >
+              <AlertTriangle size={13} /> {unreimbursedAdvances} avance(s) de caisse à régulariser
+            </Link>
+          )}
+        </div>
+      )}
+
+      <Card className="p-5 mb-4">
+        <h3 className="font-semibold text-slate-900 mb-3">
+          Sur la période <span className="text-slate-400 font-normal">— {PRESET_LABELS[preset]}</span>
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard label="Chiffre d'affaires" value={formatMoney(revenue)} />
+          <StatCard label="Ventes" value={String(salesPeriod.length)} />
+          <StatCard label="Achats" value={formatMoney(purchasesPeriod._sum.totalAmount || 0)} hint={`${purchasesPeriod._count} bon(s)`} />
+          <StatCard label="Dépenses" value={formatMoney(expensesTotal)} />
+          <StatCard label="Bénéfice estimé" value={formatMoney(profit)} tone={profit >= 0 ? "success" : "danger"} />
+          <StatCard
+            label="Marge"
+            value={margin != null ? `${margin}%` : "—"}
+            tone={profit >= 0 ? "success" : "danger"}
+          />
+        </div>
+      </Card>
+
+      <Card className="p-5 mb-6">
+        <h3 className="font-semibold text-slate-900 mb-3">État actuel</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <StatCard label="Valeur du stock" value={formatMoney(stockValue)} />
+          <StatCard label="Créances clients en retard" value={formatMoney(overdueTotal)} tone="danger" />
+          <StatCard label="Dettes fournisseurs" value={formatMoney(suppliersDebt._sum.balance || 0)} tone="warning" />
+          <StatCard label="Trésorerie bancaire" value={formatMoney(bankTotal)} />
+          <StatCard
+            label="Caisses ouvertes"
+            value={formatMoney(openPoints.total)}
+            hint={`${openPoints.count} session(s)`}
+          />
+          <StatCard label="Livraisons en attente" value={String(pendingDeliveries)} />
+        </div>
+      </Card>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {modules.map((m) => (
