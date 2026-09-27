@@ -3,7 +3,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { EntrepriseClient } from "@/components/company/EntrepriseClient";
 
-export default async function EntreprisePage() {
+export default async function EntreprisePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
   if (user.role !== "ADMIN") redirect("/dashboard");
@@ -17,5 +21,7 @@ export default async function EntreprisePage() {
   const { fneApiKey, ...companyRest } = company;
   const clientCompany = { ...companyRest, hasFneApiKey: !!fneApiKey };
 
-  return <EntrepriseClient company={clientCompany} />;
+  const { tab } = await searchParams;
+
+  return <EntrepriseClient company={clientCompany} defaultTab={tab === "fne" ? "fne" : "general"} />;
 }

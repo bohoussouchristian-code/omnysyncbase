@@ -2,12 +2,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 import Link from "next/link";
-import { Info, Building2, UserCog, type LucideIcon } from "lucide-react";
+import { Info, Building2, UserCog, ShieldCheck, type LucideIcon } from "lucide-react";
 
 type SettingLink = { href: string; label: string; icon: LucideIcon };
 
 const SETTINGS_LINKS: SettingLink[] = [
   { href: "/entreprise", label: "Informations de l'entreprise", icon: Info },
+  { href: "/entreprise?tab=fne", label: "Facturation électronique (FNE)", icon: ShieldCheck },
   { href: "/entrepots", label: "Dépôts / Boutiques", icon: Building2 },
   { href: "/utilisateurs", label: "Utilisateurs", icon: UserCog },
 ];

@@ -40,10 +40,16 @@ type TabKey = (typeof TABS)[number]["key"];
 // Le logo reste une petite image encodée en base64, soumise comme un champ
 // caché du même formulaire : pas de stockage de fichiers à mettre en place
 // pour ce simple logo affiché sur les documents.
-export function EntrepriseClient({ company }: { company: Company }) {
+export function EntrepriseClient({
+  company,
+  defaultTab = "general",
+}: {
+  company: Company;
+  defaultTab?: TabKey;
+}) {
   const [state, formAction] = useActionState(updateCompanyInfo, undefined as { error?: string; success?: boolean } | undefined);
   const router = useRouter();
-  const [tab, setTab] = useState<TabKey>("general");
+  const [tab, setTab] = useState<TabKey>(defaultTab);
   const [logoPreview, setLogoPreview] = useState(company.logoUrl || "");
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [fneEnabled, setFneEnabled] = useState(company.fneEnabled);
