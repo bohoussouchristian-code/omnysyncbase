@@ -2,8 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { requireOpenSessionForPayment } from "@/lib/actions/cash";
 import { revalidatePath } from "next/cache";
-import type { CustomerType } from "@prisma/client";
+import type { CustomerType, PaymentMethod } from "@prisma/client";
 
 // Créer/modifier une fiche client ou fournisseur est réservé à l'administrateur.
 // Encaisser un paiement de dette reste accessible à tous (usage courant).
@@ -85,8 +86,17 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
 
   const customerId = String(formData.get("customerId") || "");
   const amount = Number(formData.get("amount") || 0);
+  const method = (String(formData.get("method") || "ESPECES") as PaymentMethod) || "ESPECES";
+  const warehouseId = String(formData.get("warehouseId") || "") || undefined;
 
   if (!customerId || amount <= 0) return { error: "Montant invalide." };
+
+  // Un règlement de dette est de l'argent qui entre physiquement dans une
+  // caisse précise — jamais accepté sans qu'une session y soit ouverte pour
+  // l'agent en cours, exactement comme une vente (voir requireOpenSessionForPayment).
+  const sessionCheck = await requireOpenSessionForPayment(user.id, companyId, warehouseId);
+  if ("error" in sessionCheck) return { error: sessionCheck.error };
+  const { session } = sessionCheck;
 
   const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
   if (!customer) return { error: "Client introuvable." };
@@ -118,7 +128,16 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
         },
       });
       await tx.payment.create({
-        data: { type: "DETTE_CLIENT", customerId, saleId: sale.id, amount: applied, userId: user.id, companyId },
+        data: {
+          type: "DETTE_CLIENT",
+          customerId,
+          saleId: sale.id,
+          amount: applied,
+          method,
+          sessionId: session.id,
+          userId: user.id,
+          companyId,
+        },
       });
       appliedSales.push({ number: sale.number, applied, newStatus });
     }
@@ -127,7 +146,15 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
     // crédit) : conservé comme avance, sans facture liée.
     if (remaining > 0) {
       await tx.payment.create({
-        data: { type: "DETTE_CLIENT", customerId, amount: remaining, userId: user.id, companyId },
+        data: {
+          type: "DETTE_CLIENT",
+          customerId,
+          amount: remaining,
+          method,
+          sessionId: session.id,
+          userId: user.id,
+          companyId,
+        },
       });
     }
 
@@ -139,6 +166,7 @@ export async function recordCustomerPayment(_prev: unknown, formData: FormData) 
   revalidatePath("/ventes");
   revalidatePath("/bilan");
   revalidatePath("/rapports");
+  revalidatePath("/caisse");
 
   return {
     success: true,

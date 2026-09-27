@@ -2,8 +2,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireCompanyUser } from "@/lib/auth";
+import { requireOpenSessionForPayment } from "@/lib/actions/cash";
 import { revalidatePath } from "next/cache";
 import { generateNumber } from "@/lib/utils";
+import type { PaymentMethod } from "@prisma/client";
 
 function requireDeliveryManager(role: string) {
   return role === "ADMIN" || role === "GERANT";
@@ -65,18 +67,50 @@ export async function markDeliveryDelivered(id: string) {
   return { success: true };
 }
 
-export async function markDeliveryPaid(id: string) {
+// Encaisser les frais d'une livraison est un vrai paiement : il n'entre pas
+// dans la caisse en silence, il exige une session ouverte pour l'agent (comme
+// une vente ou un règlement de dette) et laisse une trace (Payment.type
+// LIVRAISON) comptée au montant attendu à la fermeture — voir
+// computeExpectedAmount dans src/lib/actions/cash.ts. Une fois payée, la
+// livraison ne repasse plus à "impayée" (pas de bouton pour annuler
+// silencieusement un encaissement déjà en caisse).
+export async function collectDeliveryPayment(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
   if (!requireDeliveryManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut modifier une livraison." };
+    return { error: "Seul un administrateur ou un gérant peut encaisser une livraison." };
 
-  const delivery = await prisma.delivery.findFirst({ where: { id, companyId } });
+  const deliveryId = String(formData.get("deliveryId") || "");
+  const method = (String(formData.get("method") || "ESPECES") as PaymentMethod) || "ESPECES";
+
+  const delivery = await prisma.delivery.findFirst({ where: { id: deliveryId, companyId } });
   if (!delivery) return { error: "Livraison introuvable." };
+  if (delivery.paid) return { error: "Cette livraison est déjà payée." };
+  if (delivery.status === "ANNULEE") return { error: "Cette livraison est annulée." };
 
-  await prisma.delivery.update({ where: { id }, data: { paid: !delivery.paid } });
+  const sessionCheck = await requireOpenSessionForPayment(user.id, companyId);
+  if ("error" in sessionCheck) return { error: sessionCheck.error };
+  const { session } = sessionCheck;
+
+  await prisma.$transaction([
+    prisma.payment.create({
+      data: {
+        type: "LIVRAISON",
+        deliveryId,
+        customerId: delivery.customerId,
+        amount: delivery.fee,
+        method,
+        sessionId: session.id,
+        userId: user.id,
+        companyId,
+      },
+    }),
+    prisma.delivery.update({ where: { id: deliveryId }, data: { paid: true } }),
+  ]);
+
   revalidatePath("/livraison-clients");
+  revalidatePath("/caisse");
   return { success: true };
 }
 

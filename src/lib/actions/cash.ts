@@ -33,7 +33,12 @@ export async function openCashSession(_prev: unknown, formData: FormData) {
 // Le montant attendu se base sur les ventes encaissées (validées) pendant la
 // session, pas sur leur date de saisie : la caisse ne valide que le paiement,
 // qui peut arriver après que la vente ait été saisie par quelqu'un d'autre.
+// S'y ajoute tout autre paiement explicitement rattaché à cette session
+// (règlement de dette client, frais de livraison...) — voir Payment.sessionId
+// dans src/lib/actions/partners.ts et deliveries.ts : c'est ce qui garantit
+// que tout argent physiquement encaissé passe par la caisse et s'y retrouve.
 async function computeExpectedAmount(session: {
+  id: string;
   warehouseId: string;
   userId: string;
   openingAmount: number;
@@ -49,11 +54,41 @@ async function computeExpectedAmount(session: {
     },
     _sum: { paidAmount: true },
   });
+  const otherPayments = await prisma.payment.aggregate({
+    where: { sessionId: session.id, method: { in: ["ESPECES", "MIXTE"] } },
+    _sum: { amount: true },
+  });
   const expenses = await prisma.expense.aggregate({
     where: { warehouseId: session.warehouseId, date: { gte: session.openedAt } },
     _sum: { amount: true },
   });
-  return session.openingAmount + (sales._sum.paidAmount || 0) - (expenses._sum.amount || 0);
+  return (
+    session.openingAmount +
+    (sales._sum.paidAmount || 0) +
+    (otherPayments._sum.amount || 0) -
+    (expenses._sum.amount || 0)
+  );
+}
+
+// Un paiement de dette client ou de frais de livraison est de l'argent qui
+// entre physiquement dans une caisse précise — jamais accepté sans qu'une
+// session y soit ouverte pour l'agent en cours, exactement comme une vente.
+// Retourne la session unique de l'agent, ou demande de préciser le dépôt
+// s'il en a plusieurs ouvertes en même temps (rare, mais possible).
+export async function requireOpenSessionForPayment(userId: string, companyId: string, warehouseId?: string) {
+  const sessions = await prisma.cashSession.findMany({ where: { userId, companyId, closedAt: null } });
+  if (sessions.length === 0) {
+    return { error: "Ouvrez d'abord votre caisse avant d'encaisser ce paiement." } as const;
+  }
+  if (warehouseId) {
+    const session = sessions.find((s) => s.warehouseId === warehouseId);
+    if (!session) return { error: "Aucune session de caisse ouverte pour ce dépôt." } as const;
+    return { session };
+  }
+  if (sessions.length > 1) {
+    return { error: "Plusieurs caisses sont ouvertes pour vous : précisez le dépôt." } as const;
+  }
+  return { session: sessions[0] };
 }
 
 async function getUnreimbursedAdvancesTotal(sessionId: string) {

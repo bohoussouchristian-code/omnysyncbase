@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import {
   createDelivery,
   markDeliveryDelivered,
-  markDeliveryPaid,
+  collectDeliveryPayment,
   cancelDelivery,
 } from "@/lib/actions/deliveries";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
+import { PAYMENT_LABELS } from "@/lib/constants";
 import { Plus, Search, Truck, CheckCircle2, Ban, CircleDollarSign } from "lucide-react";
 
 type Customer = { id: string; name: string };
@@ -43,6 +44,7 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [payingDelivery, setPayingDelivery] = useState<Delivery | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Delivery | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -64,13 +66,6 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
   function deliver(id: string) {
     startTransition(async () => {
       await markDeliveryDelivered(id);
-      router.refresh();
-    });
-  }
-
-  function togglePaid(id: string) {
-    startTransition(async () => {
-      await markDeliveryPaid(id);
       router.refresh();
     });
   }
@@ -157,13 +152,17 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
                     <StatusBadge status={d.status} />
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => togglePaid(d.id)}
-                      disabled={d.status === "ANNULEE"}
-                      className="disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <Badge tone={d.paid ? "success" : "default"}>{d.paid ? "Payée" : "Impayée"}</Badge>
-                    </button>
+                    {d.paid ? (
+                      <Badge tone="success">Payée</Badge>
+                    ) : (
+                      <button
+                        onClick={() => setPayingDelivery(d)}
+                        disabled={d.status === "ANNULEE"}
+                        className="disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Badge tone="default">Impayée</Badge>
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-center">
@@ -203,6 +202,16 @@ export function DeliveriesClient({ deliveries, customers }: { deliveries: Delive
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Nouvelle livraison">
         <DeliveryForm customers={customers} onDone={() => setShowCreate(false)} />
+      </Modal>
+
+      <Modal
+        open={!!payingDelivery}
+        onClose={() => setPayingDelivery(null)}
+        title={`Encaisser la livraison ${payingDelivery?.number || ""}`}
+      >
+        {payingDelivery && (
+          <DeliveryPaymentForm delivery={payingDelivery} onDone={() => setPayingDelivery(null)} />
+        )}
       </Modal>
 
       <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Annuler la livraison ${cancelTarget?.number || ""}`}>
@@ -300,6 +309,50 @@ function DeliveryForm({ customers, onDone }: { customers: Customer[]; onDone: ()
           Annuler
         </button>
         <SubmitButton>Enregistrer</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+function DeliveryPaymentForm({ delivery, onDone }: { delivery: Delivery; onDone: () => void }) {
+  const router = useRouter();
+  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
+    const res = await collectDeliveryPayment(prev, formData);
+    if (res && "success" in res && res.success) {
+      router.refresh();
+      onDone();
+    }
+    return res;
+  }, undefined as { error?: string } | undefined);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <input type="hidden" name="deliveryId" value={delivery.id} />
+      <p className="text-sm text-slate-500">
+        Frais à encaisser : <span className="font-semibold text-slate-800">{formatMoney(delivery.fee)}</span>
+      </p>
+      <div>
+        <Label>Mode de paiement</Label>
+        <Select name="method" defaultValue="ESPECES">
+          {Object.entries(PAYMENT_LABELS)
+            .filter(([k]) => k !== "CREDIT")
+            .map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+        </Select>
+      </div>
+      <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+        Encaisser ce paiement exige d&apos;avoir ouvert votre caisse — un règlement en espèces y sera compté à la
+        fermeture.
+      </p>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Encaisser</SubmitButton>
       </div>
     </form>
   );

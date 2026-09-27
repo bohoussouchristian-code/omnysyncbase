@@ -58,6 +58,7 @@ enum PaymentType {
   ACHAT
   DETTE_CLIENT
   DETTE_FOURNISSEUR
+  LIVRAISON
 }
 
 enum CustomerType {
@@ -668,6 +669,8 @@ model Delivery {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
+  payment Payment?
+
   @@unique([companyId, number])
 }
 
@@ -707,8 +710,17 @@ model Payment {
   customer    Customer?   @relation(fields: [customerId], references: [id])
   supplierId  String?
   supplier    Supplier?   @relation(fields: [supplierId], references: [id])
+  deliveryId  String?     @unique
+  delivery    Delivery?   @relation(fields: [deliveryId], references: [id])
   amount      Float
   method      PaymentMethod @default(ESPECES)
+  // Rattache ce paiement à la session de caisse qui a physiquement reçu
+  // l'argent (paiement de dette, frais de livraison...) — pour qu'il soit
+  // compté dans le montant attendu à la fermeture, exactement comme une
+  // vente encaissée. Laissé vide pour les paiements qui ne passent pas par
+  // une caisse (ex: règlement fournisseur).
+  sessionId   String?
+  session     CashSession? @relation(fields: [sessionId], references: [id])
   // Pour un paiement en espèces avec appoint : montant physique reçu du
   // client et monnaie rendue, pour une traçabilité complète de la caisse
   // (amount reste toujours plafonné au montant dû, jamais gonflé par l'appoint).
@@ -828,6 +840,7 @@ model CashSession {
   company   Company  @relation(fields: [companyId], references: [id])
 
   advances CashAdvance[]
+  payments Payment[]
 }
 
 // Retrait d'argent dans la caisse pour une dépense urgente et imprévue

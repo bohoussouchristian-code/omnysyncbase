@@ -3,9 +3,9 @@
 import { useState, useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Card, PageHeader, StatCard, Badge, Modal, Input, Label, SubmitButton, FormError } from "@/components/ui";
+import { Card, PageHeader, StatCard, Badge, Modal, Input, Label, Select, SubmitButton, FormError } from "@/components/ui";
 import { formatMoney, formatDate, formatDateTime } from "@/lib/utils";
-import { CUSTOMER_TYPE_LABELS } from "@/lib/constants";
+import { CUSTOMER_TYPE_LABELS, PAYMENT_LABELS } from "@/lib/constants";
 import { ArrowLeft, User, Phone, MapPin, Wallet, Printer } from "lucide-react";
 import type { CustomerType, SaleStatus } from "@prisma/client";
 import { recordCustomerPayment } from "@/lib/actions/partners";
@@ -366,6 +366,22 @@ function DossierPaymentForm({
         <Label>Montant encaissé</Label>
         <Input type="number" name="amount" min={1} step="1" max={customer.creditBalance} required autoFocus />
       </div>
+      <div>
+        <Label>Mode de paiement</Label>
+        <Select name="method" defaultValue="ESPECES">
+          {Object.entries(PAYMENT_LABELS)
+            .filter(([k]) => k !== "CREDIT")
+            .map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+        </Select>
+      </div>
+      <p className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
+        Encaisser ce paiement exige d&apos;avoir ouvert votre caisse — un règlement en espèces y sera compté à la
+        fermeture.
+      </p>
       <div className="flex justify-end gap-2 pt-2">
         <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
           Annuler
