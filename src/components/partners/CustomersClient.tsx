@@ -77,7 +77,7 @@ export function CustomersClient({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher par nom, téléphone ou code (CLI-...)"
+          placeholder="Rechercher par nom, téléphone ou identifiant (10 chiffres)"
           className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -87,7 +87,7 @@ export function CustomersClient({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
-                <th className="px-4 py-3 font-medium">Code</th>
+                <th className="px-4 py-3 font-medium">ID client</th>
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Téléphone</th>

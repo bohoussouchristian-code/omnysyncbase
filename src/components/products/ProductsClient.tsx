@@ -250,6 +250,10 @@ function ProductForm({
   const [showNewPackaging, setShowNewPackaging] = useState(false);
   const [packEnabled, setPackEnabled] = useState(!!product?.packUnitId);
   const [unitId, setUnitId] = useState(product?.unitId || "");
+  const [packUnitId, setPackUnitId] = useState(product?.packUnitId || "");
+  const [piecesPerPack, setPiecesPerPack] = useState(
+    product?.piecesPerPack && product.piecesPerPack > 1 ? product.piecesPerPack : 24
+  );
   const [supplierPrices, setSupplierPrices] = useState<{ supplierId: string; purchasePrice: number }[]>(
     product?.supplierPrices ?? []
   );
@@ -500,7 +504,12 @@ function ProductForm({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Unité du lot</Label>
-                <Select name="packUnitId" defaultValue={product?.packUnitId || ""} required={packEnabled}>
+                <Select
+                  name="packUnitId"
+                  value={packUnitId}
+                  onChange={(e) => setPackUnitId(e.target.value)}
+                  required={packEnabled}
+                >
                   <option value="">— Choisir —</option>
                   {units
                     .filter((u) => u.id !== unitId)
@@ -521,11 +530,19 @@ function ProductForm({
                   name="piecesPerPack"
                   min={2}
                   step="1"
-                  defaultValue={product?.piecesPerPack && product.piecesPerPack > 1 ? product.piecesPerPack : 24}
+                  value={piecesPerPack}
+                  onChange={(e) => setPiecesPerPack(Number(e.target.value))}
                   placeholder="Ex: 24"
                 />
               </div>
             </div>
+            {packUnitId && unitId && (
+              <p className="text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                1 {units.find((u) => u.id === packUnitId)?.name} = {piecesPerPack}{" "}
+                {units.find((u) => u.id === unitId)?.name}
+                {piecesPerPack > 1 ? "s" : ""}
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Prix d&apos;achat du lot</Label>
@@ -549,8 +566,8 @@ function ProductForm({
               </div>
             </div>
             <p className="text-xs text-slate-500">
-              Le stock reste toujours compté dans l&apos;unité de base ci-dessus. Ex: un &quot;Carton&quot; de
-              24 &quot;Pièce&quot; — la caisse et les achats pourront vendre/acheter dans les deux unités.
+              Le stock reste toujours compté dans l&apos;unité de base ci-dessus — la caisse et les achats pourront
+              vendre/acheter dans les deux unités.
             </p>
           </div>
         )}

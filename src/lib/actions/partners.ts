@@ -14,16 +14,17 @@ async function requireManager() {
   return requirePermission("tiers.gerer");
 }
 
-// Identifiant lisible et permanent du dossier client (CLI-000001, CLI-000002...),
-// attribué une seule fois à la création et jamais réutilisé — c'est la clé qui
-// permet de retrouver instantanément tout l'historique du client (ventes,
-// paiements, crédit). Compte les clients existants de l'entreprise +1, avec
-// une boucle de secours en cas de collision improbable (comme le slug d'entreprise).
+// Identifiant lisible et permanent du dossier client — un nombre à 10
+// chiffres, sans lettre avant ni après (ex: 0000000001), pour qu'il se
+// retrouve facilement (recherche, dictée au téléphone...). Attribué une
+// seule fois à la création et jamais réutilisé. Compte les clients existants
+// de l'entreprise +1, avec une boucle de secours en cas de collision
+// improbable (comme le slug d'entreprise).
 async function generateCustomerCode(companyId: string): Promise<string> {
   let n = await prisma.customer.count({ where: { companyId } });
   for (let attempt = 0; attempt < 10; attempt++) {
     n += 1;
-    const code = `CLI-${String(n).padStart(6, "0")}`;
+    const code = String(n).padStart(10, "0");
     const exists = await prisma.customer.findFirst({ where: { companyId, code } });
     if (!exists) return code;
   }
