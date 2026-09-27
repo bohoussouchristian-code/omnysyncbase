@@ -58,7 +58,7 @@ function buildLedger(account: Account) {
   return rows;
 }
 
-export function TresorerieClient({ accounts }: { accounts: Account[] }) {
+export function TresorerieClient({ accounts, canManage }: { accounts: Account[]; canManage: boolean }) {
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [showTx, setShowTx] = useState<{ account: Account; type: "RECETTE" | "DECAISSEMENT" } | null>(null);
@@ -79,12 +79,14 @@ export function TresorerieClient({ accounts }: { accounts: Account[] }) {
         title="Comptes bancaires"
         subtitle="Chaque recette et décaissement saisi ici met à jour le solde, comme si le compte était directement lié à l'app."
         action={
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
-          >
-            <Plus size={16} /> Nouveau compte
-          </button>
+          canManage ? (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
+            >
+              <Plus size={16} /> Nouveau compte
+            </button>
+          ) : undefined
         }
       />
 
@@ -108,17 +110,19 @@ export function TresorerieClient({ accounts }: { accounts: Account[] }) {
                 <span className="flex items-center gap-1.5 font-medium text-slate-800 text-sm">
                   <Landmark size={14} className="text-slate-400" /> {a.name}
                 </span>
-                <span
-                  role="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleBankAccountActive(a.id);
-                  }}
-                  title={a.active ? "Désactiver" : "Réactiver"}
-                  className="text-slate-300 hover:text-slate-600"
-                >
-                  <Power size={13} />
-                </span>
+                {canManage && (
+                  <span
+                    role="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleBankAccountActive(a.id);
+                    }}
+                    title={a.active ? "Désactiver" : "Réactiver"}
+                    className="text-slate-300 hover:text-slate-600"
+                  >
+                    <Power size={13} />
+                  </span>
+                )}
               </div>
               {a.bankName && <p className="text-xs text-slate-400">{a.bankName}{a.accountNumber ? ` — ${a.accountNumber}` : ""}</p>}
               <p className={`text-lg font-bold mt-1 ${a.balance < 0 ? "text-red-600" : "text-slate-900"}`}>
@@ -137,20 +141,24 @@ export function TresorerieClient({ accounts }: { accounts: Account[] }) {
               <p className="text-xs text-slate-400">Solde actuel : {formatMoney(selected.balance)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowTx({ account: selected, type: "RECETTE" })}
-                disabled={!selected.active}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 text-emerald-700 text-xs font-semibold px-3 py-1.5 hover:bg-emerald-100 disabled:opacity-40"
-              >
-                <ArrowDownCircle size={13} /> Recette
-              </button>
-              <button
-                onClick={() => setShowTx({ account: selected, type: "DECAISSEMENT" })}
-                disabled={!selected.active}
-                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/70 text-red-700 text-xs font-semibold px-3 py-1.5 hover:bg-red-100 disabled:opacity-40"
-              >
-                <ArrowUpCircle size={13} /> Décaissement
-              </button>
+              {canManage && (
+                <>
+                  <button
+                    onClick={() => setShowTx({ account: selected, type: "RECETTE" })}
+                    disabled={!selected.active}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 text-emerald-700 text-xs font-semibold px-3 py-1.5 hover:bg-emerald-100 disabled:opacity-40"
+                  >
+                    <ArrowDownCircle size={13} /> Recette
+                  </button>
+                  <button
+                    onClick={() => setShowTx({ account: selected, type: "DECAISSEMENT" })}
+                    disabled={!selected.active}
+                    className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/70 text-red-700 text-xs font-semibold px-3 py-1.5 hover:bg-red-100 disabled:opacity-40"
+                  >
+                    <ArrowUpCircle size={13} /> Décaissement
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setShowReconcile(selected)}
                 className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 text-blue-700 text-xs font-semibold px-3 py-1.5 hover:bg-blue-100"

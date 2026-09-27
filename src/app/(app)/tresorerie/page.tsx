@@ -6,7 +6,8 @@ import { TresorerieClient } from "@/components/bank/TresorerieClient";
 export default async function TresoreriePage() {
   const user = await getCurrentUser();
   if (!user?.companyId) redirect("/login");
-  if (user.role !== "ADMIN" && user.role !== "GERANT") redirect("/dashboard");
+  if (user.role !== "ADMIN" && user.role !== "GERANT" && user.role !== "COMPTABLE") redirect("/dashboard");
+  const canManage = user.role === "ADMIN" || user.role === "GERANT";
   const companyId = user.companyId;
 
   const accounts = await prisma.bankAccount.findMany({
@@ -26,5 +27,5 @@ export default async function TresoreriePage() {
     },
   });
 
-  return <TresorerieClient accounts={accounts} />;
+  return <TresorerieClient accounts={accounts} canManage={canManage} />;
 }

@@ -19,7 +19,7 @@ type Warehouse = { id: string; name: string };
 // Ces deux rôles doivent être rattachés à un dépôt pour pouvoir valider une
 // vente (voir createSale dans src/lib/actions/sales.ts) ; Admin et Gérant
 // restent libres de choisir le dépôt à chaque vente.
-const WAREHOUSE_BOUND_ROLES: readonly Role[] = ["CAISSIER", "MAGASINIER"];
+const WAREHOUSE_BOUND_ROLES: readonly Role[] = ["CAISSIER", "MAGASINIER", "VENDEUR"];
 
 type User = {
   id: string;
@@ -276,10 +276,11 @@ function UserForm({ warehouses, onDone }: { warehouses: Warehouse[]; onDone: () 
       <div>
         <Label>Rôle</Label>
         <Select name="role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-          <option value="ADMIN">Administrateur</option>
-          <option value="GERANT">Gérant</option>
-          <option value="CAISSIER">Caissier</option>
-          <option value="MAGASINIER">Magasinier</option>
+          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </Select>
       </div>
       {needsWarehouse && (
@@ -294,7 +295,7 @@ function UserForm({ warehouses, onDone }: { warehouses: Warehouse[]; onDone: () 
             ))}
           </Select>
           <p className="mt-1 text-xs text-slate-500">
-            Un caissier ou magasinier ne peut valider une vente que depuis son dépôt rattaché.
+            Un caissier, magasinier ou vendeur ne peut valider une vente que depuis son dépôt rattaché.
           </p>
         </div>
       )}
@@ -409,10 +410,11 @@ function RoleForm({ user, onDone }: { user: User; onDone: () => void }) {
       <div>
         <Label>Rôle</Label>
         <Select name="role" defaultValue={user.role}>
-          <option value="ADMIN">Administrateur</option>
-          <option value="GERANT">Gérant</option>
-          <option value="CAISSIER">Caissier</option>
-          <option value="MAGASINIER">Magasinier</option>
+          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </Select>
       </div>
       <div className="flex justify-end gap-2 pt-2">

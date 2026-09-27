@@ -85,7 +85,8 @@ export default async function DashboardPage({
   const preset = presetParam && PRESET_LABELS[presetParam] ? presetParam : "today";
   const { from, to } = computeRange(preset, fromParam, toParam);
 
-  const canSeeRapports = user.role === "ADMIN" || user.role === "GERANT";
+  const canManageFinance = user.role === "ADMIN" || user.role === "GERANT";
+  const canSeeReports = canManageFinance || user.role === "COMPTABLE";
   const isAdmin = user.role === "ADMIN";
 
   const [
@@ -210,9 +211,9 @@ export default async function DashboardPage({
       icon: Wallet,
       links: [
         { href: "/caisse", label: "État de mes caisses" },
-        ...(canSeeRapports ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
+        ...(canManageFinance ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         { href: "/depenses", label: "Dépenses" },
-        ...(canSeeRapports ? [{ href: "/tresorerie", label: "Comptes bancaires" }] : []),
+        ...(canSeeReports ? [{ href: "/tresorerie", label: "Comptes bancaires" }] : []),
       ],
     },
     ...(isAdmin
@@ -234,10 +235,10 @@ export default async function DashboardPage({
       icon: Scale,
       links: [
         { href: "/bilan", label: "Voir le bilan complet" },
-        ...(canSeeRapports ? [{ href: "/rapports", label: "Rapports" }] : []),
+        ...(canSeeReports ? [{ href: "/rapports", label: "Rapports" }] : []),
       ],
     },
-    ...(canSeeRapports
+    ...(canManageFinance
       ? [
           {
             title: "Annulations & contrôle",

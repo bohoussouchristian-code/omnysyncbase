@@ -33,7 +33,11 @@ export default async function RapportsPage({
   searchParams: Promise<{ periode?: string; from?: string; to?: string }>;
 }) {
   const current = await getCurrentUser();
-  if (!current?.companyId || (current.role !== "ADMIN" && current.role !== "GERANT")) redirect("/dashboard");
+  if (
+    !current?.companyId ||
+    (current.role !== "ADMIN" && current.role !== "GERANT" && current.role !== "COMPTABLE")
+  )
+    redirect("/dashboard");
   const companyId = current.companyId;
 
   const { periode, from: fromParam, to: toParam } = await searchParams;

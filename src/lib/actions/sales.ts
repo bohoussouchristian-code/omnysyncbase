@@ -149,7 +149,7 @@ export async function createSale(input: {
   // Un caissier ou magasinier ne peut vendre que depuis le dépôt auquel il
   // est rattaché (voir warehouseId sur User) — même si un client forgé
   // envoyait un autre warehouseId. Admin/Gérant restent libres.
-  if (user.role === "CAISSIER" || user.role === "MAGASINIER") {
+  if (user.role === "CAISSIER" || user.role === "MAGASINIER" || user.role === "VENDEUR") {
     if (!user.warehouseId) {
       return { error: "Vous n'êtes rattaché à aucun dépôt. Contactez un administrateur." };
     }

@@ -12,6 +12,8 @@ enum Role {
   GERANT
   CAISSIER
   MAGASINIER
+  VENDEUR
+  COMPTABLE
 }
 
 enum WarehouseType {

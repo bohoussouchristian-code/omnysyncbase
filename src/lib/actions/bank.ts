@@ -8,6 +8,13 @@ function requireBankManager(role: string) {
   return role === "ADMIN" || role === "GERANT";
 }
 
+// Le rapprochement bancaire (pointage + saisie du solde du relevé) est un
+// acte comptable — un Comptable peut le faire sans pouvoir créer de compte
+// ni enregistrer un mouvement de trésorerie ad hoc (réservé Admin/Gérant).
+function requireReconciler(role: string) {
+  return role === "ADMIN" || role === "GERANT" || role === "COMPTABLE";
+}
+
 export async function createBankAccount(_prev: unknown, formData: FormData) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
@@ -129,8 +136,8 @@ export async function recordBankReconciliation(_prev: unknown, formData: FormDat
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
-  if (!requireBankManager(user.role))
-    return { error: "Seul un administrateur ou un gérant peut effectuer un rapprochement bancaire." };
+  if (!requireReconciler(user.role))
+    return { error: "Seul un administrateur, un gérant ou un comptable peut effectuer un rapprochement bancaire." };
 
   const bankAccountId = String(formData.get("bankAccountId") || "");
   const statementDateRaw = String(formData.get("statementDate") || "");

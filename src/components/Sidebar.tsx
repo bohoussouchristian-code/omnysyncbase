@@ -126,7 +126,12 @@ const NAV: readonly NavEntry[] = [
         roles: ["ADMIN", "GERANT"],
       },
       { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
-      { href: "/tresorerie", label: "Comptes bancaires", icon: PiggyBank, roles: ["ADMIN", "GERANT"] },
+      {
+        href: "/tresorerie",
+        label: "Comptes bancaires",
+        icon: PiggyBank,
+        roles: ["ADMIN", "GERANT", "COMPTABLE"],
+      },
     ],
   },
   {
@@ -142,7 +147,7 @@ const NAV: readonly NavEntry[] = [
     icon: Scale,
     items: [
       { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
-      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT"] },
+      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: ["ADMIN", "GERANT", "COMPTABLE"] },
     ],
   },
   {

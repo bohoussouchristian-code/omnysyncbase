@@ -81,7 +81,7 @@ export default async function VentesPage({
     ]);
 
   const assignedWarehouseId =
-    user.role === "CAISSIER" || user.role === "MAGASINIER" ? user.warehouseId : undefined;
+    user.role === "CAISSIER" || user.role === "MAGASINIER" || user.role === "VENDEUR" ? user.warehouseId : undefined;
 
   return (
     <VenteDuJourClient

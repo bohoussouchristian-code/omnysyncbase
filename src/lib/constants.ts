@@ -10,6 +10,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   GERANT: "Gérant",
   CAISSIER: "Caissier",
   MAGASINIER: "Magasinier",
+  VENDEUR: "Vendeur",
+  COMPTABLE: "Comptable",
 };
 
 export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
