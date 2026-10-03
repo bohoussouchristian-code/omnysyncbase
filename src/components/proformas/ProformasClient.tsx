@@ -51,7 +51,14 @@ type Line = {
   unitLabel: string;
   qty: number;
   unitPrice: number;
+  // Pas d'incrément de la ligne : 1 à la bouteille/prestation, un
+  // demi-casier à la fois en lot (très fréquent au dépôt — voir PosClient.tsx).
+  step: number;
 };
+
+function fmtQty(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
 
 function priceForCustomer(p: Product, customerType: CustomerType | null) {
   if (customerType === "REVENDEUR" && p.wholesalePrice) return p.wholesalePrice;
@@ -299,13 +306,17 @@ function ProformaForm({
     return services.filter((s) => !q || s.name.toLowerCase().includes(q));
   }, [services, query]);
 
-  function addProduct(p: Product) {
+  function addProduct(p: Product, addQty: number = 1) {
     const { unitPrice, unitLabel } = priceAndUnit(p, selectedCustomer?.type ?? null);
+    const step = p.packUnit ? 0.5 : 1;
     const key = `p:${p.id}`;
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
-      if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
-      return [...prev, { key, kind: "product", productId: p.id, name: p.name, unitLabel, qty: 1, unitPrice }];
+      if (existing) {
+        const qty = Math.round((existing.qty + addQty) * 100) / 100;
+        return prev.map((l) => (l.key === key ? { ...l, qty } : l));
+      }
+      return [...prev, { key, kind: "product", productId: p.id, name: p.name, unitLabel, qty: addQty, unitPrice, step }];
     });
   }
 
@@ -315,13 +326,15 @@ function ProformaForm({
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
-      return [...prev, { key, kind: "service", serviceId: s.id, name: s.name, unitLabel: "u", qty: 1, unitPrice }];
+      return [...prev, { key, kind: "service", serviceId: s.id, name: s.name, unitLabel: "u", qty: 1, unitPrice, step: 1 }];
     });
   }
 
   function changeQty(key: string, delta: number) {
     setCart((prev) =>
-      prev.map((l) => (l.key === key ? { ...l, qty: Math.max(0, l.qty + delta) } : l)).filter((l) => l.qty > 0)
+      prev
+        .map((l) => (l.key === key ? { ...l, qty: Math.round(Math.max(0, l.qty + delta) * 100) / 100 } : l))
+        .filter((l) => l.qty > 0)
     );
   }
 
@@ -404,17 +417,27 @@ function ProformaForm({
           {filteredProducts.map((p) => {
             const { unitPrice, unitLabel } = priceAndUnit(p, selectedCustomer?.type ?? null);
             return (
-              <button
+              <div
                 key={p.id}
-                onClick={() => addProduct(p)}
-                className="bg-white border border-slate-200 rounded-lg p-2.5 text-left hover:border-blue-400 hover:shadow-sm transition-all"
+                className="flex items-stretch gap-1.5 bg-white border border-slate-200 rounded-lg p-2.5 hover:border-blue-400 hover:shadow-sm transition-all"
               >
-                <p className="font-medium text-slate-800 text-sm leading-tight">{p.name}</p>
-                <p className="text-blue-600 font-semibold text-xs">
-                  {formatMoney(unitPrice)}
-                  {unitLabel && <span className="text-slate-400 font-normal"> /{unitLabel}</span>}
-                </p>
-              </button>
+                <button onClick={() => addProduct(p)} className="flex-1 min-w-0 text-left">
+                  <p className="font-medium text-slate-800 text-sm leading-tight">{p.name}</p>
+                  <p className="text-blue-600 font-semibold text-xs">
+                    {formatMoney(unitPrice)}
+                    {unitLabel && <span className="text-slate-400 font-normal"> /{unitLabel}</span>}
+                  </p>
+                </button>
+                {p.packUnit && (
+                  <button
+                    onClick={() => addProduct(p, 0.5)}
+                    title={`Ajouter un demi-${p.packUnit.symbol}`}
+                    className="shrink-0 self-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-1.5 hover:bg-blue-100"
+                  >
+                    ½
+                  </button>
+                )}
+              </div>
             );
           })}
           {filteredServices.map((s) => {
@@ -451,11 +474,11 @@ function ProformaForm({
                     {l.unitLabel ? ` / ${l.unitLabel}` : ""}
                   </p>
                 </div>
-                <button onClick={() => changeQty(l.key, -1)} className="text-slate-400 hover:text-slate-700">
+                <button onClick={() => changeQty(l.key, -l.step)} className="text-slate-400 hover:text-slate-700">
                   <Minus size={14} />
                 </button>
-                <span className="w-6 text-center font-medium">{l.qty}</span>
-                <button onClick={() => changeQty(l.key, 1)} className="text-slate-400 hover:text-slate-700">
+                <span className="w-8 text-center font-medium">{fmtQty(l.qty)}</span>
+                <button onClick={() => changeQty(l.key, l.step)} className="text-slate-400 hover:text-slate-700">
                   <Plus size={14} />
                 </button>
                 <button onClick={() => removeLine(l.key)} className="text-red-400 hover:text-red-600 ml-1">
