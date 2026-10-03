@@ -579,13 +579,21 @@ function ValidateForm({
   const total = sale.totalAmount;
   // "Montant reçu" = ce que le client remet physiquement (peut dépasser le
   // total en espèces) ; "paid" = ce qui est effectivement appliqué à la vente,
-  // jamais plus que le total — l'excédent est de la monnaie à rendre.
-  const received = paymentMethod === "CREDIT" ? 0 : amountPaid === "" ? total : Number(amountPaid);
+  // jamais plus que le total — l'excédent est de la monnaie à rendre. Le
+  // champ ne se substitue plus silencieusement au total s'il est laissé vide
+  // — tant qu'il n'est pas saisi, aucune validation n'est possible (voir
+  // amountMissing plus bas) : il ne s'agit que d'un repère dans le placeholder.
+  const amountMissing = paymentMethod !== "CREDIT" && amountPaid === "";
+  const received = paymentMethod === "CREDIT" ? 0 : amountPaid === "" ? 0 : Number(amountPaid);
   const paid = Math.min(received, total);
   const changeDue = paymentMethod === "ESPECES" ? Math.max(0, received - total) : 0;
 
   function submit() {
     setError(null);
+    if (amountMissing) {
+      setError("Saisissez le montant reçu avant de valider le paiement.");
+      return;
+    }
     if (paid < total && !sale.customerId) {
       setError("Cette vente n'a pas de client : impossible de l'encaisser partiellement ou à crédit.");
       return;
@@ -690,7 +698,8 @@ function ValidateForm({
         </button>
         <button
           onClick={submit}
-          disabled={pending}
+          disabled={pending || amountMissing}
+          title={amountMissing ? "Saisissez le montant reçu avant de valider." : undefined}
           className="rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm font-medium hover:bg-emerald-700 disabled:opacity-60"
         >
           {pending ? "Encaissement..." : "Valider le paiement"}
