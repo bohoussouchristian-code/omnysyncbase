@@ -39,7 +39,6 @@ import {
   Send,
   Lock,
   LineChart,
-  Coins,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -155,15 +154,8 @@ const NAV: readonly NavEntry[] = [
       },
       {
         href: "/tresorerie",
-        label: "Comptes bancaires",
+        label: "Comptes bancaires & solde général",
         icon: PiggyBank,
-        roles: null,
-        permission: "rapports.voir",
-      },
-      {
-        href: "/solde-general",
-        label: "Solde général",
-        icon: Coins,
         roles: null,
         permission: "rapports.voir",
       },

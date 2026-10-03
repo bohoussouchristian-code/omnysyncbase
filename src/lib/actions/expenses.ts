@@ -87,6 +87,7 @@ export async function createExpense(_prev: unknown, formData: FormData) {
 
   revalidatePath("/depenses");
   revalidatePath("/dashboard");
+  revalidatePath("/tresorerie");
   return { success: true };
 }
 

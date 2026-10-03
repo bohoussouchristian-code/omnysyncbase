@@ -118,7 +118,7 @@ export default async function DashboardPage() {
       links: [
         { href: "/caisse", label: "État de ma caisse" },
         ...(canManageCashPoints ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
-        ...(canSeeReports ? [{ href: "/tresorerie", label: "Comptes bancaires" }, { href: "/solde-general", label: "Solde général" }] : []),
+        ...(canSeeReports ? [{ href: "/tresorerie", label: "Comptes bancaires & solde général" }] : []),
       ],
     },
     ...(canSeeHR

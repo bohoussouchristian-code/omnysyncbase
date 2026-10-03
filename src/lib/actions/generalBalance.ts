@@ -64,6 +64,6 @@ export async function setGeneralBalanceBase(_prev: unknown, formData: FormData) 
     newValue: { baseAmount },
   });
 
-  revalidatePath("/solde-general");
+  revalidatePath("/tresorerie");
   return { success: true };
 }

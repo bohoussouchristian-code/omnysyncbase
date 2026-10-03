@@ -9,9 +9,12 @@ import {
   toggleTransactionReconciled,
   recordBankReconciliation,
 } from "@/lib/actions/bank";
-import { Modal, Input, Label, SubmitButton, FormError, PageHeader, Card, StatCard, Badge } from "@/components/ui";
+import { setGeneralBalanceBase } from "@/lib/actions/generalBalance";
+import { createExpense } from "@/lib/actions/expenses";
+import { EXPENSE_CATEGORIES } from "@/lib/constants";
+import { Modal, Input, Label, Select, SubmitButton, FormError, PageHeader, Card, StatCard, Badge } from "@/components/ui";
 import { formatMoney, formatDateTime, formatDate } from "@/lib/utils";
-import { Plus, ArrowDownCircle, ArrowUpCircle, Power, Landmark, ClipboardCheck } from "lucide-react";
+import { Plus, ArrowDownCircle, ArrowUpCircle, Power, Landmark, ClipboardCheck, Pencil } from "lucide-react";
 
 type Transaction = {
   id: string;
@@ -43,6 +46,14 @@ type Account = {
   transactions: Transaction[];
   reconciliations: Reconciliation[];
 };
+type GeneralBalance = {
+  baseAmount: number;
+  totalSalesCollected: number;
+  totalExpenses: number;
+  balance: number;
+  updatedAt: Date | null;
+  updatedByName: string | null;
+};
 
 // Reconstitue le relevé (solde après chaque mouvement) à partir du solde
 // actuel du compte, en "remontant" le temps depuis les transactions les plus
@@ -62,15 +73,21 @@ export function TresorerieClient({
   accounts,
   canManage,
   canReconcile,
+  generalBalance,
+  canEditGeneralBalance,
 }: {
   accounts: Account[];
   canManage: boolean;
   canReconcile: boolean;
+  generalBalance: GeneralBalance | null;
+  canEditGeneralBalance: boolean;
 }) {
   const router = useRouter();
   const [showCreate, setShowCreate] = useState(false);
   const [showTx, setShowTx] = useState<{ account: Account; type: "RECETTE" | "DECAISSEMENT" } | null>(null);
   const [showReconcile, setShowReconcile] = useState<Account | null>(null);
+  const [editingBalance, setEditingBalance] = useState(false);
+  const [showDecaissement, setShowDecaissement] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(accounts[0]?.id ?? null);
 
   function toggleReconciled(id: string) {
@@ -101,6 +118,59 @@ export function TresorerieClient({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Trésorerie totale (comptes actifs)" value={formatMoney(totalBalance)} />
       </div>
+
+      {generalBalance && (
+        <Card className="p-5 mb-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">Solde général</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Base de départ + tout l&apos;historique de ventes encaissées − toutes les dépenses — indépendant de
+                toute période.
+              </p>
+            </div>
+            {canEditGeneralBalance && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowDecaissement(true)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <ArrowUpCircle size={16} /> Nouveau décaissement
+                </button>
+                <button
+                  onClick={() => setEditingBalance(true)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <Pencil size={16} /> Modifier la base
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="text-center mb-4">
+            <p className="text-sm text-slate-400 mb-1">Solde général</p>
+            <p className={`text-4xl font-bold ${generalBalance.balance >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+              {formatMoney(generalBalance.balance)}
+            </p>
+            {generalBalance.updatedAt && (
+              <p className="text-xs text-slate-400 mt-2">
+                Base de départ fixée le {formatDateTime(generalBalance.updatedAt)}
+                {generalBalance.updatedByName ? ` par ${generalBalance.updatedByName}` : ""}
+              </p>
+            )}
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-4">
+            <StatCard label="Base de départ" value={formatMoney(generalBalance.baseAmount)} />
+            <StatCard
+              label="Ventes encaissées (total)"
+              value={formatMoney(generalBalance.totalSalesCollected)}
+              tone="success"
+            />
+            <StatCard label="Dépenses (total)" value={formatMoney(generalBalance.totalExpenses)} tone="danger" />
+          </div>
+        </Card>
+      )}
 
       {accounts.length === 0 ? (
         <Card className="p-8 text-center text-slate-400">Aucun compte bancaire enregistré.</Card>
@@ -287,6 +357,20 @@ export function TresorerieClient({
       >
         {showTx && <TransactionForm account={showTx.account} type={showTx.type} onDone={() => setShowTx(null)} />}
       </Modal>
+
+      <Modal open={editingBalance} onClose={() => setEditingBalance(false)} title="Modifier la base de départ">
+        {generalBalance && (
+          <BaseForm currentAmount={generalBalance.baseAmount} onDone={() => setEditingBalance(false)} />
+        )}
+      </Modal>
+
+      <Modal
+        open={showDecaissement}
+        onClose={() => setShowDecaissement(false)}
+        title="Décaissement — Solde général"
+      >
+        <DecaissementForm onDone={() => setShowDecaissement(false)} />
+      </Modal>
     </div>
   );
 }
@@ -443,6 +527,88 @@ function ReconciliationForm({ account, onDone }: { account: Account; onDone: () 
           Annuler
         </button>
         <SubmitButton>Enregistrer le rapprochement</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+function BaseForm({ currentAmount, onDone }: { currentAmount: number; onDone: () => void }) {
+  const router = useRouter();
+  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
+    const res = await setGeneralBalanceBase(prev, formData);
+    if (res && "success" in res && res.success) {
+      router.refresh();
+      onDone();
+    }
+    return res;
+  }, undefined as { error?: string } | undefined);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <p className="text-sm text-slate-500">
+        Le solde du jour où vous démarrez le suivi — tout ce qui a été encaissé/dépensé avant cette base n&apos;est
+        pas recalculé rétroactivement.
+      </p>
+      <div>
+        <Label>Base de départ (FCFA)</Label>
+        <Input type="number" name="baseAmount" step="1" defaultValue={currentAmount} required />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Enregistrer</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+// Décaissement ponctuel contre le Solde général, pour une dépense imprévue
+// qu'on ne veut pas chercher dans quelle enveloppe/catégorie classer tout de
+// suite — crée une dépense normale (voir createExpense), qui réduit
+// automatiquement le Solde général via totalExpenses, comme toute autre
+// dépense. Pas de dépôt précisé (dépense générale, pas liée à une boutique).
+function DecaissementForm({ onDone }: { onDone: () => void }) {
+  const router = useRouter();
+  const [state, formAction] = useActionState(async (prev: unknown, formData: FormData) => {
+    const res = await createExpense(prev, formData);
+    if (res && "success" in res && res.success) {
+      router.refresh();
+      onDone();
+    }
+    return res;
+  }, undefined as { error?: string } | undefined);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <FormError error={state?.error} />
+      <p className="text-sm text-slate-500">
+        Enregistré comme une dépense (visible aussi depuis le module Dépenses) — réduit aussitôt le Solde général.
+      </p>
+      <div>
+        <Label>Catégorie</Label>
+        <Select name="category" required>
+          {EXPENSE_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div>
+        <Label>Montant (FCFA)</Label>
+        <Input type="number" name="amount" min={1} step="1" required />
+      </div>
+      <div>
+        <Label>Description (optionnel)</Label>
+        <Input name="description" placeholder="Détails de la dépense..." />
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <button type="button" onClick={onDone} className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+          Annuler
+        </button>
+        <SubmitButton>Enregistrer</SubmitButton>
       </div>
     </form>
   );
