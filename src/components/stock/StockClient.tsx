@@ -165,22 +165,22 @@ export function StockClient({
 
       <Card className="overflow-hidden mb-6">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead className="bg-slate-50 text-slate-500">
               <tr className="text-left">
-                <th className="px-4 py-3 font-medium">Réf.</th>
-                <th className="px-4 py-3 font-medium">Produit</th>
-                <th className="px-4 py-3 font-medium">Unité</th>
-                <th className="px-4 py-3 font-medium text-right">Quantité</th>
-                <th className="px-4 py-3 font-medium text-right">Prix d&apos;achat</th>
-                <th className="px-4 py-3 font-medium text-right">Valeur stock</th>
-                <th className="px-4 py-3 font-medium">Fournisseur(s)</th>
-                <th className="px-4 py-3 font-medium">Statut</th>
-                <th className="px-4 py-3 font-medium text-right">Qté dernière entrée</th>
-                <th className="px-4 py-3 font-medium">N° BL</th>
-                <th className="px-4 py-3 font-medium">Emplacement</th>
-                <th className="px-4 py-3 font-medium">Dernière entrée le</th>
-                <th className="px-4 py-3 font-medium">Fait par</th>
+                <th className="px-2 py-2 font-medium">Réf.</th>
+                <th className="px-2 py-2 font-medium">Produit</th>
+                <th className="px-2 py-2 font-medium">Unité</th>
+                <th className="px-2 py-2 font-medium text-right">Quantité</th>
+                <th className="px-2 py-2 font-medium text-right">Prix d&apos;achat</th>
+                <th className="px-2 py-2 font-medium text-right">Valeur stock</th>
+                <th className="px-2 py-2 font-medium">Fournisseur(s)</th>
+                <th className="px-2 py-2 font-medium">Statut</th>
+                <th className="px-2 py-2 font-medium text-right">Qté dernière entrée</th>
+                <th className="px-2 py-2 font-medium">N° BL</th>
+                <th className="px-2 py-2 font-medium">Emplacement</th>
+                <th className="px-2 py-2 font-medium">Dernière entrée le</th>
+                <th className="px-2 py-2 font-medium">Fait par</th>
               </tr>
             </thead>
             <tbody>
@@ -189,25 +189,25 @@ export function StockClient({
                 const m = p.lastMovement;
                 return (
                   <tr key={p.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{p.reference || "—"}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{p.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{p.packUnit?.symbol || p.unit?.symbol || "—"}</td>
-                    <td className="px-4 py-3 text-right font-medium">{formatQty(p.qty, p)}</td>
-                    <td className="px-4 py-3 text-right text-slate-600">{formatMoney(p.purchasePrice)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-700">{formatMoney(p.stockValue)}</td>
-                    <td className="px-4 py-3 text-slate-600">{p.suppliers || "—"}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-1.5 text-slate-400 font-mono">{p.reference || "—"}</td>
+                    <td className="px-2 py-1.5 font-medium text-slate-800">{p.name}</td>
+                    <td className="px-2 py-1.5 text-slate-600">{p.packUnit?.symbol || p.unit?.symbol || "—"}</td>
+                    <td className="px-2 py-1.5 text-right font-medium whitespace-nowrap">{formatQty(p.qty, p)}</td>
+                    <td className="px-2 py-1.5 text-right text-slate-600 whitespace-nowrap">{formatMoney(p.purchasePrice)}</td>
+                    <td className="px-2 py-1.5 text-right font-medium text-slate-700 whitespace-nowrap">{formatMoney(p.stockValue)}</td>
+                    <td className="px-2 py-1.5 text-slate-600">{p.suppliers || "—"}</td>
+                    <td className="px-2 py-1.5">
                       {low ? (
                         <Badge tone="danger">Stock bas</Badge>
                       ) : (
                         <Badge tone="success">OK</Badge>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{m ? formatQty(m.quantity, p) : "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{m?.number ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{m?.warehouseName ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{m ? formatDateTime(m.date) : "—"}</td>
-                    <td className="px-4 py-3 text-slate-600">{m?.by ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-right text-slate-600 whitespace-nowrap">{m ? formatQty(m.quantity, p) : "—"}</td>
+                    <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{m?.number ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-slate-600">{m?.warehouseName ?? "—"}</td>
+                    <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{m ? formatDateTime(m.date) : "—"}</td>
+                    <td className="px-2 py-1.5 text-slate-600">{m?.by ?? "—"}</td>
                   </tr>
                 );
               })}
