@@ -13,36 +13,44 @@ function canManageDeliveries(user: { id: string; role: Role }) {
   return userHasPermission(user, "livraisons.gerer");
 }
 
+export type DeliveryCartItem = { productId: string; quantity: number };
+
 // Ce qui est décidé au cas par cas (zone, distance, secteur...) est le prix
 // par bouteille (`pricePerBottle`), jamais le montant final : celui-ci se
-// déduit toujours en multipliant par le nombre total de bouteilles (quantité
-// de casiers × bouteilles par casier du produit livré), recalculé ici
-// côté serveur — jamais une saisie libre qui pourrait diverger du calcul.
-export async function createDelivery(_prev: unknown, formData: FormData) {
+// déduit toujours en multipliant par le nombre total de bouteilles, toutes
+// lignes confondues (`items`, en unité de base comme SaleItem/PurchaseItem —
+// voir DeliveryItem dans schema.prisma), recalculé ici côté serveur — jamais
+// une saisie libre qui pourrait diverger du calcul. Plusieurs produits par
+// livraison (toute une commande, pas un seul article) sont donc supportés.
+export async function createDelivery(input: {
+  saleId?: string | null;
+  customerId: string;
+  assignedToId: string;
+  destination: string;
+  items: DeliveryCartItem[];
+  pricePerBottle: number;
+  notes?: string | null;
+}) {
   const check = await requireCompanyUser();
   if ("error" in check) return { error: check.error };
   const { user, companyId } = check;
   if (!(await canManageDeliveries(user)))
     return { error: "Permission manquante : enregistrer une livraison." };
 
-  const saleId = String(formData.get("saleId") || "") || null;
-  const customerId = String(formData.get("customerId") || "") || null;
-  const productId = String(formData.get("productId") || "") || null;
-  const assignedToId = String(formData.get("assignedToId") || "") || null;
-  const destination = String(formData.get("destination") || "").trim();
-  const quantity = Number(formData.get("quantity") || 0);
-  const pricePerBottle = Number(formData.get("pricePerBottle") || 0);
-  const notes = String(formData.get("notes") || "").trim() || null;
+  const { saleId, customerId, assignedToId, items, pricePerBottle } = input;
+  const destination = input.destination.trim();
+  const notes = input.notes?.trim() || null;
 
   if (!destination) return { error: "Destination requise." };
-  if (!productId) return { error: "Produit requis pour calculer le montant de la livraison." };
-  if (quantity <= 0) return { error: "La quantité (en casiers) doit être supérieure à 0." };
+  if (!items || items.length === 0) return { error: "Ajoutez au moins un produit." };
+  if (items.some((i) => i.quantity <= 0)) return { error: "Quantité invalide pour un produit." };
   if (pricePerBottle <= 0) return { error: "Le prix par bouteille doit être supérieur à 0." };
   if (!customerId) return { error: "Client requis." };
   if (!assignedToId) return { error: "Agent assigné requis." };
 
-  const product = await prisma.product.findFirst({ where: { id: productId, companyId } });
-  if (!product) return { error: "Produit introuvable." };
+  const productIds = [...new Set(items.map((i) => i.productId))];
+  const products = await prisma.product.findMany({ where: { id: { in: productIds }, companyId } });
+  if (products.length !== productIds.length) return { error: "Un produit est introuvable." };
 
   if (saleId) {
     const sale = await prisma.sale.findFirst({ where: { id: saleId, companyId } });
@@ -53,7 +61,7 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
   const assignee = await prisma.user.findFirst({ where: { id: assignedToId, companyId, active: true } });
   if (!assignee) return { error: "Employé introuvable." };
 
-  const totalBottles = quantity * product.piecesPerPack;
+  const totalBottles = items.reduce((s, i) => s + i.quantity, 0);
   const fee = pricePerBottle * totalBottles;
 
   const number = generateNumber("LIV");
@@ -61,32 +69,29 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
     await tx.delivery.create({
       data: {
         number,
-        saleId,
+        saleId: saleId || null,
         customerId,
-        productId,
         assignedToId,
         destination,
-        quantity,
         pricePerBottle,
         fee,
         notes,
         userId: user.id,
         companyId,
+        items: { create: items.map((i) => ({ productId: i.productId, quantity: i.quantity, companyId })) },
       },
     });
     // Assigner une livraison à quelqu'un le prévient aussitôt (cloche de
     // notification) — il n'a pas à consulter le module Livraison client de
     // lui-même pour découvrir qu'on lui a confié une course.
-    if (assignedToId) {
-      await tx.notification.create({
-        data: {
-          userId: assignedToId,
-          message: `Nouvelle livraison à effectuer : ${destination} (${number})`,
-          link: "/livraison-clients",
-          companyId,
-        },
-      });
-    }
+    await tx.notification.create({
+      data: {
+        userId: assignedToId,
+        message: `Nouvelle livraison à effectuer : ${destination} (${number})`,
+        link: "/livraison-clients",
+        companyId,
+      },
+    });
   });
 
   revalidatePath("/livraison-clients");

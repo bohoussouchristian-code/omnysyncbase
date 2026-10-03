@@ -20,20 +20,17 @@ export default async function LivraisonClientsPage({
   const { saleId, customerId } = await searchParams;
 
   // La livraison organisée depuis un reçu de caisse reprend automatiquement
-  // le produit et la quantité (en casiers) de cette vente — l'agent ne fait
-  // que fixer la destination, le prix au kilomètre/zone et qui livre.
-  const saleItem = saleId
-    ? await prisma.saleItem.findFirst({
+  // TOUS les produits de cette vente (pas seulement le premier) — l'agent ne
+  // fait que fixer la destination, le prix au kilomètre/zone et qui livre.
+  const saleItems = saleId
+    ? await prisma.saleItem.findMany({
         where: { saleId, companyId, productId: { not: null } },
         orderBy: { id: "asc" },
-        include: { product: { select: { piecesPerPack: true } } },
       })
-    : null;
-  const initialProductId = saleItem?.productId ?? null;
-  const initialQuantityPacks =
-    saleItem && saleItem.product && saleItem.product.piecesPerPack > 0
-      ? Math.round((saleItem.quantity / saleItem.product.piecesPerPack) * 100) / 100
-      : null;
+    : [];
+  const initialItems = saleItems
+    .filter((it) => it.productId)
+    .map((it) => ({ productId: it.productId!, quantity: it.quantity }));
 
   const [deliveries, customers, products, employees] = await Promise.all([
     prisma.delivery.findMany({
@@ -44,7 +41,7 @@ export default async function LivraisonClientsPage({
         customer: { select: { name: true } },
         sale: { select: { number: true } },
         user: { select: { name: true } },
-        product: { select: { name: true } },
+        items: { include: { product: { select: { name: true, unit: { select: { symbol: true } } } } } },
         assignedTo: { select: { id: true, name: true } },
       },
     }),
@@ -75,8 +72,7 @@ export default async function LivraisonClientsPage({
       currentUserId={user.id}
       initialSaleId={saleId || null}
       initialCustomerId={customerId || null}
-      initialProductId={initialProductId}
-      initialQuantityPacks={initialQuantityPacks}
+      initialItems={initialItems}
     />
   );
 }
