@@ -13,7 +13,7 @@ import {
   PageHeader,
   Card,
 } from "@/components/ui";
-import { toCSV, formatMoney } from "@/lib/utils";
+import { toCSV, formatMoney, formatDateTime } from "@/lib/utils";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { SlidersHorizontal, Search } from "lucide-react";
 
@@ -28,13 +28,23 @@ type Product = {
   supplierPrices: { supplier: { name: string } }[];
 };
 type Warehouse = { id: string; name: string };
+type LastMovement = {
+  quantity: number;
+  number: string;
+  warehouseName: string;
+  supplierName: string;
+  date: Date;
+  by: string | null;
+};
 
 export function StockClient({
   products,
   warehouses,
+  lastMovementByProduct,
 }: {
   products: Product[];
   warehouses: Warehouse[];
+  lastMovementByProduct: Record<string, LastMovement>;
 }) {
   const [warehouseId, setWarehouseId] = useState<string>("ALL");
   const [query, setQuery] = useState("");
@@ -50,28 +60,50 @@ export function StockClient({
             ? p.stocks.reduce((s, st) => s + st.quantity, 0)
             : p.stocks.find((st) => st.warehouseId === warehouseId)?.quantity || 0;
         const suppliers = p.supplierPrices.map((sp) => sp.supplier.name).join(", ");
-        return { ...p, qty, suppliers, stockValue: qty * p.purchasePrice };
+        return { ...p, qty, suppliers, stockValue: qty * p.purchasePrice, lastMovement: lastMovementByProduct[p.id] };
       });
-  }, [products, warehouseId, query]);
+  }, [products, warehouseId, query, lastMovementByProduct]);
 
   const totalStockValue = useMemo(() => rows.reduce((s, p) => s + p.stockValue, 0), [rows]);
 
   const csv = useMemo(
     () =>
       toCSV(
-        ["Réf.", "Produit", "Unité", "Quantité", "Prix d'achat", "Valeur stock", "Fournisseur(s)", "Statut"],
-        rows.map((p) => [
-          p.reference || "",
-          p.name,
-          p.unit?.symbol || "",
-          p.qty,
-          p.purchasePrice,
-          p.stockValue,
-          p.suppliers,
-          p.reorderLevel > 0 && p.qty <= p.reorderLevel ? "Stock bas" : "OK",
-        ])
+        [
+          "Réf.",
+          "Produit",
+          "Unité",
+          "Quantité",
+          "Prix d'achat",
+          "Valeur stock",
+          "Fournisseur(s)",
+          "Statut",
+          "Qté dernière entrée",
+          "N° BL",
+          "Emplacement",
+          "Dernière entrée le",
+          "Fait par",
+        ],
+        rows.map((p) => {
+          const m = lastMovementByProduct[p.id];
+          return [
+            p.reference || "",
+            p.name,
+            p.unit?.symbol || "",
+            p.qty,
+            p.purchasePrice,
+            p.stockValue,
+            p.suppliers,
+            p.reorderLevel > 0 && p.qty <= p.reorderLevel ? "Stock bas" : "OK",
+            m?.quantity ?? "",
+            m?.number ?? "",
+            m?.warehouseName ?? "",
+            m ? formatDateTime(m.date) : "",
+            m?.by ?? "",
+          ];
+        })
       ),
-    [rows]
+    [rows, lastMovementByProduct]
   );
 
   return (
@@ -127,11 +159,17 @@ export function StockClient({
                 <th className="px-4 py-3 font-medium text-right">Valeur stock</th>
                 <th className="px-4 py-3 font-medium">Fournisseur(s)</th>
                 <th className="px-4 py-3 font-medium">Statut</th>
+                <th className="px-4 py-3 font-medium text-right">Qté dernière entrée</th>
+                <th className="px-4 py-3 font-medium">N° BL</th>
+                <th className="px-4 py-3 font-medium">Emplacement</th>
+                <th className="px-4 py-3 font-medium">Dernière entrée le</th>
+                <th className="px-4 py-3 font-medium">Fait par</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((p) => {
                 const low = p.reorderLevel > 0 && p.qty <= p.reorderLevel;
+                const m = p.lastMovement;
                 return (
                   <tr key={p.id} className="border-t border-slate-100">
                     <td className="px-4 py-3 text-slate-400 font-mono text-xs">{p.reference || "—"}</td>
@@ -148,12 +186,17 @@ export function StockClient({
                         <Badge tone="success">OK</Badge>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-right text-slate-600">{m?.quantity ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{m?.number ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{m?.warehouseName ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{m ? formatDateTime(m.date) : "—"}</td>
+                    <td className="px-4 py-3 text-slate-600">{m?.by ?? "—"}</td>
                   </tr>
                 );
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={13} className="px-4 py-8 text-center text-slate-400">
                     Aucun produit trouvé.
                   </td>
                 </tr>
