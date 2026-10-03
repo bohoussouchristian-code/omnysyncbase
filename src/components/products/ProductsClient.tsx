@@ -45,6 +45,21 @@ type Warehouse = { id: string; name: string };
 type Supplier = { id: string; name: string };
 type PackagingType = { id: string; name: string; deposit: number };
 
+// Toutes les ventes du dépôt se font en casier — le catalogue affiche donc
+// le stock en casier quand un lot est configuré (même conversion que
+// StockClient/TransfersClient), bouteille sinon.
+function formatQty(qty: number, p: { unit: { symbol: string } | null; packUnit: { symbol: string } | null; piecesPerPack: number }) {
+  if (p.packUnit && p.piecesPerPack > 1) {
+    const packs = Math.floor(qty / p.piecesPerPack);
+    const rest = qty - packs * p.piecesPerPack;
+    const restLabel = `${rest} ${p.unit?.symbol || ""}`.trim();
+    if (packs === 0) return restLabel || `0 ${p.packUnit.symbol}`;
+    const packLabel = `${packs} ${p.packUnit.symbol}`;
+    return rest > 0 ? `${packLabel} + ${restLabel}` : packLabel;
+  }
+  return `${qty} ${p.unit?.symbol || ""}`.trim();
+}
+
 export function ProductsClient({
   products,
   categories,
@@ -144,19 +159,21 @@ export function ProductsClient({
                     <td className="px-4 py-3 text-slate-600">{p.reference || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{p.category?.name || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">
-                      {p.unit?.symbol || "—"}
+                      {p.packUnit ? p.packUnit.symbol : p.unit?.symbol || "—"}
                       {p.packUnit && (
                         <div className="text-xs text-slate-400">
-                          1 {p.packUnit.symbol} = {p.piecesPerPack} {p.unit?.symbol}
+                          = {p.piecesPerPack} {p.unit?.symbol}
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{formatMoney(p.purchasePrice)}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">
+                      {formatMoney(p.packUnit ? p.packPurchasePrice ?? p.purchasePrice * p.piecesPerPack : p.purchasePrice)}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-800">
-                      {formatMoney(p.salePrice)}
+                      {formatMoney(p.packUnit ? p.packSalePrice ?? p.salePrice * p.piecesPerPack : p.salePrice)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Badge tone={low ? "danger" : "default"}>{totalStock}</Badge>
+                      <Badge tone={low ? "danger" : "default"}>{formatQty(totalStock, p)}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <Badge tone={p.active ? "success" : "default"}>
