@@ -161,10 +161,10 @@ model Company {
   cashAdvances           CashAdvance[]
   packagingTypes         PackagingType[]
   deliveries             Delivery[]
+  deliveryItems          DeliveryItem[]
   notifications          Notification[]
   auditLogs              AuditLog[]
   userPermissions        UserPermission[]
-  generalBalance         GeneralBalance?
 }
 
 model User {
@@ -221,24 +221,6 @@ model User {
   notifications         Notification[]
   auditLogs             AuditLog[]
   permissionOverrides   UserPermission[]
-  generalBalanceEdits   GeneralBalance[]
-}
-
-// Solde fictif de l'entreprise (distinct des vrais comptes bancaires de
-// Trésorerie) : une base de départ saisie une fois par un administrateur,
-// puis calculée automatiquement en cumulant depuis toujours toutes les
-// ventes encaissées (Sale.paidAmount) moins toutes les dépenses non
-// annulées — pour donner un chiffre d'affaires net global, indépendamment
-// de toute période. Une seule ligne par entreprise.
-model GeneralBalance {
-  id          String   @id @default(cuid())
-  baseAmount  Float    @default(0)
-  updatedAt   DateTime @updatedAt
-  updatedById String?
-  updatedBy   User?    @relation(fields: [updatedById], references: [id])
-
-  companyId String  @unique
-  company   Company @relation(fields: [companyId], references: [id])
 }
 
 // Dérogation individuelle à la permission par défaut du rôle : granted=true
@@ -403,7 +385,7 @@ model Product {
   purchaseItems  PurchaseItem[]
   proformaItems  ProformaItem[]
   supplierPrices ProductSupplierPrice[]
-  deliveries     Delivery[]
+  deliveryItems  DeliveryItem[]
 
   @@unique([companyId, barcode])
 }
@@ -718,12 +700,14 @@ enum DeliveryStatus {
 }
 
 // Livraison client — module à part, distinct des Bons de livraison
-// (réception fournisseur, voir /livraisons). Le prix par bouteille
-// (`pricePerBottle`) est ce qui est décidé au cas par cas (distance,
-// secteur...) par un administrateur ou un gérant ; le montant final (`fee`)
-// se déduit ensuite automatiquement en multipliant par le nombre total de
-// bouteilles (quantité de casiers × bouteilles par casier du produit —
-// voir Product.piecesPerPack), jamais ressaisi ni recalculé à la main.
+// (réception fournisseur, voir /livraisons). Peut porter plusieurs produits
+// (voir DeliveryItem, ex: toute une commande boissons avec plusieurs
+// références) — le prix par bouteille (`pricePerBottle`) est ce qui est
+// décidé au cas par cas (distance, secteur...) par un administrateur ou un
+// gérant ; le montant final (`fee`) se déduit ensuite automatiquement en
+// multipliant par le nombre total de bouteilles, toutes lignes confondues
+// (quantité de casiers × bouteilles par casier de chaque produit — voir
+// Product.piecesPerPack), jamais ressaisi ni recalculé à la main.
 model Delivery {
   id             String         @id @default(cuid())
   number         String
@@ -731,10 +715,7 @@ model Delivery {
   sale           Sale?          @relation(fields: [saleId], references: [id])
   customerId     String?
   customer       Customer?      @relation(fields: [customerId], references: [id])
-  productId      String?
-  product        Product?       @relation(fields: [productId], references: [id])
   destination    String
-  quantity       Float?
   pricePerBottle Float?
   fee            Float
   paid           Boolean        @default(false)
@@ -762,9 +743,26 @@ model Delivery {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
+  items   DeliveryItem[]
   payment Payment?
 
   @@unique([companyId, number])
+}
+
+// Une ligne de produit d'une livraison — quantité en unité de base (bouteilles,
+// comme SaleItem/PurchaseItem), convertie en casiers à l'affichage via
+// Product.piecesPerPack. Permet à une livraison de couvrir toute une commande
+// client (plusieurs produits), pas un seul à la fois.
+model DeliveryItem {
+  id         String   @id @default(cuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Float
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 }
 
 // Notification interne (cloche dans l'interface, pas un push navigateur) :

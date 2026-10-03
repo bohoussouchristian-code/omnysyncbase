@@ -39,7 +39,7 @@ export default async function TresoreriePage() {
       canManage={canManage}
       canReconcile={canReconcile}
       generalBalance={"error" in generalBalance ? null : generalBalance}
-      canEditGeneralBalance={user.role === "ADMIN"}
+      canDecaisserGeneral={user.role === "ADMIN"}
     />
   );
 }
