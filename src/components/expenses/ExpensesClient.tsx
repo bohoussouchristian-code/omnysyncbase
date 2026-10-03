@@ -12,7 +12,6 @@ import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { Modal, Input, Select, Label, SubmitButton, FormError, PageHeader, Card, Badge } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
 import { Plus, Wallet, PlusCircle, Fuel, Power } from "lucide-react";
-import Link from "next/link";
 
 type Expense = {
   id: string;
@@ -66,14 +65,6 @@ export function ExpensesClient({
         subtitle={`Total enregistré : ${formatMoney(total)}`}
         action={
           <div className="flex items-center gap-2">
-            {canManageBudgets && (
-              <Link
-                href="/annulations?tab=depenses"
-                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Annulation de dépense
-              </Link>
-            )}
             {canManageBudgets && (
               <button
                 onClick={() => setShowTopUp(true)}

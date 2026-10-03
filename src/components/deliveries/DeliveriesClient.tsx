@@ -2,7 +2,6 @@
 
 import { useActionState, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createDelivery, markDeliveryDelivered } from "@/lib/actions/deliveries";
 import { Modal, Input, Select, Label, SubmitButton, FormError, Badge, PageHeader, Card } from "@/components/ui";
 import { formatMoney, formatDateTime } from "@/lib/utils";
@@ -55,6 +54,8 @@ export function DeliveriesClient({
   currentUserId,
   initialSaleId,
   initialCustomerId,
+  initialProductId,
+  initialQuantityPacks,
 }: {
   deliveries: Delivery[];
   customers: Customer[];
@@ -64,6 +65,8 @@ export function DeliveriesClient({
   currentUserId: string;
   initialSaleId: string | null;
   initialCustomerId: string | null;
+  initialProductId: string | null;
+  initialQuantityPacks: number | null;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -107,12 +110,6 @@ export function DeliveriesClient({
         action={
           canManage ? (
             <div className="flex items-center gap-2">
-              <Link
-                href="/annulations?tab=livraisons"
-                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Annulation de livraison
-              </Link>
               <button
                 onClick={() => setShowCreate(true)}
                 className="flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700"
@@ -221,6 +218,8 @@ export function DeliveriesClient({
             employees={employees}
             initialSaleId={initialSaleId}
             initialCustomerId={initialCustomerId}
+            initialProductId={initialProductId}
+            initialQuantityPacks={initialQuantityPacks}
             onDone={() => setShowCreate(false)}
           />
         </Modal>
@@ -236,6 +235,8 @@ function DeliveryForm({
   employees,
   initialSaleId,
   initialCustomerId,
+  initialProductId,
+  initialQuantityPacks,
   onDone,
 }: {
   customers: Customer[];
@@ -243,6 +244,8 @@ function DeliveryForm({
   employees: Employee[];
   initialSaleId: string | null;
   initialCustomerId: string | null;
+  initialProductId: string | null;
+  initialQuantityPacks: number | null;
   onDone: () => void;
 }) {
   const router = useRouter();
@@ -255,8 +258,12 @@ function DeliveryForm({
     return res;
   }, undefined as { error?: string } | undefined);
 
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
-  const [quantity, setQuantity] = useState("");
+  // Livraison organisée depuis un reçu de caisse (voir CaisseValidationClient
+  // > "Organiser une livraison") : le produit et la quantité viennent de la
+  // vente elle-même et ne doivent plus pouvoir diverger — verrouillés.
+  const lockedFromSale = !!initialSaleId && !!initialProductId;
+  const [productId, setProductId] = useState(initialProductId ?? products[0]?.id ?? "");
+  const [quantity, setQuantity] = useState(initialQuantityPacks != null ? String(initialQuantityPacks) : "");
   const [pricePerBottle, setPricePerBottle] = useState("");
 
   const product = products.find((p) => p.id === productId) ?? null;
@@ -274,9 +281,9 @@ function DeliveryForm({
         calcule automatiquement (casiers × bouteilles par casier × prix).
       </div>
       <div>
-        <Label>Client (optionnel)</Label>
-        <Select name="customerId" defaultValue={initialCustomerId ?? ""}>
-          <option value="">— Client comptant —</option>
+        <Label>Client</Label>
+        <Select name="customerId" defaultValue={initialCustomerId ?? ""} required>
+          <option value="">Sélectionner un client</option>
           {customers.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -290,29 +297,56 @@ function DeliveryForm({
       </div>
       <div>
         <Label>Produit livré</Label>
-        <Select name="productId" value={productId} onChange={(e) => setProductId(e.target.value)} required>
-          {products.length === 0 && <option value="">Aucun produit configuré</option>}
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-              {p.packUnit ? ` (${p.piecesPerPack} bouteilles / ${p.packUnit.symbol})` : ""}
-            </option>
-          ))}
-        </Select>
+        {lockedFromSale ? (
+          <>
+            <input type="hidden" name="productId" value={productId} />
+            <Select disabled value={productId} className="disabled:bg-slate-100 disabled:text-slate-500">
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.packUnit ? ` (${p.piecesPerPack} bouteilles / ${p.packUnit.symbol})` : ""}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-slate-400 mt-1">Repris automatiquement du reçu de caisse — non modifiable.</p>
+          </>
+        ) : (
+          <Select name="productId" value={productId} onChange={(e) => setProductId(e.target.value)} required>
+            {products.length === 0 && <option value="">Aucun produit configuré</option>}
+            {products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.packUnit ? ` (${p.piecesPerPack} bouteilles / ${p.packUnit.symbol})` : ""}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>Quantité (casiers)</Label>
-          <Input
-            type="number"
-            name="quantity"
-            min={1}
-            step="1"
-            placeholder="Ex : 300"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            required
-          />
+          {lockedFromSale ? (
+            <>
+              <input type="hidden" name="quantity" value={quantity} />
+              <Input
+                type="number"
+                disabled
+                value={quantity}
+                className="disabled:bg-slate-100 disabled:text-slate-500"
+              />
+            </>
+          ) : (
+            <Input
+              type="number"
+              name="quantity"
+              min={1}
+              step="1"
+              placeholder="Ex : 300"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              required
+            />
+          )}
         </div>
         <div>
           <Label>Prix par bouteille (FCFA)</Label>
@@ -337,9 +371,9 @@ function DeliveryForm({
         </div>
       )}
       <div>
-        <Label>Assigné à (optionnel)</Label>
-        <Select name="assignedToId" defaultValue="">
-          <option value="">— Personne pour l&apos;instant —</option>
+        <Label>Assigné à</Label>
+        <Select name="assignedToId" defaultValue="" required>
+          <option value="">Sélectionner un agent</option>
           {employees.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}

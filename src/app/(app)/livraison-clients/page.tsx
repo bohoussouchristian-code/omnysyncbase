@@ -19,9 +19,25 @@ export default async function LivraisonClientsPage({
 
   const { saleId, customerId } = await searchParams;
 
+  // La livraison organisée depuis un reçu de caisse reprend automatiquement
+  // le produit et la quantité (en casiers) de cette vente — l'agent ne fait
+  // que fixer la destination, le prix au kilomètre/zone et qui livre.
+  const saleItem = saleId
+    ? await prisma.saleItem.findFirst({
+        where: { saleId, companyId, productId: { not: null } },
+        orderBy: { id: "asc" },
+        include: { product: { select: { piecesPerPack: true } } },
+      })
+    : null;
+  const initialProductId = saleItem?.productId ?? null;
+  const initialQuantityPacks =
+    saleItem && saleItem.product && saleItem.product.piecesPerPack > 0
+      ? Math.round((saleItem.quantity / saleItem.product.piecesPerPack) * 100) / 100
+      : null;
+
   const [deliveries, customers, products, employees] = await Promise.all([
     prisma.delivery.findMany({
-      where: { companyId },
+      where: { companyId, status: { not: "ANNULEE" } },
       orderBy: { createdAt: "desc" },
       take: 200,
       include: {
@@ -59,6 +75,8 @@ export default async function LivraisonClientsPage({
       currentUserId={user.id}
       initialSaleId={saleId || null}
       initialCustomerId={customerId || null}
+      initialProductId={initialProductId}
+      initialQuantityPacks={initialQuantityPacks}
     />
   );
 }

@@ -10,7 +10,7 @@ export default async function DepensesPage() {
 
   const [expenses, warehouses, envelopes] = await Promise.all([
     prisma.expense.findMany({
-      where: { companyId },
+      where: { companyId, cancelled: false },
       orderBy: { date: "desc" },
       take: 150,
       include: { warehouse: true, user: true },

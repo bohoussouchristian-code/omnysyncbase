@@ -38,6 +38,8 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
   if (!productId) return { error: "Produit requis pour calculer le montant de la livraison." };
   if (quantity <= 0) return { error: "La quantité (en casiers) doit être supérieure à 0." };
   if (pricePerBottle <= 0) return { error: "Le prix par bouteille doit être supérieur à 0." };
+  if (!customerId) return { error: "Client requis." };
+  if (!assignedToId) return { error: "Agent assigné requis." };
 
   const product = await prisma.product.findFirst({ where: { id: productId, companyId } });
   if (!product) return { error: "Produit introuvable." };
@@ -46,14 +48,10 @@ export async function createDelivery(_prev: unknown, formData: FormData) {
     const sale = await prisma.sale.findFirst({ where: { id: saleId, companyId } });
     if (!sale) return { error: "Vente introuvable." };
   }
-  if (customerId) {
-    const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
-    if (!customer) return { error: "Client introuvable." };
-  }
-  if (assignedToId) {
-    const assignee = await prisma.user.findFirst({ where: { id: assignedToId, companyId, active: true } });
-    if (!assignee) return { error: "Employé introuvable." };
-  }
+  const customer = await prisma.customer.findFirst({ where: { id: customerId, companyId } });
+  if (!customer) return { error: "Client introuvable." };
+  const assignee = await prisma.user.findFirst({ where: { id: assignedToId, companyId, active: true } });
+  if (!assignee) return { error: "Employé introuvable." };
 
   const totalBottles = quantity * product.piecesPerPack;
   const fee = pricePerBottle * totalBottles;
