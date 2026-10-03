@@ -12,7 +12,7 @@ export default async function ProformasPage() {
     prisma.product.findMany({
       where: { active: true, companyId },
       orderBy: { createdAt: "desc" },
-      include: { unit: true },
+      include: { unit: true, packUnit: true },
     }),
     prisma.service.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
     prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
@@ -23,7 +23,7 @@ export default async function ProformasPage() {
       include: {
         customer: true,
         user: true,
-        items: { include: { product: { include: { unit: true } }, service: true } },
+        items: { include: { product: { include: { unit: true, packUnit: true } }, service: true } },
       },
     }),
     prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),

@@ -16,6 +16,9 @@ type Product = {
   proPrice: number | null;
   wholesalePrice: number | null;
   unit: { symbol: string } | null;
+  packUnit: { symbol: string } | null;
+  piecesPerPack: number;
+  packSalePrice: number | null;
 };
 type Service = { id: string; name: string; price: number; proPrice: number | null };
 type Customer = { id: string; name: string; phone: string | null; type: CustomerType };
@@ -24,7 +27,7 @@ type ProformaItem = {
   quantity: number;
   unitPrice: number;
   subtotal: number;
-  product: { name: string; unit: { symbol: string } | null } | null;
+  product: { name: string; unit: { symbol: string } | null; packUnit: { symbol: string } | null } | null;
   service: { name: string } | null;
 };
 type ProformaRow = {
@@ -54,6 +57,15 @@ function priceForCustomer(p: Product, customerType: CustomerType | null) {
   if (customerType === "REVENDEUR" && p.wholesalePrice) return p.wholesalePrice;
   if (customerType === "PROFESSIONNEL" && p.proPrice) return p.proPrice;
   return p.salePrice;
+}
+// Un produit avec un lot configuré se cote toujours au casier, jamais à la
+// bouteille — même règle qu'à la vente (voir PosClient.tsx), sans variante
+// pro/revendeur pour ce tarif (comme ailleurs dans l'app).
+function priceAndUnit(p: Product, customerType: CustomerType | null) {
+  if (p.packUnit) {
+    return { unitPrice: p.packSalePrice ?? p.salePrice * p.piecesPerPack, unitLabel: p.packUnit.symbol };
+  }
+  return { unitPrice: priceForCustomer(p, customerType), unitLabel: p.unit?.symbol || "" };
 }
 function priceForCustomerService(s: Service, customerType: CustomerType | null) {
   if (customerType === "PROFESSIONNEL" && s.proPrice) return s.proPrice;
@@ -288,12 +300,12 @@ function ProformaForm({
   }, [services, query]);
 
   function addProduct(p: Product) {
-    const unitPrice = priceForCustomer(p, selectedCustomer?.type ?? null);
+    const { unitPrice, unitLabel } = priceAndUnit(p, selectedCustomer?.type ?? null);
     const key = `p:${p.id}`;
     setCart((prev) => {
       const existing = prev.find((l) => l.key === key);
       if (existing) return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
-      return [...prev, { key, kind: "product", productId: p.id, name: p.name, unitLabel: p.unit?.symbol || "", qty: 1, unitPrice }];
+      return [...prev, { key, kind: "product", productId: p.id, name: p.name, unitLabel, qty: 1, unitPrice }];
     });
   }
 
@@ -327,7 +339,10 @@ function ProformaForm({
           return service ? { ...l, unitPrice: priceForCustomerService(service, type) } : l;
         }
         const product = products.find((p) => p.id === l.productId);
-        return product ? { ...l, unitPrice: priceForCustomer(product, type) } : l;
+        // Le tarif casier ne varie jamais selon le type de client (voir
+        // priceAndUnit) — rien à recalculer pour une ligne en lot.
+        if (!product || product.packUnit) return l;
+        return { ...l, unitPrice: priceForCustomer(product, type) };
       })
     );
   }
@@ -364,7 +379,7 @@ function ProformaForm({
           quantity: l.qty,
           unitPrice: l.unitPrice,
           subtotal: l.qty * l.unitPrice,
-          product: l.kind === "product" ? { name: l.name, unit: { symbol: l.unitLabel } } : null,
+          product: l.kind === "product" ? { name: l.name, unit: { symbol: l.unitLabel }, packUnit: null } : null,
           service: l.kind === "service" ? { name: l.name } : null,
         })),
       });
@@ -387,7 +402,7 @@ function ProformaForm({
         </div>
         <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
           {filteredProducts.map((p) => {
-            const price = priceForCustomer(p, selectedCustomer?.type ?? null);
+            const { unitPrice, unitLabel } = priceAndUnit(p, selectedCustomer?.type ?? null);
             return (
               <button
                 key={p.id}
@@ -395,7 +410,10 @@ function ProformaForm({
                 className="bg-white border border-slate-200 rounded-lg p-2.5 text-left hover:border-blue-400 hover:shadow-sm transition-all"
               >
                 <p className="font-medium text-slate-800 text-sm leading-tight">{p.name}</p>
-                <p className="text-blue-600 font-semibold text-xs">{formatMoney(price)}</p>
+                <p className="text-blue-600 font-semibold text-xs">
+                  {formatMoney(unitPrice)}
+                  {unitLabel && <span className="text-slate-400 font-normal"> /{unitLabel}</span>}
+                </p>
               </button>
             );
           })}
@@ -428,7 +446,10 @@ function ProformaForm({
               <div key={l.key} className="flex items-center gap-2 text-sm border-b border-slate-50 pb-2">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-slate-800 truncate">{l.name}</p>
-                  <p className="text-xs text-slate-400">{formatMoney(l.unitPrice)}</p>
+                  <p className="text-xs text-slate-400">
+                    {formatMoney(l.unitPrice)}
+                    {l.unitLabel ? ` / ${l.unitLabel}` : ""}
+                  </p>
                 </div>
                 <button onClick={() => changeQty(l.key, -1)} className="text-slate-400 hover:text-slate-700">
                   <Minus size={14} />

@@ -6,7 +6,7 @@ type ProformaItemData = {
   quantity: number;
   unitPrice: number;
   subtotal: number;
-  product: { name: string; unit: { symbol: string } | null } | null;
+  product: { name: string; unit: { symbol: string } | null; packUnit: { symbol: string } | null } | null;
   service: { name: string } | null;
 };
 
@@ -71,7 +71,7 @@ export function ProformaDocument({ data }: { data: ProformaDocumentData }) {
             <tr key={it.id} className="border-t border-slate-100">
               <td className="py-2">{it.product?.name ?? it.service?.name ?? "—"}</td>
               <td className="py-2 text-right">
-                {it.quantity} {it.product?.unit?.symbol || ""}
+                {it.quantity} {it.product?.packUnit?.symbol || it.product?.unit?.symbol || ""}
               </td>
               <td className="py-2 text-right">{formatMoney(it.unitPrice)}</td>
               <td className="py-2 text-right font-medium">{formatMoney(it.subtotal)}</td>

@@ -57,7 +57,11 @@ export async function createProforma(input: {
     if (item.productId) {
       const product = productMap.get(item.productId);
       if (!product) throw new Error("Produit introuvable.");
-      const unitPrice = priceForCustomer(product, customer?.type ?? null);
+      // Un produit avec un lot configuré se cote toujours au casier, jamais
+      // à la bouteille — même règle qu'à la vente (voir PosClient.tsx).
+      const unitPrice = product.packUnitId
+        ? product.packSalePrice ?? product.salePrice * product.piecesPerPack
+        : priceForCustomer(product, customer?.type ?? null);
       return { productId: product.id, quantity: item.quantity, unitPrice, subtotal: unitPrice * item.quantity };
     }
     const service = serviceMap.get(item.serviceId!);
