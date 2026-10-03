@@ -43,7 +43,7 @@ export default async function CaisseVentesPage({
       },
     }),
     prisma.sale.findMany({
-      where: { companyId, validatedAt: { gte: from, lte: to } },
+      where: { companyId, validatedAt: { gte: from, lte: to }, status: { not: "ANNULEE" } },
       orderBy: { validatedAt: "desc" },
       take: 500,
       include: {

@@ -40,13 +40,13 @@ export default async function VentesPage({
       prisma.warehouse.findMany({ where: { active: true, companyId }, orderBy: { id: "desc" } }),
       prisma.customer.findMany({ where: { active: true, companyId }, orderBy: { createdAt: "desc" } }),
       prisma.sale.findMany({
-        where: { companyId, date: { gte: twoDaysAgo } },
+        where: { companyId, date: { gte: twoDaysAgo }, status: { not: "ANNULEE" } },
         orderBy: { date: "desc" },
         take: 15,
         include: { customer: true, warehouse: true },
       }),
       prisma.sale.findMany({
-        where: { companyId, customerId: { not: null } },
+        where: { companyId, customerId: { not: null }, status: { not: "ANNULEE" } },
         orderBy: { date: "desc" },
         take: 500,
         include: {
@@ -66,7 +66,7 @@ export default async function VentesPage({
       // seulement quand l'onglet Historique est effectivement demandé.
       initialTab === "historique"
         ? prisma.sale.findMany({
-            where: { companyId, date: { gte: from, lte: to } },
+            where: { companyId, date: { gte: from, lte: to }, status: { not: "ANNULEE" } },
             orderBy: { date: "desc" },
             take: 500,
             include: {
