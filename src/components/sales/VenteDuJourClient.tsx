@@ -92,7 +92,7 @@ export function VenteDuJourClient({
         </div>
       </div>
 
-      <div className="flex gap-1 mb-5 border-b border-slate-200">
+      <div className="flex flex-wrap gap-2 mb-5">
         <TabButton active={tab === "jour"} onClick={() => selectTab("jour")}>
           Vente du jour
         </TabButton>
@@ -154,10 +154,10 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
         active
-          ? "border-blue-600 text-blue-600"
-          : "border-transparent text-slate-500 hover:text-slate-800"
+          ? "border-blue-200 bg-blue-50 text-blue-700"
+          : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
       }`}
     >
       {children}
