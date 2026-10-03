@@ -66,15 +66,21 @@ function itemVisible(item: NavItem, userRole: Role, permissions: ReadonlySet<Per
   return !item.roles || item.roles.includes(userRole);
 }
 
-// Structure reprise du prompt de restructuration : Tiers, Catalogue &
-// référentiel, Ventes & facturation, Achats & approvisionnement, Stock &
-// logistique, Livraisons, Finances, Rapports & analytics, RH, Annulations &
-// contrôle — chaque domaine métier a son propre groupe, au lieu d'être
-// mélangé dans "Gestion des ventes"/"Gestion financière" comme avant. FNE &
-// fiscalité vit dans Paramètres (/administration, réservé Admin), pas ici.
-// Prestations (module services, hors-stock) n'est pas dans ce menu — pas
-// utilisé par ce dépôt de boissons ; la page /prestations reste en code,
-// simplement plus liée nulle part.
+// Réorganisé pour suivre le flux naturel de l'activité (plutôt que l'ordre
+// de construction des fonctionnalités) : Tiers → Catalogue → Achats (on
+// approvisionne) → Stock (on détient) → Ventes (on vend) → Livraisons
+// clients → Finances → RH → Rapports → Contrôle. Deux ajustements pour
+// éviter toute confusion :
+// - "Livraisons" (clients, /livraison-clients) est renommé "Livraisons
+//   clients" pour ne plus se confondre avec "Bons de livraison" (réception
+//   fournisseur, dans Achats) — même mot, deux objets différents.
+// - Dépenses rejoint Finances (où elle a toujours conceptuellement sa place)
+//   au lieu de flotter seule au niveau racine ; Annulations et Sécurité &
+//   audit, deux fonctions de contrôle, sont réunies sous un même groupe.
+// FNE & fiscalité vit dans Paramètres (/administration, réservé Admin), pas
+// ici. Prestations (module services, hors-stock) n'est pas dans ce menu —
+// pas utilisé par ce dépôt de boissons ; la page /prestations reste en
+// code, simplement plus liée nulle part.
 const NAV: readonly NavEntry[] = [
   { kind: "link", href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard, roles: null },
   {
@@ -88,7 +94,7 @@ const NAV: readonly NavEntry[] = [
   },
   {
     kind: "group",
-    label: "Catalogue & référentiel",
+    label: "Catalogue",
     icon: Package,
     items: [
       { href: "/produits", label: "Configuration des produits", icon: Package, roles: null },
@@ -103,17 +109,7 @@ const NAV: readonly NavEntry[] = [
   },
   {
     kind: "group",
-    label: "Ventes & facturation",
-    icon: ShoppingCart,
-    items: [
-      { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
-      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
-      { href: "/proformas", label: "Proformas", icon: FileText, roles: null },
-    ],
-  },
-  {
-    kind: "group",
-    label: "Achats & approvisionnement",
+    label: "Achats",
     icon: ClipboardList,
     items: [
       { href: "/achats", label: "Bons de commande", icon: ClipboardList, roles: null },
@@ -123,7 +119,7 @@ const NAV: readonly NavEntry[] = [
   },
   {
     kind: "group",
-    label: "Stock & logistique",
+    label: "Stock",
     icon: Boxes,
     items: [
       { href: "/stock", label: "Stock Général", icon: Boxes, roles: null },
@@ -132,19 +128,29 @@ const NAV: readonly NavEntry[] = [
     ],
   },
   {
+    kind: "group",
+    label: "Ventes",
+    icon: ShoppingCart,
+    items: [
+      { href: "/ventes", label: "Vente du jour", icon: ShoppingCart, roles: null },
+      { href: "/caisse-ventes", label: "Caisse", icon: Banknote, roles: null },
+      { href: "/proformas", label: "Proformas", icon: FileText, roles: null },
+    ],
+  },
+  {
     kind: "link",
     href: "/livraison-clients",
-    label: "Livraisons",
+    label: "Livraisons clients",
     icon: Send,
     roles: null,
   },
-  { kind: "link", href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
   {
     kind: "group",
     label: "Finances",
     icon: Landmark,
     items: [
       { href: "/caisse", label: "État de ma caisse", icon: Landmark, roles: null },
+      { href: "/depenses", label: "Dépenses", icon: Wallet, roles: null },
       {
         href: "/gestion-caisses-depots",
         label: "Gestion des caisses et dépôts",
@@ -163,16 +169,6 @@ const NAV: readonly NavEntry[] = [
   },
   {
     kind: "group",
-    label: "Rapports & analytics",
-    icon: Scale,
-    items: [
-      { href: "/statistiques", label: "Statistiques", icon: LineChart, roles: null },
-      { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
-      { href: "/rapports", label: "Rapports", icon: BarChart3, roles: null, permission: "rapports.voir" },
-    ],
-  },
-  {
-    kind: "group",
     label: "Ressources humaines",
     icon: UserCog,
     items: [
@@ -181,20 +177,29 @@ const NAV: readonly NavEntry[] = [
     ],
   },
   {
-    kind: "link",
-    href: "/annulations",
-    label: "Annulations & contrôle",
-    icon: Ban,
-    roles: null,
-    permission: ["ventes.annuler", "depenses.annuler", "livraisons.annuler"],
+    kind: "group",
+    label: "Rapports",
+    icon: Scale,
+    items: [
+      { href: "/statistiques", label: "Statistiques", icon: LineChart, roles: null },
+      { href: "/bilan", label: "Voir le bilan complet", icon: Scale, roles: null },
+      { href: "/rapports", label: "Rapports détaillés", icon: BarChart3, roles: null, permission: "rapports.voir" },
+    ],
   },
   {
-    kind: "link",
-    href: "/audit",
-    label: "Sécurité & audit",
+    kind: "group",
+    label: "Contrôle",
     icon: Lock,
-    roles: null,
-    permission: "audit.voir",
+    items: [
+      {
+        href: "/annulations",
+        label: "Annulations",
+        icon: Ban,
+        roles: null,
+        permission: ["ventes.annuler", "depenses.annuler", "livraisons.annuler"],
+      },
+      { href: "/audit", label: "Sécurité & audit", icon: Lock, roles: null, permission: "audit.voir" },
+    ],
   },
 ] as const;
 

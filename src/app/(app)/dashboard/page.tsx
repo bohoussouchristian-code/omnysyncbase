@@ -6,15 +6,16 @@ import { getEffectivePermissions } from "@/lib/actions/permissions";
 import Link from "next/link";
 import {
   ShoppingCart,
-  Wallet,
   ClipboardList,
   Boxes,
   Scale,
   UserCog,
   AlertTriangle,
   Send,
-  Ban,
+  Lock,
   Landmark,
+  Package,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ export default async function DashboardPage() {
   const canSeeHR = permissions.has("employes.gerer") || permissions.has("paie.gerer");
   const canSeeCancellations =
     permissions.has("ventes.annuler") || permissions.has("depenses.annuler") || permissions.has("livraisons.annuler");
+  const canSeeAudit = permissions.has("audit.voir");
 
   const [warehousesCount, products, pendingDeliveries, unreimbursedAdvances] = await Promise.all([
     prisma.warehouse.count({ where: { active: true, companyId } }),
@@ -49,27 +51,51 @@ export default async function DashboardPage() {
     return p.reorderLevel > 0 && qty <= p.reorderLevel;
   }).length;
 
+  // Même ordre et même regroupement que le menu latéral (Sidebar.tsx) : le
+  // flux naturel de l'activité (Tiers → Catalogue → Achats → Stock → Ventes
+  // → Livraisons clients → Finances → RH → Rapports → Contrôle), pour que
+  // les deux points d'entrée restent cohérents l'un avec l'autre.
   const modules: Module[] = [
     {
       title: "Tiers",
       acronym: "TRS",
-      icon: UserCog,
+      icon: Users,
       links: [
         { href: "/clients", label: "Clients" },
         { href: "/fournisseurs", label: "Fournisseurs" },
       ],
     },
     {
-      title: "Catalogue & référentiel",
+      title: "Catalogue",
       acronym: "CAT",
-      icon: Boxes,
+      icon: Package,
       links: [
         { href: "/produits", label: "Configuration des produits" },
         ...(permissions.has("produits.gerer") ? [{ href: "/categories", label: "Catégories & unités" }] : []),
       ],
     },
     {
-      title: "Ventes & facturation",
+      title: "Achats",
+      acronym: "ACH",
+      icon: ClipboardList,
+      links: [
+        { href: "/achats", label: "Bons de commande" },
+        { href: "/livraisons", label: "Bons de livraison" },
+        { href: "/approvisionnement", label: "Approvisionnement" },
+      ],
+    },
+    {
+      title: "Stock",
+      acronym: "STK",
+      icon: Boxes,
+      links: [
+        { href: "/stock", label: "Stock Général" },
+        { href: "/depots-annexes", label: "Dépôts annexes" },
+        { href: "/transferts", label: "Transferts de stock" },
+      ],
+    },
+    {
+      title: "Ventes",
       acronym: "VTE",
       icon: ShoppingCart,
       links: [
@@ -80,36 +106,10 @@ export default async function DashboardPage() {
       ],
     },
     {
-      title: "Achats & approvisionnement",
-      acronym: "ACH",
-      icon: ClipboardList,
-      links: [
-        { href: "/achats", label: "Bons de commande" },
-        { href: "/livraisons", label: "Bons de livraison" },
-        { href: "/approvisionnement", label: "Approvisionnement" },
-      ],
-    },
-    {
-      title: "Stock & logistique",
-      acronym: "STK",
-      icon: Boxes,
-      links: [
-        { href: "/stock", label: "Stock Général" },
-        { href: "/depots-annexes", label: "Dépôts annexes" },
-        { href: "/transferts", label: "Transferts de stock" },
-      ],
-    },
-    {
-      title: "Livraisons",
+      title: "Livraisons clients",
       acronym: "LIV",
       icon: Send,
       links: [{ href: "/livraison-clients", label: "Livraison client" }],
-    },
-    {
-      title: "Dépenses",
-      acronym: "DEP",
-      icon: Wallet,
-      links: [{ href: "/depenses", label: "Dépenses" }],
     },
     {
       title: "Finances",
@@ -117,6 +117,7 @@ export default async function DashboardPage() {
       icon: Landmark,
       links: [
         { href: "/caisse", label: "État de ma caisse" },
+        { href: "/depenses", label: "Dépenses" },
         ...(canManageCashPoints ? [{ href: "/gestion-caisses-depots", label: "Gestion des caisses et dépôts" }] : []),
         ...(canSeeReports ? [{ href: "/tresorerie", label: "Comptes bancaires & solde général" }] : []),
       ],
@@ -135,22 +136,25 @@ export default async function DashboardPage() {
         ]
       : []),
     {
-      title: "Rapports & analytics",
+      title: "Rapports",
       acronym: "RAP",
       icon: Scale,
       links: [
         { href: "/statistiques", label: "Statistiques" },
         { href: "/bilan", label: "Voir le bilan complet" },
-        ...(canSeeReports ? [{ href: "/rapports", label: "Rapports" }] : []),
+        ...(canSeeReports ? [{ href: "/rapports", label: "Rapports détaillés" }] : []),
       ],
     },
-    ...(canSeeCancellations
+    ...(canSeeCancellations || canSeeAudit
       ? [
           {
-            title: "Annulations & contrôle",
-            acronym: "ANN",
-            icon: Ban,
-            links: [{ href: "/annulations", label: "Annulations" }],
+            title: "Contrôle",
+            acronym: "CTL",
+            icon: Lock,
+            links: [
+              ...(canSeeCancellations ? [{ href: "/annulations", label: "Annulations" }] : []),
+              ...(canSeeAudit ? [{ href: "/audit", label: "Sécurité & audit" }] : []),
+            ],
           },
         ]
       : []),
