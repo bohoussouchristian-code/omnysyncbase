@@ -58,12 +58,26 @@ type Line = {
   unitLabel: string;
   piecesPerPack: number;
   maxQty: number;
+  // Pas d'incrément de la ligne dans le panier : 1 à la bouteille/prestation,
+  // un demi-casier à la fois en vente par lot (très fréquent au dépôt).
+  step: number;
   // Consigne emballage : sélectionnée par défaut dès qu'elle existe pour ce
   // produit, mais jamais obligatoire — le client peut la retirer s'il
   // rapporte ses emballages vides.
   depositPerUnit: number;
   depositIncluded: boolean;
 };
+
+// Quantité disponible exprimée en casiers, arrondie au demi-casier inférieur
+// (jamais plus que le stock réel) — la vente par demi-casier étant courante.
+function packQty(baseQty: number, piecesPerPack: number) {
+  if (piecesPerPack <= 0) return 0;
+  return Math.floor((baseQty / piecesPerPack) * 2) / 2;
+}
+
+function fmtQty(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
 
 function priceForCustomer(p: Product, customerType: CustomerType | null) {
   if (customerType === "REVENDEUR" && p.wholesalePrice) return p.wholesalePrice;
@@ -143,10 +157,11 @@ export function PosClient({
     return services.filter((s) => !q || s.name.toLowerCase().includes(q));
   }, [services, query]);
 
-  function addToCart(p: Product, mode: "piece" | "pack") {
+  function addToCart(p: Product, mode: "piece" | "pack", addQty: number = 1) {
     const baseQty = availableBase.get(p.id) || 0;
     const piecesPerPack = mode === "pack" ? p.piecesPerPack : 1;
-    const maxQty = mode === "pack" ? Math.floor(baseQty / p.piecesPerPack) : baseQty;
+    const step = mode === "pack" ? 0.5 : 1;
+    const maxQty = mode === "pack" ? packQty(baseQty, p.piecesPerPack) : baseQty;
     if (maxQty <= 0) return;
     const unitPrice =
       mode === "pack" ? p.packSalePrice ?? p.salePrice * p.piecesPerPack : priceForCustomer(p, selectedCustomer?.type ?? null);
@@ -160,7 +175,8 @@ export function PosClient({
       const existing = prev.find((l) => l.key === key);
       if (existing) {
         if (existing.qty >= maxQty) return prev;
-        return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
+        const qty = Math.round(Math.min(maxQty, existing.qty + addQty) * 100) / 100;
+        return prev.map((l) => (l.key === key ? { ...l, qty } : l));
       }
       return [
         ...prev,
@@ -170,11 +186,12 @@ export function PosClient({
           productId: p.id,
           name: p.name,
           mode,
-          qty: 1,
+          qty: Math.min(addQty, maxQty),
           unitPrice,
           unitLabel,
           piecesPerPack,
           maxQty,
+          step,
           depositPerUnit,
           depositIncluded: depositPerUnit > 0,
         },
@@ -209,6 +226,7 @@ export function PosClient({
           unitLabel: "u",
           piecesPerPack: 1,
           maxQty: SERVICE_MAX_QTY,
+          step: 1,
           depositPerUnit: 0,
           depositIncluded: false,
         },
@@ -238,7 +256,11 @@ export function PosClient({
   function changeQty(key: string, delta: number) {
     setCart((prev) =>
       prev
-        .map((l) => (l.key === key ? { ...l, qty: Math.max(0, Math.min(l.maxQty, l.qty + delta)) } : l))
+        .map((l) =>
+          l.key === key
+            ? { ...l, qty: Math.round(Math.max(0, Math.min(l.maxQty, l.qty + delta)) * 100) / 100 }
+            : l
+        )
         .filter((l) => l.qty > 0)
     );
   }
@@ -369,7 +391,7 @@ export function PosClient({
               const baseQty = availableBase.get(p.id) || 0;
               const hasPack = !!p.packUnit;
               const mode: "piece" | "pack" = hasPack ? "pack" : "piece";
-              const displayQty = hasPack ? Math.floor(baseQty / p.piecesPerPack) : baseQty;
+              const displayQty = hasPack ? packQty(baseQty, p.piecesPerPack) : baseQty;
               const unitLabel = hasPack ? p.packUnit!.symbol : p.unit?.symbol || "";
               const price = hasPack
                 ? p.packSalePrice ?? p.salePrice * p.piecesPerPack
@@ -380,7 +402,7 @@ export function PosClient({
               return (
                 <div key={p.id} className="group flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors">
                   <button
-                    onClick={() => addToCart(p, mode)}
+                    onClick={() => addToCart(p, mode, 1)}
                     disabled={disabled}
                     className="flex flex-1 min-w-0 items-center gap-3 text-left disabled:opacity-40 disabled:cursor-not-allowed"
                   >
@@ -395,7 +417,7 @@ export function PosClient({
                         }`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${lowStock ? "bg-amber-500" : "bg-emerald-500"}`} />
-                        {displayQty} {unitLabel} en stock
+                        {fmtQty(displayQty)} {unitLabel} en stock
                       </span>
                     </div>
                     <p className="text-blue-700 font-bold text-[15px] text-right shrink-0 whitespace-nowrap">
@@ -403,9 +425,19 @@ export function PosClient({
                       <span className="text-slate-400 font-normal text-xs"> /{unitLabel}</span>
                     </p>
                   </button>
+                  {hasPack && (
+                    <button
+                      onClick={() => addToCart(p, mode, 0.5)}
+                      disabled={displayQty < 0.5}
+                      title={`Ajouter un demi-${p.packUnit?.symbol || "casier"}`}
+                      className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-1.5 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ½
+                    </button>
+                  )}
                   {inCartQty > 0 && (
                     <span className="shrink-0 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold px-1.5">
-                      {inCartQty}
+                      {fmtQty(inCartQty)}
                     </span>
                   )}
                 </div>
@@ -480,11 +512,11 @@ export function PosClient({
                         {formatMoney(l.unitPrice)} {l.kind === "product" ? `/ ${l.unitLabel}` : ""}
                       </p>
                     </div>
-                    <button onClick={() => changeQty(l.key, -1)} className="text-slate-400 hover:text-slate-700">
+                    <button onClick={() => changeQty(l.key, -l.step)} className="text-slate-400 hover:text-slate-700">
                       <Minus size={14} />
                     </button>
-                    <span className="w-6 text-center font-medium">{l.qty}</span>
-                    <button onClick={() => changeQty(l.key, 1)} className="text-slate-400 hover:text-slate-700">
+                    <span className="w-8 text-center font-medium">{fmtQty(l.qty)}</span>
+                    <button onClick={() => changeQty(l.key, l.step)} className="text-slate-400 hover:text-slate-700">
                       <Plus size={14} />
                     </button>
                     <button onClick={() => removeLine(l.key)} className="text-red-400 hover:text-red-600 ml-1">

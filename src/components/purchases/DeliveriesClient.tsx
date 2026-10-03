@@ -20,14 +20,14 @@ type PurchaseItemRow = {
   };
 };
 
-// On ne reçoit jamais à la bouteille : quand la quantité commandée est un
-// multiple entier du lot (casier) configuré, la saisie/affichage se fait
-// uniquement en casiers — même règle qu'à l'approvisionnement (voir
-// ApprovisionnementClient.tsx).
+// On ne reçoit jamais à la bouteille : dès qu'un lot (casier) est configuré
+// sur le produit, la saisie/affichage se fait en casiers — même quand la
+// quantité commandée n'en est pas un multiple exact (reliquat en décimale) —
+// même règle qu'à l'approvisionnement (voir ApprovisionnementClient.tsx).
 function packInfo(it: PurchaseItemRow) {
   const piecesPerPack = it.product.piecesPerPack;
-  if (it.product.packUnit && piecesPerPack > 0 && it.quantity % piecesPerPack === 0) {
-    return { factor: piecesPerPack, max: it.quantity / piecesPerPack, unitLabel: it.product.packUnit.symbol };
+  if (it.product.packUnit && piecesPerPack > 0) {
+    return { factor: piecesPerPack, max: Math.round((it.quantity / piecesPerPack) * 100) / 100, unitLabel: it.product.packUnit.symbol };
   }
   return { factor: 1, max: it.quantity, unitLabel: it.product.unit?.symbol || "" };
 }
@@ -291,7 +291,7 @@ function ReceiveForm({ purchase, onDone }: { purchase: Purchase; onDone: () => v
                     type="number"
                     min={0}
                     max={max}
-                    step="1"
+                    step="0.01"
                     value={v.delivered}
                     onChange={(e) => updateDelivered(it.id, Math.max(0, Number(e.target.value)), max)}
                   />
@@ -302,7 +302,7 @@ function ReceiveForm({ purchase, onDone }: { purchase: Purchase; onDone: () => v
                     type="number"
                     min={0}
                     max={max}
-                    step="1"
+                    step="0.01"
                     value={v.broken}
                     onChange={(e) => updateBroken(it.id, Math.max(0, Number(e.target.value)), max)}
                   />

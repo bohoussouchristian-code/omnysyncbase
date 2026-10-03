@@ -29,14 +29,15 @@ type PurchaseItemRow = {
   };
 };
 
-// On ne reçoit et ne déclare jamais la casse à la bouteille : quand la
-// quantité commandée est un multiple entier du lot (casier) configuré, la
-// saisie/affichage se fait uniquement en casiers — la conversion vers la
-// quantité de base (bouteilles), nécessaire au stock, reste interne.
+// On ne reçoit et ne déclare jamais la casse à la bouteille : dès qu'un lot
+// (casier) est configuré sur le produit, la saisie/affichage se fait en
+// casiers — même quand la quantité commandée n'en est pas un multiple exact
+// (reliquat en décimale). La conversion vers la quantité de base
+// (bouteilles), nécessaire au stock, reste interne.
 function packInfo(it: PurchaseItemRow) {
   const piecesPerPack = it.product.piecesPerPack;
-  if (it.product.packUnit && piecesPerPack > 0 && it.quantity % piecesPerPack === 0) {
-    return { usePacks: true as const, factor: piecesPerPack, max: it.quantity / piecesPerPack, unitLabel: it.product.packUnit.symbol };
+  if (it.product.packUnit && piecesPerPack > 0) {
+    return { usePacks: true as const, factor: piecesPerPack, max: Math.round((it.quantity / piecesPerPack) * 100) / 100, unitLabel: it.product.packUnit.symbol };
   }
   return { usePacks: false as const, factor: 1, max: it.quantity, unitLabel: it.product.unit?.symbol || "" };
 }
@@ -426,7 +427,7 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
                     type="number"
                     min={0}
                     max={max}
-                    step="1"
+                    step="0.01"
                     value={v.received}
                     onChange={(e) => updateReceived(it.id, Math.max(0, Number(e.target.value)), max)}
                   />
@@ -437,7 +438,7 @@ function CasseForm({ purchase, onDone }: { purchase: Purchase; onDone: () => voi
                     type="number"
                     min={0}
                     max={max}
-                    step="1"
+                    step="0.01"
                     value={v.broken}
                     onChange={(e) => updateBroken(it.id, Math.max(0, Number(e.target.value)), max)}
                   />
