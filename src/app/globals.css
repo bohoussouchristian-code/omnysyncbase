@@ -69,6 +69,20 @@ body {
   background-color: #64748b;
 }
 
+/* Grille sur tous les tableaux de données : une bordure autour de chaque
+   cellule (pas seulement un séparateur entre lignes) pour que chaque valeur
+   reste dans une zone bien délimitée, plus facile à lire d'un coup d'œil. */
+table {
+  border-collapse: collapse;
+}
+table th,
+table td {
+  border: 1px solid #e2e8f0; /* slate-200 */
+}
+table thead th {
+  border-bottom-width: 1px;
+}
+
 @media print {
   @page {
     size: A4;
