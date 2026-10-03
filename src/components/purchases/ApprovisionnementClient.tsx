@@ -45,6 +45,7 @@ function packInfo(it: PurchaseItemRow) {
 type Purchase = {
   id: string;
   number: string;
+  deliveryNumber: string | null;
   date: Date;
   status: string;
   totalAmount: number;
@@ -195,6 +196,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                 <th className="pb-2 font-medium text-right">Cassé</th>
                 <th className="pb-2 font-medium">N° série</th>
                 <th className="pb-2 font-medium text-right">Prix unitaire</th>
+                <th className="pb-2 font-medium">N° BC</th>
                 <th className="pb-2 font-medium">N° BL</th>
                 <th className="pb-2 font-medium">Emplacement</th>
                 <th className="pb-2 font-medium">Fournisseur</th>
@@ -221,6 +223,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
                     <td className="py-2 text-slate-500 font-mono text-xs">{item.serialNumber || "—"}</td>
                     <td className="py-2 text-right text-slate-600">{formatMoney(item.unitPrice * factor)}</td>
                     <td className="py-2 text-slate-600 whitespace-nowrap">{purchase.number}</td>
+                    <td className="py-2 text-slate-600 whitespace-nowrap">{purchase.deliveryNumber || "—"}</td>
                     <td className="py-2 text-slate-600">{purchase.warehouse.name}</td>
                     <td className="py-2 text-slate-600">{purchase.supplier.name}</td>
                     <td className="py-2 text-slate-500 whitespace-nowrap">
@@ -232,7 +235,7 @@ export function ApprovisionnementClient({ purchases }: { purchases: Purchase[] }
               })}
               {historyRows.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="py-6 text-center text-slate-400">
+                  <td colSpan={14} className="py-6 text-center text-slate-400">
                     Aucun approvisionnement enregistré.
                   </td>
                 </tr>

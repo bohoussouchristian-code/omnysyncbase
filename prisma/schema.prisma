@@ -518,9 +518,13 @@ model Purchase {
 
   // Trace du bon de livraison : quand la marchandise commandée est effectivement
   // arrivée au dépôt général, et qui l'a réceptionnée (distinct de la date/l'auteur de la commande).
-  receivedAt   DateTime?
-  receivedById String?
-  receivedBy   User?     @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
+  // deliveryNumber (préfixe BL-) est un numéro distinct de celui de la
+  // commande (préfixe BC-, voir `number`) : généré uniquement à la réception
+  // (receivePurchase), donc toujours vide tant que la commande est en attente.
+  receivedAt     DateTime?
+  receivedById   String?
+  receivedBy     User?     @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
+  deliveryNumber String?
 
   // Réceptionner (bon de livraison) ne fait qu'acter l'arrivée physique de la
   // commande — ça n'est qu'au passage par le sous-module Approvisionnement,

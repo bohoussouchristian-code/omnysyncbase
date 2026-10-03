@@ -35,6 +35,7 @@ function packInfo(it: PurchaseItemRow) {
 type Purchase = {
   id: string;
   number: string;
+  deliveryNumber: string | null;
   date: Date;
   status: string;
   totalAmount: number;
@@ -87,7 +88,8 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-100">
                 <th className="pb-2 font-medium">Statut</th>
-                <th className="pb-2 font-medium">N° commande</th>
+                <th className="pb-2 font-medium">N° commande (BC)</th>
+                <th className="pb-2 font-medium">N° livraison (BL)</th>
                 <th className="pb-2 font-medium">Fournisseur</th>
                 <th className="pb-2 font-medium">Date de commande</th>
                 <th className="pb-2 font-medium">Date de livraison</th>
@@ -110,6 +112,16 @@ export function DeliveriesClient({ purchases }: { purchases: Purchase[] }) {
                         {p.number}
                         <CopyButton text={p.number} />
                       </div>
+                    </td>
+                    <td className="py-2 text-slate-600">
+                      {p.deliveryNumber ? (
+                        <div className="flex items-center gap-1.5">
+                          {p.deliveryNumber}
+                          <CopyButton text={p.deliveryNumber} />
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                     <td className="py-2 text-slate-600">{p.supplier.name}</td>
                     <td className="py-2 text-slate-500 whitespace-nowrap">{formatDateTime(p.date)}</td>

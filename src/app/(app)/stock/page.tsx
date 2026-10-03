@@ -32,6 +32,7 @@ export default async function StockPage() {
         purchase: {
           select: {
             number: true,
+            deliveryNumber: true,
             stockedAt: true,
             warehouse: { select: { name: true } },
             supplier: { select: { name: true } },
@@ -52,7 +53,7 @@ export default async function StockPage() {
     if (lastMovementByProduct[item.productId] || !item.purchase.stockedAt) continue;
     lastMovementByProduct[item.productId] = {
       quantity: item.receivedQuantity ?? 0,
-      number: item.purchase.number,
+      number: item.purchase.deliveryNumber ?? item.purchase.number,
       warehouseName: item.purchase.warehouse.name,
       supplierName: item.purchase.supplier.name,
       date: item.purchase.stockedAt,

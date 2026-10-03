@@ -31,7 +31,7 @@ export async function createPurchase(input: {
 
   const total = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
   const paid = Math.max(0, Math.min(amountPaid, total));
-  const number = generateNumber("A");
+  const number = generateNumber("BC");
 
   // Une commande est d'abord un brouillon librement modifiable : ni le stock
   // ni la dette fournisseur ne sont touchés tant qu'elle n'est pas validée
@@ -204,7 +204,12 @@ export async function receivePurchase(purchaseId: string, itemInputs: ReceivePur
     }
     await tx.purchase.update({
       where: { id: purchaseId, companyId },
-      data: { status: "RECUE", receivedAt: new Date(), receivedById: user.id },
+      data: {
+        status: "RECUE",
+        receivedAt: new Date(),
+        receivedById: user.id,
+        deliveryNumber: generateNumber("BL"),
+      },
     });
   });
 
