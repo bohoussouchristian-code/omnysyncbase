@@ -24,10 +24,27 @@ type Product = {
   purchasePrice: number;
   reorderLevel: number;
   unit: { symbol: string } | null;
+  packUnit: { name: string; symbol: string } | null;
+  piecesPerPack: number;
   stocks: { warehouseId: string; quantity: number }[];
   supplierPrices: { supplier: { name: string } }[];
 };
 type Warehouse = { id: string; name: string };
+
+// La casse/réception se déclare en casier (voir ApprovisionnementClient) —
+// le stock doit donc aussi s'afficher en casier, pas en bouteille, dès qu'un
+// lot est configuré. Même logique que TransfersClient.formatQty.
+function formatQty(qty: number, p: { unit: { symbol: string } | null; packUnit: { name: string; symbol: string } | null; piecesPerPack: number }) {
+  if (p.packUnit && p.piecesPerPack > 1) {
+    const packs = Math.floor(qty / p.piecesPerPack);
+    const rest = qty - packs * p.piecesPerPack;
+    const restLabel = `${rest} ${p.unit?.symbol || ""}`.trim();
+    if (packs === 0) return restLabel || `0 ${p.packUnit.symbol}`;
+    const packLabel = `${packs} ${p.packUnit.symbol}`;
+    return rest > 0 ? `${packLabel} + ${restLabel}` : packLabel;
+  }
+  return `${qty} ${p.unit?.symbol || ""}`.trim();
+}
 type LastMovement = {
   quantity: number;
   number: string;
@@ -89,13 +106,13 @@ export function StockClient({
           return [
             p.reference || "",
             p.name,
-            p.unit?.symbol || "",
-            p.qty,
+            p.packUnit?.symbol || p.unit?.symbol || "",
+            formatQty(p.qty, p),
             p.purchasePrice,
             p.stockValue,
             p.suppliers,
             p.reorderLevel > 0 && p.qty <= p.reorderLevel ? "Stock bas" : "OK",
-            m?.quantity ?? "",
+            m ? formatQty(m.quantity, p) : "",
             m?.number ?? "",
             m?.warehouseName ?? "",
             m ? formatDateTime(m.date) : "",
@@ -174,8 +191,8 @@ export function StockClient({
                   <tr key={p.id} className="border-t border-slate-100">
                     <td className="px-4 py-3 text-slate-400 font-mono text-xs">{p.reference || "—"}</td>
                     <td className="px-4 py-3 font-medium text-slate-800">{p.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{p.unit?.symbol || "—"}</td>
-                    <td className="px-4 py-3 text-right font-medium">{p.qty}</td>
+                    <td className="px-4 py-3 text-slate-600">{p.packUnit?.symbol || p.unit?.symbol || "—"}</td>
+                    <td className="px-4 py-3 text-right font-medium">{formatQty(p.qty, p)}</td>
                     <td className="px-4 py-3 text-right text-slate-600">{formatMoney(p.purchasePrice)}</td>
                     <td className="px-4 py-3 text-right font-medium text-slate-700">{formatMoney(p.stockValue)}</td>
                     <td className="px-4 py-3 text-slate-600">{p.suppliers || "—"}</td>
@@ -186,7 +203,7 @@ export function StockClient({
                         <Badge tone="success">OK</Badge>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{m?.quantity ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-slate-600">{m ? formatQty(m.quantity, p) : "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{m?.number ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{m?.warehouseName ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{m ? formatDateTime(m.date) : "—"}</td>

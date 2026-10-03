@@ -14,6 +14,7 @@ export default async function StockPage() {
       orderBy: { createdAt: "desc" },
       include: {
         unit: true,
+        packUnit: true,
         stocks: true,
         supplierPrices: { include: { supplier: { select: { name: true } } } },
       },
