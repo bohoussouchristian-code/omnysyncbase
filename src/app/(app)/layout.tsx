@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getSession } from "@/lib/auth";
 import { getEffectivePermissions } from "@/lib/actions/permissions";
 import { exitCompany } from "@/lib/actions/console";
+import { logout } from "@/lib/actions/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -14,11 +15,36 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect("/login");
 
   const company = user.companyId
-    ? await prisma.company.findUnique({ where: { id: user.companyId }, select: { name: true, logoUrl: true } })
+    ? await prisma.company.findUnique({ where: { id: user.companyId }, select: { name: true, logoUrl: true, active: true } })
     : null;
 
   const session = await getSession();
   const isActingAsOwner = user.isPlatformOwner && !!session?.actingCompanyId;
+
+  // Entreprise suspendue (voir toggleCompanyActive dans console.ts) : une
+  // session déjà ouverte avant la suspension ne doit pas continuer à
+  // fonctionner — on coupe l'accès dès le prochain chargement de page.
+  // Le propriétaire de la plateforme qui agit dans l'entreprise (bandeau
+  // ci-dessous) garde l'accès, pour pouvoir la gérer/la réactiver.
+  if (company && !company.active && !isActingAsOwner) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-sm w-full text-center bg-white border border-slate-200 rounded-xl shadow-sm p-8">
+          <h1 className="text-lg font-semibold text-slate-900 mb-2">Accès impossible</h1>
+          <p className="text-sm text-slate-600 mb-6">Contactez le développeur.</p>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Se déconnecter
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   const permissions = Array.from(await getEffectivePermissions(user));
 
   return (

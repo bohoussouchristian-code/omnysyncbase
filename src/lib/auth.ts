@@ -134,6 +134,17 @@ export async function requireCompanyUser() {
   const user = await getCurrentUser();
   if (!user) return { error: "Non authentifié" } as const;
   if (!user.companyId) return { error: "Ce compte n'appartient à aucune entreprise." } as const;
+
+  // Entreprise suspendue entre-temps (session déjà ouverte avant la
+  // suspension) : coupe l'accès à toute action, pas seulement à la
+  // connexion. Le propriétaire de la plateforme qui agit dans l'entreprise
+  // (voir enterCompany) n'est jamais concerné — il doit pouvoir continuer à
+  // y accéder pour la gérer.
+  if (!user.isPlatformOwner) {
+    const company = await prisma.company.findUnique({ where: { id: user.companyId }, select: { active: true } });
+    if (!company?.active) return { error: "Accès impossible. Contactez le développeur." } as const;
+  }
+
   return { user, companyId: user.companyId };
 }
 

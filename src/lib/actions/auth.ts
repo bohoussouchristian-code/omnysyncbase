@@ -79,6 +79,16 @@ export async function login(_prevState: unknown, formData: FormData) {
     await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
   }
 
+  // Entreprise suspendue par le propriétaire de la plateforme (voir
+  // toggleCompanyActive dans console.ts) : les identifiants sont corrects
+  // mais l'accès reste bloqué tant qu'elle n'est pas réactivée.
+  if (!user.isPlatformOwner && user.companyId) {
+    const company = await prisma.company.findUnique({ where: { id: user.companyId }, select: { active: true } });
+    if (!company?.active) {
+      return { error: "Accès impossible. Contactez le développeur." };
+    }
+  }
+
   // Journal des connexions, consultable ensuite par un administrateur.
   const headerList = await headers();
   const userAgent = headerList.get("user-agent");
