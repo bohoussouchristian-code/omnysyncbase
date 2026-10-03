@@ -97,7 +97,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <AccountMenu userName={user.name} userEmail={user.email} userRole={user.role} theme="light" />
             </div>
           </div>
-          <div className="relative z-10 max-w-7xl mx-auto p-4 lg:p-8 w-full">{children}</div>
+          <div className="relative z-10 p-4 lg:p-8 w-full">{children}</div>
         </main>
       </div>
     </div>
