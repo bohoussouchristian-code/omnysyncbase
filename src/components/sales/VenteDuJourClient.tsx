@@ -69,6 +69,11 @@ export function VenteDuJourClient({
     setTab(next);
   }
 
+  const titles: Record<Tab, string> = {
+    jour: "Vente du jour",
+    achats: "Achats clients",
+    historique: "Historique des ventes",
+  };
   const subtitles: Record<Tab, string> = {
     jour: "Suivi des ventes saisies — le paiement s'encaisse séparément à la Caisse",
     achats: "Historique des achats de chaque client",
@@ -79,7 +84,7 @@ export function VenteDuJourClient({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Vente du jour</h1>
+          <h1 className="text-xl font-semibold text-slate-900">{titles[tab]}</h1>
           <p className="text-sm text-slate-500 mt-0.5">{subtitles[tab]}</p>
         </div>
         <div className="flex items-center gap-4">
